@@ -1,0 +1,27 @@
+{
+  auts_jeroen_2018.m
+  basics.m
+  cosets.m
+  draw.m
+  belyi_db_obj.m
+  belyi_db.m
+  belyi_main.m
+  extract.m
+  galoisorbits.m
+  genuszero.m
+  genusone.m
+  hackobj.m
+  hyperelliptic.m
+  mass.m
+  newton.m
+  newton_hyperelliptic-new.m
+  nonhyperbolic.m
+  passports_jeroen_2018.m
+  powser_iter_arfed.m
+  reduce.m
+  recognition.m
+  theta.m
+  triangle.m
+  triangle_phi.m
+  values.m
+}
