@@ -1,3 +1,4 @@
+AttachSpec("../Code/spec");
 SetColumns(0);
 SetVerbose("Shimura", 1);
 a,b,c := GetVersion();
