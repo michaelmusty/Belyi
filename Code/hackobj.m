@@ -141,6 +141,11 @@ declare attributes GrpPSL2:  // = Gamma, a Fuchsian group
   TriangleNewtonSolutionExact, // recognized solution
   TriangleNewtonDebug,
   /*
+  TIMING
+  */
+  TrianglePowerSeriesTiming,  // FldReElt
+  TriangleBelyiMapTiming,  // FldReElt
+  /*
   MISC
   */
   TriangleNewtonHyperellipticLeadingCoefficient,

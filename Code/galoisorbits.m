@@ -13,13 +13,15 @@ intrinsic Polredabs(f::RngUPolElt) -> RngUPolElt
   return Parent(f) ! ss;
 end intrinsic;
 
-intrinsic Polredabs(K::FldNum) -> FldNum
+intrinsic Polredabs(K::FldNum) -> Any
   {}
   if Degree(K) le 1 then
     assert K eq RationalsAsNumberField();
     return K;
   else
-    return NumberField(Polredabs(DefiningPolynomial(K)));
+    Kop := NumberField(Polredabs(DefiningPolynomial(K)));
+    // iotaop;
+    return Kop;
   end if;
 end intrinsic;
 

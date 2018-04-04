@@ -182,7 +182,7 @@ intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
   
   Kop, iotaop := OptimizedRepresentation(K : Ramification := [p[1] : p in ps]);
   uop := iotaop(u);
-  
+
   vprintf Shimura : "  ...successfully optimized\n  Kop = %o\n  now finding complex embedding\n", Kop;
   minv, vind := Min([Abs(uCC-Evaluate(uop,v : Precision := Precision(CC))) : v in InfinitePlaces(Kop)]);
   if minv gt eps then

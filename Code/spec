@@ -21,6 +21,7 @@
   reduce.m
   recognition.m
   theta.m
+	timing.m
   triangle.m
   triangle_phi.m
   values.m

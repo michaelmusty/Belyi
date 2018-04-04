@@ -1,0 +1,20 @@
+- Timings with and without polredabs
+	- 9T33-[10,3,4]-522-333-42111-g0:
+		- 40s: no polredabs, prec26minimal
+		- 39.5s: no polredabs, prec30
+	- 9T34-[14,4,4]-72-42111-4221-g0:
+		- prec30
+	- 7T6-[7,6,6]-7-322-322-g1:
+		-
+	- 7T7-[10,10,6]-52-52-322-g1:
+		-
+	- 7T6-[7,4,4]-7-421-421-g1: typo in paper A_8
+		-
+	- 7T5-[7,7,3]-7-7-331-g2:
+		-
+	- 7T6-[7,7,5]-7-7-511-g2:
+		-
+
+- merge polredabs branch to repo Belyi when ready
+
+- clean up the code

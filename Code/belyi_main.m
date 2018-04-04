@@ -66,6 +66,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "Alge
         ExactAl := "GaloisOrbits", which recognizes coefficients (using the entire Galois orbit) over the rationals,
         ExactAl := "AlgebraicNumbers", which uses MakeK to recognize coefficients over a number field.
   }
+  t_start := Cputime();
 
   d := IndexDegree(Gamma);
 
@@ -87,6 +88,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "Alge
       k +:= 2;
     end while;
     Sk := TrianglePowerSeriesBasis(Gamma, k : dim := 2, Federalize := Federalize);
+    Gamma`TrianglePowerSeriesTiming := Cputime() - t_start;
     if Al eq "Default" then
       Al := "Newton";
     end if;
@@ -104,6 +106,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "Alge
   elif Genus(Gamma) eq 1 then
     // compute numerical data
     Sk := TrianglePowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
+    Gamma`TrianglePowerSeriesTiming := Cputime() - t_start;
     if Al eq "Default" then
       // Al := "NumericalKernel";
       Al := "Newton";
@@ -146,6 +149,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "Alge
   elif Genus(Gamma) eq 2 then
     // compute numerical data
     Sk := TrianglePowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
+    Gamma`TrianglePowerSeriesTiming := Cputime() - t_start;
     if Al eq "Default" then
       Al := "NumericalKernel";
     end if;
@@ -189,10 +193,11 @@ intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "Alge
   end if;
 
   vprint Shimura : "Belyi map computed!  Now verifying...";
-  
+
   if BelyiMapSanityCheck(DefiningPermutation(Gamma), Gamma`TriangleBelyiCurve, Gamma`TriangleBelyiMap) then
     vprint Shimura : "...verified!";
-  	return Gamma`TriangleBelyiCurve, Gamma`TriangleBelyiMap, Gamma;
+    Gamma`TriangleBelyiMapTiming := Cputime() - t_start;
+    return Gamma`TriangleBelyiCurve, Gamma`TriangleBelyiMap, Gamma;
   else
     error "Failed sanity check, so the Belyi map is wrong: probably a precision issue.";
   end if;
