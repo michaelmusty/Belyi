@@ -1136,7 +1136,7 @@ intrinsic NewtonRecognize(Gamma::GrpPSL2 : bound := 0) -> GrpPSL2
     cfs_ind := 0;
     while not bl and cfs_ind lt #cfs do
       cfs_ind +:= 1;
-      bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], m); // bound is m
+      bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], m : Gamma := Gamma); // bound is m
     end while;
     m -:= 1;
   end while;
@@ -1601,7 +1601,7 @@ end intrinsic;
     cfs_ind := 0;
     while not bl and cfs_ind lt #cfs do
       cfs_ind +:= 1;
-      bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], bound);
+      bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], bound : Gamma := Gamma);
     end while;
     if not bl then
       error "K not found; is the Galois orbit smaller than the passport size?  Try smaller m!";

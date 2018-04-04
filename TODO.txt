@@ -6,7 +6,7 @@
 		- Gammas[1]: 27.73s power series, 28.29s total, prec30
 		- Gammas[2]: 26.1s power series, 26.53s total, prec30
 	- 9T34-[14,4,4]-72-42111-4221-g0:
-		- Gammas[1]: prec40,
+		- Gammas[1]: prec30, 43.16s power series, 338.88s total
 	- 7T6-[7,6,6]-7-322-322-g1:
 		-
 	- 7T7-[10,10,6]-52-52-322-g1:

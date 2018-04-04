@@ -568,7 +568,7 @@ intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2 : DegreeBound :=
     while not Kbool and cfs_ind lt #cfs do
       cfs_ind +:= 1;
       vprintf Shimura: "coefficients are %o\n", cfs_ind;
-      Kbool, K, v, conj, uCC := MakeK(cfs[cfs_ind], DegreeBound);
+      Kbool, K, v, conj, uCC := MakeK(cfs[cfs_ind], DegreeBound : Gamma := Gamma);
     end while;
     if not Kbool then
       error "Unable to create number field!";
@@ -608,7 +608,7 @@ intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2 : DegreeBound :=
     while not Kbool and cfs_ind lt #cfs do
       cfs_ind +:= 1;
       vprintf Shimura: "coefficients are %o\n", cfs_ind;
-      Kbool, K, v, conj, uCC := MakeK(cfs[cfs_ind], DegreeBound);
+      Kbool, K, v, conj, uCC := MakeK(cfs[cfs_ind], DegreeBound : Gamma := Gamma);
     end while;
     if not Kbool then
       error "Unable to create number field!";
