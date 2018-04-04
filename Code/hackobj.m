@@ -145,6 +145,8 @@ declare attributes GrpPSL2:  // = Gamma, a Fuchsian group
   */
   TrianglePowerSeriesTiming,  // FldReElt
   TriangleBelyiMapTiming,  // FldReElt
+  TriangleMinPolyBeforeOptimization,
+  TriangleMinPolyAfterOptimization,
   /*
   MISC
   */
