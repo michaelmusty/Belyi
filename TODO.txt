@@ -2,6 +2,9 @@
 	- 9T33-[10,3,4]-522-333-42111-g0:
 		- 40s: no polredabs, prec26minimal
 		- 39.5s: no polredabs, prec30
+		- now on overworked doob
+		- Gammas[1]: 27.73s power series, 28.29s total, prec30
+		- Gammas[2]: 26.1s power series, 26.53s total, prec30
 	- 9T34-[14,4,4]-72-42111-4221-g0:
 		- prec30
 	- 7T6-[7,6,6]-7-322-322-g1:

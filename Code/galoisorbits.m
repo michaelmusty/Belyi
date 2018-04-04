@@ -20,8 +20,9 @@ intrinsic Polredabs(K::FldNum) -> Any
     return K;
   else
     Kop := NumberField(Polredabs(DefiningPolynomial(K)));
-    // iotaop;
-    return Kop;
+    bl, iotaop := IsIsomorphic(K, Kop);
+    assert bl;
+    return Kop, iotaop;
   end if;
 end intrinsic;
 

@@ -180,7 +180,8 @@ intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
   vprintf Shimura : "  ...%o\n", K;
   vprint Shimura : "  ...Trying to optimize"; 
   
-  Kop, iotaop := OptimizedRepresentation(K : Ramification := [p[1] : p in ps]);
+  // Kop, iotaop := OptimizedRepresentation(K : Ramification := [p[1] : p in ps]);
+  Kop, iotaop := Polredabs(K);
   uop := iotaop(u);
 
   vprintf Shimura : "  ...successfully optimized\n  Kop = %o\n  now finding complex embedding\n", Kop;
