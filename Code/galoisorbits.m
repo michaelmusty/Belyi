@@ -24,6 +24,11 @@ intrinsic Polredabs(f::RngUPolElt) -> RngUPolElt
   return Parent(f) ! ss;
 end intrinsic;
 
+intrinsic Polredabsbest(f::RngUPolElt) -> RngUPolElt
+  {best is fast, abs is unique...I think...}
+  return Polredabs(Polredbest(f));
+end intrinsic;
+
 intrinsic Polredabs(K::FldNum) -> Any
   {}
   if Degree(K) le 1 then
@@ -31,7 +36,7 @@ intrinsic Polredabs(K::FldNum) -> Any
     return K;
   else
     vprintf Shimura : "\nTrying to optimize using Polredabs\n";
-    Kop := NumberField(Polredabs(DefiningPolynomial(K)));
+    Kop := NumberField(Polredabsbest(DefiningPolynomial(K)));
     vprintf Shimura : "Optimized. Trying to obtain an isomorphism.\n";
     bl, iotaop := IsIsomorphic(K, Kop);
     vprintf Shimura : "Done.\n";
