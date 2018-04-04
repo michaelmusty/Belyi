@@ -25,7 +25,7 @@ intrinsic Polredabs(f::RngUPolElt) -> RngUPolElt
 end intrinsic;
 
 intrinsic Polredabsbest(f::RngUPolElt) -> RngUPolElt
-  {best is fast, abs is unique...I think...}
+  {first do best...then do abs.}
   return Polredabs(Polredbest(f));
 end intrinsic;
 
