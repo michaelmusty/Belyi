@@ -19,8 +19,11 @@ intrinsic Polredabs(K::FldNum) -> Any
     assert K eq RationalsAsNumberField();
     return K;
   else
+    vprintf Shimura : "\nTrying to optimize using Polredabs\n";
     Kop := NumberField(Polredabs(DefiningPolynomial(K)));
+    vprintf Shimura : "Optimized. Trying to obtain an isomorphism.\n";
     bl, iotaop := IsIsomorphic(K, Kop);
+    vprintf Shimura : "Done.\n";
     assert bl;
     return Kop, iotaop;
   end if;
