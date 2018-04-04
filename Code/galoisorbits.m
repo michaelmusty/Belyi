@@ -2,6 +2,17 @@
 // 7T6-[7,7,3]-7-7-331-g2.m
 // 7T7-[4,12,12]-421-43-43-g1.m
 
+intrinsic Polredbest(f::RngUPolElt) -> RngUPolElt
+  { A smallest generating polynomial of the number field, using pari. }
+  cmd := Sprintf(
+   "{print(Vecrev(Vec(polredbest(Pol(Vecrev(%o))))))}",
+   Coefficients(f));
+  s := Pipe("gp -q", cmd);
+  ss := [ StringToInteger(x)
+  : x in Split(s, ", []\n") | x ne "" ];
+  return Parent(f) ! ss;
+end intrinsic;
+
 intrinsic Polredabs(f::RngUPolElt) -> RngUPolElt
   { A smallest generating polynomial of the number field, using pari. }
   cmd := Sprintf(
