@@ -140,7 +140,7 @@ intrinsic TriangleMakeNumberField(uCC::FldComElt, deg::RngIntElt : K := "") -> A
 end intrinsic;
 */
 
-intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
+intrinsic MakeK(uCC::Any, m::Any : Gamma := "") -> Any, Any, Any, Any, Any
   {MakeK!  What more to say?}
 
   if m eq 1 then
@@ -181,7 +181,13 @@ intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
   vprint Shimura : "  ...Trying to optimize"; 
   
   // Kop, iotaop := OptimizedRepresentation(K : Ramification := [p[1] : p in ps]);
+  if Gamma ne "" then // assign defining polynomial to Gamma
+    Gamma`TriangleMinPolyBeforeOptimization := DefiningPolynomial(K);
+  end if;
   Kop, iotaop := Polredabs(K);
+  if Gamma ne "" then // assign defining polynomial to Gamma
+    Gamma`TriangleMinPolyAfterOptimization := DefiningPolynomial(Kop);
+  end if;
   uop := iotaop(u);
 
   vprintf Shimura : "  ...successfully optimized\n  Kop = %o\n  now finding complex embedding\n", Kop;

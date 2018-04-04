@@ -20,12 +20,10 @@ intrinsic Polredabs(K::FldNum) -> Any
     return K;
   else
     vprintf Shimura : "\nTrying to optimize using Polredabs\n";
-    Gamma`TriangleMinPolyBeforeOptimization := DefiningPolynomial(K);
     Kop := NumberField(Polredabs(DefiningPolynomial(K)));
     vprintf Shimura : "Optimized. Trying to obtain an isomorphism.\n";
     bl, iotaop := IsIsomorphic(K, Kop);
     vprintf Shimura : "Done.\n";
-    Gamma`TriangleMinPolyAfterOptimization := DefiningPolynomial(Kop);
     assert bl;
     return Kop, iotaop;
   end if;

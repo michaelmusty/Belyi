@@ -267,7 +267,8 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
   cfs_ind := 0;
   while not bl and cfs_ind lt #cfs do
     cfs_ind +:= 1;
-    bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], m);
+    // bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], m);
+    bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], m : Gamma := Gamma);
   end while;
   if not bl then
     error "K not found; is the Galois orbit smaller than the passport size?  Try smaller m!";
