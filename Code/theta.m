@@ -181,11 +181,11 @@ intrinsic MakeK(uCC::Any, m::Any : Gamma := "") -> Any, Any, Any, Any, Any
   vprint Shimura : "  ...Trying to optimize"; 
   
   // Kop, iotaop := OptimizedRepresentation(K : Ramification := [p[1] : p in ps]);
-  if Gamma ne "" then // assign defining polynomial to Gamma
+  if Gamma cmpne "" then // assign defining polynomial to Gamma
     Gamma`TriangleMinPolyBeforeOptimization := DefiningPolynomial(K);
   end if;
   Kop, iotaop := Polredabs(K);
-  if Gamma ne "" then // assign defining polynomial to Gamma
+  if Gamma cmpne "" then // assign defining polynomial to Gamma
     Gamma`TriangleMinPolyAfterOptimization := DefiningPolynomial(Kop);
   end if;
   uop := iotaop(u);
