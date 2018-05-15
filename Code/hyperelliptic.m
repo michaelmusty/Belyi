@@ -121,7 +121,8 @@ intrinsic RiemannRochBasisHyperellipticExact(m::RngIntElt, X::CrvHyp) -> Any
       end for;
     end if;
   elif Degree(u^2 + 4*v) mod 2 eq 0 then // even case
-    Pow<xi> := LaurentSeriesRing(K : Precision := 30); // xi stands for x inverse, i.e., x^(-1)
+    // Pow<xi> := LaurentSeriesRing(K : Precision := 30); // xi stands for x inverse, i.e., x^(-1)
+    Pow<xi> := LaurentSeriesRing(K : Precision := 50); // xi stands for x inverse, i.e., x^(-1)
     // TODO : Determine Precision to take...
     //Pow<t> := LaurentSeriesRing(K : Precision := ???);
     vv := Evaluate(v,1/xi);
