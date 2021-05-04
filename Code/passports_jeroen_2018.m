@@ -608,9 +608,13 @@ function CheckCycleStructures(cycstrs : genus := -1, only_hyperbolic := false, a
     end if;
 
     if #partition_tups ne 0 then
-        check := &and[ part in cycstrs : part in partition_tups ];
+        check := &and[ cycstr in partition_tups : cycstr in cycstrs ];
+        if check and #partition_tups eq 3 then
+            check := Sort(cycstrs) eq Sort(partition_tups);
+        end if;
         Append(~checks, check);
     end if;
+
     if #checks eq 0 then
         return true;
     end if;
