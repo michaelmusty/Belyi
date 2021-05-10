@@ -1,5 +1,3 @@
-// import "nonhyperbolic.m" : SphericalBelyiMap, EuclideanBelyiMap;
-
 intrinsic S3Action(tau::GrpPermElt, phi::FldFunFracSchElt) -> FldFunFracSchElt
   {}
   S := Sym(3);
