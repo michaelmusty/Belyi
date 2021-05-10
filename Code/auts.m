@@ -6,13 +6,14 @@ intrinsic AutomorphismGroup(sigma::SeqEnum[GrpPermElt]) -> GrpPerm
     return &meet[ Centralizer(S, s) : s in sigma ];
 end intrinsic;
 
-intrinsic PointedAutomorphismGroup(sigma::SeqEnum[GrpPermElt]) -> GrpPerm
+intrinsic PointedAutomorphismGroup(sigma::SeqEnum[GrpPermElt] : bp := 1, sh := 1) -> GrpPerm
     {Returns the automorphism group of the dessin, pointed by the sheet 1 above
     the first branch point.}
     G := AutomorphismGroup(sigma);
-    cycles := CycleDecomposition(sigma[1]);
+    cycles := CycleDecomposition(sigma[bp]);
     gset := GSet(G, Set(cycles));
-    return Stabilizer(G, gset ! cycles[1]);
+    cycle := [ cycle : cycle in cycles | sh in cycle ][1];
+    return Stabilizer(G, gset ! cycle);
 end intrinsic;
 
 intrinsic WishlistCase1(d::RngIntElt : just_names := false) -> Any

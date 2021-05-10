@@ -1,5 +1,5 @@
 {
-  auts_jeroen_2018.m
+  auts.m
   basics.m
   cosets.m
   draw.m
@@ -16,7 +16,7 @@
   newton.m
   newton_hyperelliptic-new.m
   nonhyperbolic.m
-  passports_jeroen_2018.m
+  passports.m
   powser_iter_arfed.m
   reduce.m
   recognition.m
