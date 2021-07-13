@@ -41,7 +41,7 @@ intrinsic TriangleDrawDessinTexifyString(str::MonStgElt) -> MonStgElt
   return nstr;
 end intrinsic;
 
-intrinsic TriangleDrawDessinToFile(Gamma::GrpPSL2 : prec := 8, Al := "Petal", filename := "", findSmallestCosets := false, pssetUnit := 7, includeLegend := true) -> MonStgElt
+intrinsic TriangleDrawDessinToFile(Gamma::GrpPSL2Tri : prec := 8, Al := "Petal", filename := "", findSmallestCosets := false, pssetUnit := 7, includeLegend := true) -> MonStgElt
   {Generates latex code to conformally draw a dessin for Gamma to a file in the current working directory. If filename is not specified, then a name is generated using the database naming convention.}
   str := TriangleDrawDessin(Gamma : prec := prec, Al := Al, filename := filename, findSmallestCosets := findSmallestCosets, pssetUnit := pssetUnit, includeLegend := includeLegend);
   if filename eq "" then
@@ -61,9 +61,9 @@ intrinsic TriangleDrawDessinToFile(Gamma::GrpPSL2 : prec := 8, Al := "Petal", fi
 end intrinsic;
 
 
-intrinsic TriangleDrawDessin(Gamma::GrpPSL2 : prec := 8, Al := "Petal", filename := "", findSmallestCosets := false, pssetUnit := 7, includeLegend := true) -> MonStgElt
+intrinsic TriangleDrawDessin(Gamma::GrpPSL2Tri : prec := 8, Al := "Petal", filename := "", findSmallestCosets := false, pssetUnit := 7, includeLegend := true) -> MonStgElt
   {Returns a string of latex text to draw a conformal dessin for Gamma and saves the string to the Gamma attribute Gamma`TriangleDessin. The default precision is set to 8, but higher values may be needed for fundamental domains "close" to the boundary.}
-  require IsTriangleSubgroup(Gamma) : "Gamma must be a triangle subgroup";
+
   /*
   drawing functions
   */
@@ -263,13 +263,13 @@ intrinsic TriangleDrawDessin(Gamma::GrpPSL2 : prec := 8, Al := "Petal", filename
   pi := DefiningPermutationRepresentation(Gamma);
   d := IndexDegree(Gamma);
   HH := UpperHalfPlane();
-  DD := TriangleUnitDisc(Gamma);
+  DD := UnitDisc(Gamma);
   RR := RealField(prec);
   CC := ComplexField(prec);
   if Al eq "Full" then
-    cosets, cosetGraph, sidepairing := TriangleCosetRepresentatives(Gamma : Al := "Full", FindSmallestCosets := findSmallestCosets);
+    cosets, cosetGraph, sidepairing := CosetRepresentatives(Gamma : Al := "Full", FindSmallestCosets := findSmallestCosets);
   else
-    cosets, cosetGraph, sidepairing := TriangleCosetRepresentatives(Gamma : FindSmallestCosets := findSmallestCosets);
+    cosets, cosetGraph, sidepairing := CosetRepresentatives(Gamma : FindSmallestCosets := findSmallestCosets);
   end if;
   sidePairing := [];
   usedSides := [];

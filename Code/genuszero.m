@@ -12,7 +12,7 @@ RemoveLeadingZeros := function(f,eps);
   return Parent(f)!fes, sf;
 end function;
 
-intrinsic TrianglePhiGenusZeroRecognizeSeries(Skb::SeqEnum[RngSerPowElt], Gamma::GrpPSL2) -> Any
+intrinsic TrianglePhiGenusZeroRecognizeSeries(Skb::SeqEnum[RngSerPowElt], Gamma::GrpPSL2Tri) -> Any
 {Takes as input recognized power series over the ground field and returns the Belyi map as a rational function.}
   Theta := Gamma`TriangleTheta;
 
@@ -83,7 +83,7 @@ intrinsic TrianglePhiGenusZeroRecognizeSeries(Skb::SeqEnum[RngSerPowElt], Gamma:
   return PP1, phix;
 end intrinsic;
 
-intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2 : Al := "ByRamification", m := 0, precNewton := 0, justCC := false) -> Any
+intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2Tri : Al := "ByRamification", m := 0, precNewton := 0, justCC := false) -> Any
   {Al eq "ByRamification", computing the roots via ramification points,
    or "Newton", which computes the roots via ramification and refines to precision precNewton, or
    or "NumericalKernel", which computes the numerical kernel using the power series expansions.
@@ -338,7 +338,7 @@ intrinsic TriangleRescalingFactorGenusZero(s::BelyiDBObject : rescale_ind := 0, 
 end intrinsic;
 */
 
-intrinsic TriangleGenusZeroFactorizationPattern(Gamma::GrpPSL2) -> Any
+intrinsic TriangleGenusZeroFactorizationPattern(Gamma::GrpPSL2Tri) -> Any
 {Factorization pattern of rational Belyi function.}
   require Genus(Gamma) eq 0 : "Only for genus zero gamma";
 
@@ -370,7 +370,7 @@ intrinsic TriangleGenusZeroFactorizationPattern(Gamma::GrpPSL2) -> Any
   return fact;
 end intrinsic;
 
-intrinsic TrianglePhiGenusZeroEquations(Gamma::GrpPSL2 : WithInverses := true) -> Any
+intrinsic TrianglePhiGenusZeroEquations(Gamma::GrpPSL2Tri : WithInverses := true) -> Any
 {System of equations for Gamma.}
 
   sigma := DefiningPermutation(Gamma);
@@ -462,7 +462,7 @@ intrinsic TrianglePhiGenusZeroEquations(Gamma::GrpPSL2 : WithInverses := true) -
   return I, jFactors, constCoeffs, normeqij;
 end intrinsic;
 
-intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComElt, Gamma::GrpPSL2, precNewton::RngIntElt) -> Any
+intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComElt, Gamma::GrpPSL2Tri, precNewton::RngIntElt) -> Any
 {Newton iterate from existing factorization to desired prec.}
   require Genus(Gamma) eq 0 : "Only for genus zero gamma";
 

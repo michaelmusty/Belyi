@@ -44,7 +44,7 @@ intrinsic BelyiMap(sigma::SeqEnum[GrpPermElt] : prec := 0, Al := "Default", Exac
 end intrinsic;
 
 // Gamma one at a time
-intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "AlgebraicNumbers", DegreeBound := 0, precNewton := 0, Federalize := true) -> Any, Any, Any
+intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "AlgebraicNumbers", DegreeBound := 0, precNewton := 0, Federalize := true) -> Any, Any, Any
   {
     Computes the Belyi curve X and Belyi map f associated to the triangle subgroup Gamma.
     Currently only works for genera 0, 1.
@@ -77,14 +77,14 @@ intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "Alge
     // prec := 30+Round(Log(d))^2;  // wild guess
     prec := 30+5*(Genus(Gamma)+1)*d;  // completely made up
   end if;
-  _:= TriangleUnitDisc(Gamma : Precision := prec);
+  _:= UnitDisc(Gamma : Precision := prec);
 
   if Genus(Gamma) eq 0 then
     k := 0;
     while SkDimension(Gamma,k) lt 2 do
       k +:= 2;
     end while;
-    Sk := TrianglePowerSeriesBasis(Gamma, k : dim := 2, Federalize := Federalize);
+    Sk := PowerSeriesBasis(Gamma, k : dim := 2, Federalize := Federalize);
     if Al eq "Default" then
       Al := "Newton";
     end if;
@@ -101,7 +101,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "Alge
     end if;
   elif Genus(Gamma) eq 1 then
     // compute numerical data
-    Sk := TrianglePowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
+    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
     if Al eq "Default" then
       // Al := "NumericalKernel";
       Al := "Newton";
@@ -143,7 +143,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "Alge
     end if;
   elif Genus(Gamma) eq 2 then
     // compute numerical data
-    Sk := TrianglePowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
+    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
     if Al eq "Default" then
       Al := "NumericalKernel";
     end if;
@@ -175,7 +175,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2 : prec := 0, Al := "Default", ExactAl := "Alge
     TriangleMakeBelyiMap(Gamma);
   else
     vprint Shimura : "Testing if hyperelliptic...";
-    Sk := TrianglePowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
+    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
     hyp_bool, curve_coeffs, curve_vals := TriangleHyperellipticTest(Sk, Gamma);
     if hyp_bool then
       Gamma := TriangleHyperellipticNumericalCoefficients(Sk, Gamma : curve_coeffs := curve_coeffs, curve_vals := curve_vals);
@@ -222,7 +222,7 @@ intrinsic BelyiMap(sigmas::SeqEnum[SeqEnum[GrpPermElt]] : prec := 0, Al := "Defa
 end intrinsic;
 
 // Gammas (passport at a time)
-intrinsic BelyiMap(Gammas::SeqEnum[GrpPSL2] : prec := 0, Al := "Default", ExactAl := "GaloisOrbits", DegreeBound := 0, precNewton := 0, Federalize := true) -> Any, Any, Any
+intrinsic BelyiMap(Gammas::SeqEnum[GrpPSL2Tri] : prec := 0, Al := "Default", ExactAl := "GaloisOrbits", DegreeBound := 0, precNewton := 0, Federalize := true) -> Any, Any, Any
   {
     Computes the Belyi curves and Belyi maps associated to the triangle subgroups in Gammas.
     Optional parameters:
@@ -257,7 +257,7 @@ intrinsic BelyiMap(Gammas::SeqEnum[GrpPSL2] : prec := 0, Al := "Default", ExactA
   if prec eq 0 then
     prec := 30+5*(Genus(Gammas[1])+1)*d;  // completely made up
   end if;
-  _:= TriangleUnitDisc(Gammas[1] : Precision := prec);
+  _ := UnitDisc(Gammas[1] : Precision := prec);
 
   // check if all Gamma have same genus
   if false in [Genus(Gammas[i]) eq Genus(Gammas[1]) : i in [1..#Gammas]] then
@@ -346,7 +346,7 @@ intrinsic BelyiMapSanityCheck(sigma::SeqEnum[GrpPermElt], X::Crv, phi::FldFunFra
   end if;
 end intrinsic;
 
-intrinsic BelyiMapSanityCheck(Gamma::GrpPSL2) -> Any
+intrinsic BelyiMapSanityCheck(Gamma::GrpPSL2Tri) -> Any
   {Overloaded to take Gamma}
   assert assigned Gamma`TriangleSigma;
   assert assigned Gamma`TriangleBelyiCurve;

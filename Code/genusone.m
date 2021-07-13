@@ -2,6 +2,44 @@
 // Genus one
 // ================================================================================
 
+declare attributes GrpPSL2Tri:  
+
+  TrianglePeriodLattice, // period lattice of elliptic curve
+  TriangleNewtonSk, // Sk what more to say?
+  TriangleNewtonFD, //
+  TriangleNewtonCoordinateSeries, // x and y
+  TriangleNewtonRamificationPoints0, // ramification points corresponding to sigma0 (excluding w=0...I think)
+  TriangleNewtonDiscRamificationPoints0, // ramification points corresponding to sigma0 (excluding w=0...I think) in DD
+  TriangleNewtonRamificationMultiplicities0, // ramification multiplicities corresponding to sigma0
+  TriangleNewtonRamificationPoints1, // ramification points corresponding to sigma1
+  TriangleNewtonDiscRamificationPoints1, // ramification points corresponding to sigma1 in DD
+  TriangleNewtonRamificationMultiplicities1, // ramification multiplicities corresponding to sigma1
+  TriangleNewtonRamificationPointsoo, // ramification points corresponding to sigmaoo
+  TriangleNewtonDiscRamificationPointsoo, // ramification points corresponding to sigmaoo in DD
+  TriangleNewtonRamificationMultiplicitiesoo, // ramification multiplicities corresponding to sigmaoo
+  TriangleNewtonVariablesC4C6, // variables in polynomial ring for c4 c6
+  TriangleNewtonVariablesHyperellipticCurveCoefficients, // variables in in polynomial ring for hyperelliptic curve
+  TriangleNewtonVariables0, // variables in polynomial ring for white points
+  TriangleNewtonVariables1, // variables in polynomial ring for black points
+  TriangleNewtonVariablesoo, // variables in polynomial ring for cross points
+  TriangleNewtonVariablesLeadingCoefficient, // variable in polynomial ring for leading coeff
+  TriangleNewtonVariablesNumeratorCoefficients, // variables in polynomial ring for numerator coeffs
+  TriangleNewtonVariablesDenominatorCoefficients, // variables in polynomial ring for denominator coeffs
+  TriangleNewtonVariablesSpecial, // variables in polynomial ring for special point (x_s, y_s)
+  TriangleNewtonBasicEquations, // equations for white, black, cross points and ramification
+  TriangleNewtonRescalingData, // [gcd, wts, nonzero_inds, nonzero_vals] for rescaling equation
+  TriangleNewtonRescalingEquation, // equation for rescaling
+  TriangleNewtonEquations, // all the equations
+  TriangleNewtonInitializationC4,
+  TriangleNewtonInitializationC6,
+  TriangleNewtonInitializationNumeratorCoefficients,
+  TriangleNewtonInitializationDenominatorCoefficients,
+  TriangleNewtonInitializationSpecialPoint, // common zero of the numerator and denominator (if necessary) 
+  TriangleNewtonInitialization, // all the starting values
+  TriangleNewtonSolution, // after Newton iteration
+  TriangleNewtonSolutionExact, // recognized solution
+  TriangleNewtonDebug;
+
 intrinsic PrincipalPeriods(w_is::Any) -> Any
   {Computes the principal periods for Gamma.}
   lambda := w_is;
@@ -19,7 +57,7 @@ intrinsic PrincipalPeriods(w_is::Any) -> Any
   return lambda;
 end intrinsic;
 
-intrinsic TriangleGenusOnePeriods(Sk1::SeqEnum[RngSerPowElt], Gamma::GrpPSL2) -> Any
+intrinsic TriangleGenusOnePeriods(Sk1::SeqEnum[RngSerPowElt], Gamma::GrpPSL2Tri) -> Any
   {Given series expansions (in the form of the output of TrianglePowerSeriesBasis) for holomorphic differential on Gamma, return a basis for the period lattice.}
   require Genus(Gamma) eq 1 : "Only for genus one";
 
@@ -27,7 +65,7 @@ intrinsic TriangleGenusOnePeriods(Sk1::SeqEnum[RngSerPowElt], Gamma::GrpPSL2) ->
   prec := Precision(CC);
   eps := 10^(-prec+2);
 
-  DD := TriangleUnitDisc(Gamma : Precision := prec);
+  DD := UnitDisc(Gamma : Precision := prec);
   Delta := ContainingTriangleGroup(Gamma);
   FD := FundamentalDomain(Delta, DD);
   ws := [FD[1], FD[3], FD[2]]; //w_a, w_b, w_c, vertices of fundamental domain of Delta in DD
@@ -46,7 +84,7 @@ intrinsic TriangleGenusOnePeriods(Sk1::SeqEnum[RngSerPowElt], Gamma::GrpPSL2) ->
 
   rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
   Sk1int := [Integral(f) : f in Sk1];
-  alphas := TriangleCosetRepresentatives(Gamma);
+  alphas := CosetRepresentatives(Gamma);
   whichcoset := Gamma`TriangleWhichCoset;
 
   // compute the period lattice
@@ -169,7 +207,7 @@ intrinsic TriangleMakeLattice(Lambda::SeqEnum[FldComElt]) -> Any
   return L;
 end intrinsic;
 
-intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum) -> Any
+intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum) -> Any
   {Given an element w of the hyperbolic disc, outputs the corresponding point in the complex plane (mod the lattice Lambda).}
   
   assert Genus(Gamma) eq 1;
@@ -187,7 +225,7 @@ intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum) 
   return w_CC;
 end intrinsic;
 
-intrinsic TriangleComplexPlaneToEllipticCurve(c::FldComElt, Gamma::GrpPSL2, x::RngSerLaurElt, y::RngSerLaurElt) -> Any
+intrinsic TriangleComplexPlaneToEllipticCurve(c::FldComElt, Gamma::GrpPSL2Tri, x::RngSerLaurElt, y::RngSerLaurElt) -> Any
   {Given an element c of the complex plane, outputs the corresponding point on the elliptic curve associated to Gamma.}
 
   assert Genus(Gamma) eq 1;
@@ -223,7 +261,7 @@ intrinsic TriangleComplexPlaneToEllipticCurve(c::FldComElt, Gamma::GrpPSL2, x::R
   return c_E;
 end intrinsic;
 
-intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum, x::RngSerLaurElt, y::RngSerLaurElt) -> GenerateLSpaceBasisAnalytic
+intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum, x::RngSerLaurElt, y::RngSerLaurElt) -> GenerateLSpaceBasisAnalytic
   {Given an element w of the hyperbolic disc, outputs the corresponding point on the elliptic curve associated to Gamma.}
 
   assert Genus(Gamma) eq 1;
@@ -238,7 +276,7 @@ intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum,
 end intrinsic;
 
 /*
-intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum, x::RngSerLaurElt, y::RngSerLaurElt) -> Any
+intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum, x::RngSerLaurElt, y::RngSerLaurElt) -> Any
   {Given an element w of the hyperbolic disc, outputs the corresponding point on the elliptic curve associated to Gamma.}
   // TODO assertions
   assert Genus(Gamma) eq 1;
@@ -298,7 +336,7 @@ xcoeffs := function(N,c4,c6);
   return as;
 end function;
 
-intrinsic TriangleGenusOneEllipticCurve(Lambda::SeqEnum[FldComElt], Gamma::GrpPSL2 : Ncoeffs := 70) -> Any
+intrinsic TriangleGenusOneEllipticCurve(Lambda::SeqEnum[FldComElt], Gamma::GrpPSL2Tri : Ncoeffs := 70) -> Any
   {Given a basis for the period lattice, compute c4, c6 (as elements of a precision field)
     and return series expansions for x and y (also with complex coefficients) such that
     y^2 = x^3 - 27*c4*x - 54*c6. Ncoeffs is an optional parameter specifying how many coefficients
@@ -327,7 +365,7 @@ intrinsic TriangleGenusOneEllipticCurve(Lambda::SeqEnum[FldComElt], Gamma::GrpPS
   return x, y, c4, c6, j;
 end intrinsic;
 
-intrinsic TriangleGenusOneNumericalBelyiMap(Sk1::SeqEnum[RngSerPowElt], Gamma::GrpPSL2 : Ncoeffs := 0, rescale_ind := 0, num_bool := false) -> Any
+intrinsic TriangleGenusOneNumericalBelyiMap(Sk1::SeqEnum[RngSerPowElt], Gamma::GrpPSL2Tri : Ncoeffs := 0, rescale_ind := 0, num_bool := false) -> Any
   {Given a series expansion for a weight 2 modular form for a triangle subgroup Gamma
   of genus 1, return a sequence containing [j,c4,c6], [ leading coefficient of the Belyi map,
   the coefficients of the numerator, and the coefficients of the denominator ],
@@ -395,7 +433,7 @@ intrinsic TriangleGenusOneNumericalBelyiMap(Sk1::SeqEnum[RngSerPowElt], Gamma::G
   // M := Matrix([[Coefficient(f,e*n) : n in [minval..minval+e*(numdim+denomdim-1)]] : f in series]);
   printf "nrows = %o, ncols = %o\n", Nrows(M), Ncols(M);
 
-  DD := TriangleUnitDisc(Gamma);
+  DD := UnitDisc(Gamma);
   rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
   // epsilon := Re(CC!10^(-Floor((9/10)*(prec + Ncols(M)*Log(10,rho)))));
   epsilon := 10^(-prec/2);

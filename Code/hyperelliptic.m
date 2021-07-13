@@ -48,7 +48,7 @@ end function;
 
 // should this really be an intrinsic?  Or should we just keep it as a function?
 //function RiemannRochBasisHyperellipticCurveAnalytic(m, x_CC, y_CC, X_CC, Gamma)
-intrinsic RiemannRochBasisHyperellipticAnalytic(m::RngIntElt, x_CC::RngSerLaurElt, y_CC::RngSerLaurElt, X_CC::Crv, Gamma::GrpPSL2) -> Any
+intrinsic RiemannRochBasisHyperellipticAnalytic(m::RngIntElt, x_CC::RngSerLaurElt, y_CC::RngSerLaurElt, X_CC::Crv, Gamma::GrpPSL2Tri) -> Any
   {input: m integer, X_CC complex curve, x_CC, y_CC power series in w. output: basis for L(m*infty_1)}
   g := Genus(Gamma);
   // require g ge 2: "Only for genus >= 2";
@@ -145,7 +145,7 @@ intrinsic RiemannRochBasisHyperellipticExact(m::RngIntElt, X::CrvHyp) -> Any
   return basis;
 end intrinsic;
 
-intrinsic TriangleHyperellipticTest(Sk::SeqEnum, Gamma::GrpPSL2) -> Any
+intrinsic TriangleHyperellipticTest(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> Any
   {
   Test if a given Belyi map is hyperelliptic.
   Input: Sk, an echelonized basis for the space of wt k modular forms, given as the output of TrianglePoweSeriesBasis;
@@ -215,7 +215,7 @@ intrinsic TriangleHyperellipticTest(Sk::SeqEnum, Gamma::GrpPSL2) -> Any
 end intrinsic;
 
 // function TriangleHyperellipticNumericalCoefficients(Sk, Gamma)
-intrinsic TriangleHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2 : curve_coeffs := [], curve_vals := []) -> Any
+intrinsic TriangleHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri : curve_coeffs := [], curve_vals := []) -> Any
   {Input: Sk, an echelonized basis for the space of wt k modular forms, given as the output of TrianglePoweSeriesBasis; Gamma, triangle subgroup
   Output: Coefficients of the curve, numerator, and denominator of the Belyi map, sequences of valuations of elements of the basis used in computing
   curve, numerator, and denominator. All coefficients are assigned to Gamma.}

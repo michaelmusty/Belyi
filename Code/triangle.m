@@ -43,11 +43,9 @@ function MyMultiplicativeOrder(g,Delta);
   end if;
 end function;
 
-intrinsic InternalTriangleGroupPresentation(Gamma::GrpPSL2) -> GrpFP, Map, Map
+intrinsic Group(Gamma::GrpPSL2Tri) -> GrpFP, Map, Map
   {Returns a presentation U for the triangle subgroup Gamma,
    a map U -> Gamma, and a map U -> BaseRing(Gamma).}
-
-  require IsTriangleSubgroup(Gamma) : "Only for triangle groups";
 
   if IsTriangleGroup(Gamma) then
     return Gamma`TriangleGroup, Gamma`TriangleGroupMap, Gamma`TriangleGroupMapExact;
@@ -55,7 +53,7 @@ intrinsic InternalTriangleGroupPresentation(Gamma::GrpPSL2) -> GrpFP, Map, Map
 
   // Triangle subgroup--need to compute cosets and side pairings.
 
-  alphas, _, sidepairing_full := TriangleCosetRepresentatives(Gamma);
+  alphas, _, sidepairing_full := CosetRepresentatives(Gamma);
   // get rid of inverses
   sidepairing := [];
   for s in sidepairing_full do
@@ -72,7 +70,7 @@ intrinsic InternalTriangleGroupPresentation(Gamma::GrpPSL2) -> GrpFP, Map, Map
   end for;
   // or could have required s[2][1] le s[3][1] and made a choice when equal
 
-  DD := TriangleUnitDisc(Gamma);
+  DD := UnitDisc(Gamma);
   prec := DD`prec;
   Delta := ContainingTriangleGroup(Gamma);
   FD := FundamentalDomain(Delta, DD);
@@ -174,15 +172,14 @@ Output:
 ----------------------------------------------------------------------------
 */
 
-intrinsic InternalTriangleGroupMapExact(Delta::GrpPSL2 : Simplify := 1) -> SeqEnum
+intrinsic InternalTriangleGroupMapExact(Delta::GrpPSL2Tri : Simplify := 1) -> SeqEnum
   {Returns a quaternionic representation for Delta.}
 
   require IsTriangleGroup(Delta) : "Must be triangle group";
 
   a,b,c := Explode(DefiningABC(Delta));
-
-	m := Lcm([a,b,c]);
-	K<z2m> := CyclotomicField(2*m);
+  m := Lcm([a,b,c]);
+  K<z2m> := CyclotomicField(2*m);
   z2a := z2m^(m div a);
   z2b := z2m^(m div b);
   z2c := z2m^(m div c);
@@ -190,37 +187,37 @@ intrinsic InternalTriangleGroupMapExact(Delta::GrpPSL2 : Simplify := 1) -> SeqEn
   l2b := z2b+1/z2b;
   l2c := z2c+1/z2c;
   if Simplify ge 1 then
-  	F := sub<K | [l2a,l2b,l2c]>;
-  	if F cmpeq Rationals() then
-  	  ZF := Integers();
-	  else
-  	  OF := EquationOrder(F);
-  	  ZF := MaximalOrder(OF : Ramification := PrimeDivisors(m));
-	  _, ZF := OptimizedRepresentation(ZF);
-	  end if;
-  	F<w> := NumberField(ZF);
+    F := sub<K | [l2a,l2b,l2c]>;
+    if F cmpeq Rationals() then
+      ZF := Integers();
+    else
+      OF := EquationOrder(F);
+      ZF := MaximalOrder(OF : Ramification := PrimeDivisors(m));
+      _, ZF := OptimizedRepresentation(ZF);
+    end if;
+    F<w> := NumberField(ZF);
   else
     F<w> := sub<K | [z2m+1/z2m]>;
   end if;
-	l2a := F!l2a;
-	l2b := F!l2b;
-	l2c := F!l2c;
+  l2a := F!l2a;
+  l2b := F!l2b;
+  l2c := F!l2c;
 
   if Simplify ge 1 then
     E := sub<F | [l2a^2, l2b^2, l2c^2, l2a*l2b*l2c]>;
-  	if E cmpeq Rationals() then
-  	  ZE := Integers();
-	  else
-  	  OE := EquationOrder(E);
-	    ZE := MaximalOrder(OE : Ramification := PrimeDivisors(m));
-	    bl, ZEop := OptimizedRepresentation(ZE);
-	    if bl then
-	      ZE := ZEop;
-	    end if;
-	  end if;
-	  E := NumberField(ZE);
-	else
-	  E := F;
+    if E cmpeq Rationals() then
+      ZE := Integers();
+    else
+      OE := EquationOrder(E);
+      ZE := MaximalOrder(OE : Ramification := PrimeDivisors(m));
+      bl, ZEop := OptimizedRepresentation(ZE);
+      if bl then
+        ZE := ZEop;
+      end if;
+    end if;
+    E := NumberField(ZE);
+  else
+    E := F;
   end if;
 
   if E ne Rationals() then
@@ -231,9 +228,9 @@ intrinsic InternalTriangleGroupMapExact(Delta::GrpPSL2 : Simplify := 1) -> SeqEn
       Eop := E;
       mEop := hom<Eop -> E | E.1>;
     end if;
-	  la := mEop(E!(l2a^2));
-  	lb := mEop(E!(l2b^2));
-  	lc := mEop(E!(l2c^2));
+    la := mEop(E!(l2a^2));
+    lb := mEop(E!(l2b^2));
+    lc := mEop(E!(l2c^2));
   else
     v := E!1;
     la := E!(l2a^2);
@@ -244,61 +241,61 @@ intrinsic InternalTriangleGroupMapExact(Delta::GrpPSL2 : Simplify := 1) -> SeqEn
   end if;
 
   if la eq 0 then
-		Ffree<fa,fb,fc> := FreeAlgebra(Eop, 3);
-		A<fa,fb,fc> := quo<Ffree |
-		fa^2 + lb*lc,
-		fb^2 - lb*fb + lb,
-		fc^2 - lc*fc + lc,
-		fa*fb + lb*lc*(1-fc/lc),
-		fb*fc - fa,
-		fc*fa + lb*lc*(1-fb/lb),
-		fb*fa - lb*fa + lb*fc,
-		fc*fb - lc*fb - lb*fc + fa + lb*lc,
-    fa*fc - lc*fa + lc*fb>;
+    Ffree<fa,fb,fc> := FreeAlgebra(Eop, 3);
+    A<fa,fb,fc> := quo<Ffree |
+                fa^2 + lb*lc,
+                fb^2 - lb*fb + lb,
+                fc^2 - lc*fc + lc,
+                fa*fb + lb*lc*(1-fc/lc),
+                fb*fc - fa,
+                fc*fa + lb*lc*(1-fb/lb),
+                fb*fa - lb*fa + lb*fc,
+                fc*fb - lc*fb - lb*fc + fa + lb*lc,
+                fa*fc - lc*fa + lc*fb>;
   elif lb eq 0 then
-		Ffree<fa,fb,fc> := FreeAlgebra(Eop, 3);
-		A<fa,fb,fc> := quo<Ffree |
-		fa^2 - la*fa + la,
-		fb^2 + la*lc,
-		fc^2 - lc*fc + lc,
-		fa*fb + la*lc*(1-fc/lc),
-		fb*fc + la*lc*(1-fa/la),
-		fc*fa - fb,
-    fb*fa - la*fb + la*fc,
-		fc*fb - lc*fb + lc*fa,
-		fa*fc - la*fc - lc*fa + fb + lc*la>;
+    Ffree<fa,fb,fc> := FreeAlgebra(Eop, 3);
+    A<fa,fb,fc> := quo<Ffree |
+                fa^2 - la*fa + la,
+                fb^2 + la*lc,
+                fc^2 - lc*fc + lc,
+                fa*fb + la*lc*(1-fc/lc),
+                fb*fc + la*lc*(1-fa/la),
+                fc*fa - fb,
+                fb*fa - la*fb + la*fc,
+                fc*fb - lc*fb + lc*fa,
+                fa*fc - la*fc - lc*fa + fb + lc*la>;
   elif lc eq 0 then
-		Ffree<fa,fb,fc> := FreeAlgebra(Eop, 3);
-		A<fa,fb,fc> := quo<Ffree |
-		fa^2 - la*fa + la,
-		fb^2 - lb*fb + lb,
-		fc^2 + la*lb,
-		fa*fb - fc,
-		fb*fc + la*lb*(1-fa/la),
-		fc*fa + la*lb*(1-fb/lb),
-		fb*fa - lb*fa - la*fb + fc + la*lb,
-    fc*fb - lb*fc + lb*fa,
-		fa*fc - la*fc + la*fb>;
+    Ffree<fa,fb,fc> := FreeAlgebra(Eop, 3);
+    A<fa,fb,fc> := quo<Ffree |
+                fa^2 - la*fa + la,
+                fb^2 - lb*fb + lb,
+                fc^2 + la*lb,
+                fa*fb - fc,
+                fb*fc + la*lb*(1-fa/la),
+                fc*fa + la*lb*(1-fb/lb),
+                fb*fa - lb*fa - la*fb + fc + la*lb,
+                fc*fb - lb*fc + lb*fa,
+                fa*fc - la*fc + la*fb>;
   else
-  	l2abc := mEop(E!(l2a*l2b*l2c));
-		Ffree<fa,fb,fc> := FreeAlgebra(Eop, 3);
-		A<fa,fb,fc> := quo<Ffree |
-		fa^2 - la*fa + la,
-		fb^2 - lb*fb + lb,
-		fc^2 - lc*fc + lc,
-		fa*fb + l2abc*(1-fc/lc),
-		fb*fc + l2abc*(1-fa/la),
-		fc*fa + l2abc*(1-fb/lb),
-		fb*fa - lb*fa - la*fb + l2abc/lc*fc + la*lb,
-		fc*fb - lc*fb - lb*fc + l2abc/la*fa + lb*lc,
-		fa*fc - la*fc - lc*fa + l2abc/lb*fb + lc*la>;
+    l2abc := mEop(E!(l2a*l2b*l2c));
+    Ffree<fa,fb,fc> := FreeAlgebra(Eop, 3);
+    A<fa,fb,fc> := quo<Ffree |
+                fa^2 - la*fa + la,
+                fb^2 - lb*fb + lb,
+                fc^2 - lc*fc + lc,
+                fa*fb + l2abc*(1-fc/lc),
+                fb*fc + l2abc*(1-fa/la),
+                fc*fa + l2abc*(1-fb/lb),
+                fb*fa - lb*fa - la*fb + l2abc/lc*fc + la*lb,
+                fc*fb - lc*fb - lb*fc + l2abc/la*fa + lb*lc,
+                fa*fc - la*fc - lc*fa + l2abc/lb*fb + lc*la>;
   end if;
 
-	Aass, mass := Algebra(A);
+  Aass, mass := Algebra(A);
 
-	bl, Aquat, mquat := IsQuaternionAlgebra(Aass);
-	assert bl;
-	aa, bb := StandardForm(Aquat);
+  bl, Aquat, mquat := IsQuaternionAlgebra(Aass);
+  assert bl;
+  aa, bb := StandardForm(Aquat);
 
   if Simplify ge 2 then
     ZEop := Integers(Eop);
@@ -310,8 +307,8 @@ intrinsic InternalTriangleGroupMapExact(Delta::GrpPSL2 : Simplify := 1) -> SeqEn
       bbfact := [<pp[1], pp[2]> : pp in Factorization(Numerator(bb))] cat
                 [<pp[1], -pp[2]> : pp in Factorization(Denominator(bb))];
     else
-    	aafact := Factorization(aa*ZEop);
-    	bbfact := Factorization(bb*ZEop);
+      aafact := Factorization(aa*ZEop);
+      bbfact := Factorization(bb*ZEop);
     end if;
 
     if #aafact gt 0 then
@@ -343,34 +340,34 @@ intrinsic InternalTriangleGroupMapExact(Delta::GrpPSL2 : Simplify := 1) -> SeqEn
       bb_den := 1;
     end if;
 
-  	aa_int := aa*aa_den^2;
-  	bb_int := bb*bb_den^2;
-  	Aquat_int := QuaternionAlgebra<Eop | aa_int, bb_int>;
-  	mquat_int := hom<Aquat -> Aquat_int | 1, Aquat_int.1/aa_den,
+    aa_int := aa*aa_den^2;
+    bb_int := bb*bb_den^2;
+    Aquat_int := QuaternionAlgebra<Eop | aa_int, bb_int>;
+    mquat_int := hom<Aquat -> Aquat_int | 1, Aquat_int.1/aa_den,
   	    Aquat_int.2/bb_den, Aquat_int.3/(aa_den*bb_den)>;
     Aquat := Aquat_int;
     mquat := mquat*mquat_int;
 
-  	Aquatop, mquatop := OptimizedRepresentation(Aquat);
+    Aquatop, mquatop := OptimizedRepresentation(Aquat);
 
-  	faop := mquatop(mquat(mass(fa)));
-  	fbop := mquatop(mquat(mass(fb)));
-  	fcop := mquatop(mquat(mass(fc)));
+    faop := mquatop(mquat(mass(fa)));
+    fbop := mquatop(mquat(mass(fb)));
+    fcop := mquatop(mquat(mass(fc)));
   end if;
 
   Aquatop := Aquat;
-	faop := mquat(mass(fa));
-	fbop := mquat(mass(fb));
-	fcop := mquat(mass(fc));
+  faop := mquat(mass(fa));
+  fbop := mquat(mass(fb));
+  fcop := mquat(mass(fc));
 
-	Delta`BaseRing := Aquatop;
-	Lambda := Aquatop;
+  Delta`BaseRing := Aquatop;
+  Lambda := Aquatop;
 
-	Delta`TriangleGroupMapExact := Delta`TriangleGroupMap^-1*
-	                      map<Delta`TriangleGroup -> Lambda |
+  Delta`TriangleGroupMapExact := Delta`TriangleGroupMap^-1*
+	                           map<Delta`TriangleGroup -> Lambda |
                   x :-> &*([Lambda!1] cat [[faop,fbop,fcop][Abs(s)]^Sign(s) : s in Eltseq(x)])>;
 
-	return Delta`TriangleGroupMapExact;
+  return Delta`TriangleGroupMapExact;
 end intrinsic;
 
 
@@ -386,7 +383,7 @@ Output:
 ----------------------------------------------------------------------------
 */
 
-intrinsic InternalTriangleMatrixEmbeddingMap(Delta::GrpPSL2 : Precision := 0) -> SeqEnum
+intrinsic InternalTriangleMatrixEmbeddingMap(Delta::GrpPSL2Tri : Precision := 0) -> SeqEnum
   {Returns a sequence of matrices giving the embedding Delta(a,b,c) in PSL_2(RR).}
 
   require IsTriangleGroup(Delta) : "Must be triangle group";
@@ -435,7 +432,7 @@ intrinsic InternalTriangleMatrixEmbeddingMap(Delta::GrpPSL2 : Precision := 0) ->
   return Delta`TriangleMatrixEmbeddingMap;
 end intrinsic;
 
-intrinsic InternalTriangleSwapOriginMap(Delta::GrpPSL2 : Precision := 0) -> Any
+intrinsic InternalTriangleSwapOriginMap(Delta::GrpPSL2Tri : Precision := 0) -> Any
   {Returns the matrix corresponding to the linear fractional transformation
    mapping the unit disc centered at p = z_a = i to the unit disc centered
    at p = z_b = t*i.}
@@ -450,7 +447,7 @@ intrinsic InternalTriangleSwapOriginMap(Delta::GrpPSL2 : Precision := 0) -> Any
   return Delta`TriangleSwapOriginMap;
 end intrinsic;
 
-intrinsic TriangleUnitDisc(Gamma::GrpPSL2 : Precision := 0) -> SpcHyd
+intrinsic UnitDisc(Gamma::GrpPSL2Tri : Precision := 0) -> SpcHyd
   {Returns the unit disc centered at z_a = I with given precision.}
 
   Delta := ContainingTriangleGroup(Gamma);
@@ -518,7 +515,7 @@ Output:
 ----------------------------------------------------------------------------
 */
 
-intrinsic InternalTriangleFDH(Gamma::GrpPSL2, HH::SpcHyp : Precision := 0) -> SeqEnum
+intrinsic FundamentalDomain(Gamma::GrpPSL2Tri, HH::SpcHyp : Precision := 0) -> SeqEnum
   {Returns the fundamental domain for a triangle subgroup Gamma.}
 
 	a,b,c := Explode(DefiningABC(Gamma));
@@ -546,11 +543,11 @@ intrinsic InternalTriangleFDH(Gamma::GrpPSL2, HH::SpcHyp : Precision := 0) -> Se
     V := Delta`TriangleFD;
   else
     // See explicit formulas and picture in KMNSV-13
-	  l := (Cos(Pi(RR)/a)*Cos(Pi(RR)/b)+Cos(Pi(RR)/c))/(Sin(Pi(RR)/a)*Sin(Pi(RR)/b));
-	  t := l+Sqrt(l^2-1);
-	  x := ((t^2)-1)/(2*(Cot(Pi(RR)/a) + t*Cot(Pi(RR)/b)));
-	  y := Sqrt(Cosec(Pi(RR)/a)^2 - (x - Cot(Pi(RR)/a))^2);
-	  I := Sqrt(RR!-1);
+	l := (Cos(Pi(RR)/a)*Cos(Pi(RR)/b)+Cos(Pi(RR)/c))/(Sin(Pi(RR)/a)*Sin(Pi(RR)/b));
+	t := l+Sqrt(l^2-1);
+	x := ((t^2)-1)/(2*(Cot(Pi(RR)/a) + t*Cot(Pi(RR)/b)));
+	y := Sqrt(Cosec(Pi(RR)/a)^2 - (x - Cot(Pi(RR)/a))^2);
+	I := Sqrt(RR!-1);
 
     V := [HH | I, x+y*I, t*I, -x+y*I];
   end if;
@@ -560,6 +557,6 @@ intrinsic InternalTriangleFDH(Gamma::GrpPSL2, HH::SpcHyp : Precision := 0) -> Se
   else
     // This is OK for now, but to be consistent with what else is being produced,
     // it should give the vertices in counterclockwise order by their argument.
-    return &cat[[delta*v : v in V] : delta in TriangleCosetRepresentatives(Gamma)];
+    return &cat[[delta*v : v in V] : delta in CosetRepresentatives(Gamma)];
   end if;
 end intrinsic;

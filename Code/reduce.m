@@ -1,8 +1,6 @@
-intrinsic TriangleReduceToFundamentalTriangle(Delta::GrpPSL2, w::SpcHydElt) -> GrpPSL2Elt, SpcHydElt
+intrinsic ReduceToFundamentalTriangle(Delta::GrpPSL2Tri, w::SpcHydElt) -> GrpPSL2Elt, SpcHydElt
   {Reduces w to a point wp in the fundamental triangle, with the reducing element
    delta in Delta such that wp = delta*w.}
-
-  require IsTriangleGroup(Delta) : "Delta must be a triangle group";
 
   prec := Parent(w)`prec;
   CC<I> := Parent(ComplexValue(w));
@@ -67,16 +65,14 @@ intrinsic TriangleReduceToFundamentalTriangle(Delta::GrpPSL2, w::SpcHydElt) -> G
   return delta, wp;
 end intrinsic;
 
-intrinsic TriangleReduceToFundamentalDomain(Gamma::GrpPSL2, w::SpcHydElt) -> GrpPSL2Elt, SpcHydElt, Any
+intrinsic ReduceToFundamentalDomain(Gamma::GrpPSL2Tri, w::SpcHydElt) -> GrpPSL2Elt, SpcHydElt, Any
   {Reduces w to a point wp in the fundamental domain, with the reducing element
    gamma in Gamma such that wp = gamma*w. Returns gamma, wp, and j, where wp lies in the jth translate of the fundamental domain of Delta.}
 
-  require IsTriangleSubgroup(Gamma) : "Gamma must be a triangle subgroup";
-
   Delta := ContainingTriangleGroup(Gamma);
-  delta := TriangleReduceToFundamentalTriangle(Delta, w);
+  delta := ReduceToFundamentalTriangle(Delta, w);
 
-  alphaj, j := TriangleIdentifyCoset(Gamma, delta^-1);
+  alphaj, j := IdentifyCoset(Gamma, delta^-1);
   gamma := alphaj*delta;
 
   return gamma, gamma*w, j;

@@ -6,6 +6,7 @@
   belyi_db_obj.m
   belyi_db.m
   belyi_main.m
+  domain.m
   extract.m
   galoisorbits.m
   genuszero.m

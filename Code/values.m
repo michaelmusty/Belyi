@@ -1,17 +1,17 @@
 import "genuszero.m" : RemoveLeadingZeros;
 import "powser_iter_arfed.m" : FDReduce;
 
-intrinsic TriangleRamificationValues(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2 : NormalizeByTheta := true) -> Any
+intrinsic TriangleRamificationValues(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2Tri : NormalizeByTheta := true) -> Any
   {Input: Sk: A sequence of series expansions for modular forms of weight k of the triangle group Gamma
           Gamma: The triangle group
    Output: The ramification values for ratios of elements of Sk.
    Params: If "NormalizeByTheta", then each basis element fi of Sk is multiplied by Theta^si
            where si is the order of vanishing of fi at the center.}
 
-  alphas := TriangleCosetRepresentatives(Gamma);
+  alphas := CosetRepresentatives(Gamma);
 
   Delta := ContainingTriangleGroup(Gamma);
-  DD := TriangleUnitDisc(Gamma);
+  DD := UnitDisc(Gamma);
   prec := DD`prec;
   V := FundamentalDomain(Delta, DD);
   ws := [V[1],V[3],V[2]];

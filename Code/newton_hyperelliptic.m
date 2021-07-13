@@ -1,4 +1,4 @@
-intrinsic GetAssignedAttributes(Gamma::GrpPSL2) -> SeqEnum
+intrinsic GetAssignedAttributes(Gamma::GrpPSL2Tri) -> SeqEnum
   {return assigned attributes of Gamma in a sequence.}
   attrs := GetAttributes(Type(Gamma));
   ass := [];
@@ -10,7 +10,7 @@ intrinsic GetAssignedAttributes(Gamma::GrpPSL2) -> SeqEnum
   return ass;
 end intrinsic;
 
-intrinsic NewtonHyperelliptic(Gamma::GrpPSL2 : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2
+intrinsic NewtonHyperelliptic(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2
   {wrapper...}
   // numerical data
   Gamma := NewtonHyperellipticGetNumericalData(Gamma : prec := precstart);
@@ -36,9 +36,9 @@ intrinsic NewtonHyperelliptic(Gamma::GrpPSL2 : precstart := 40, precNewton := 10
   return Gamma;
 end intrinsic;
 
-intrinsic NewtonHyperellipticGetNumericalData(Gamma::GrpPSL2 : prec := 40) -> GrpPSL2
+intrinsic NewtonHyperellipticGetNumericalData(Gamma::GrpPSL2Tri : prec := 40) -> GrpPSL2Tri
   {Computes numerical data necessary for Newton, writes it to Gamma and returns Gamma.}
-  _:= TriangleUnitDisc(Gamma : Precision := prec);
+  _ := UnitDisc(Gamma : Precision := prec);
   // this is what takes time
   ass_bool := assigned Gamma`TriangleNewtonSk and assigned Gamma`TriangleNewtonFD and assigned Gamma`TriangleUnitDisc;
   if not (ass_bool and (Gamma`TriangleUnitDisc)`prec ge prec) then
@@ -48,7 +48,7 @@ intrinsic NewtonHyperellipticGetNumericalData(Gamma::GrpPSL2 : prec := 40) -> Gr
   end if;
   _ := TriangleHyperellipticNumericalCoefficients(Sk, Gamma);
   // assign fundamental domain to Gamma
-  DD := TriangleUnitDisc(Gamma : Precision := prec);
+  DD := UnitDisc(Gamma : Precision := prec);
   FD := FundamentalDomain(Gamma, DD);
   Gamma`TriangleUnitDisc := DD;
   Gamma`TriangleNewtonFD := FD;
@@ -56,7 +56,7 @@ intrinsic NewtonHyperellipticGetNumericalData(Gamma::GrpPSL2 : prec := 40) -> Gr
   return Gamma;
 end intrinsic;
 
-intrinsic NewtonHyperellipticGetRamificationPoints(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonHyperellipticGetRamificationPoints(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Assigns TriangleNewtonRamificationPoints0,1,oo to Gamma, a list of pairs [x_p,y_p] (for each of 0,1,oo) on the curve over CC.}
   // pull data from Gamma
   x, y := Explode(Gamma`TriangleNewtonCoordinateSeries);
@@ -107,7 +107,7 @@ intrinsic NewtonHyperellipticGetRamificationPoints(Gamma::GrpPSL2) -> GrpPSL2
   return Gamma;
 end intrinsic;
 
-intrinsic HyperellipticTwoTorsionTest(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum) -> Any
+intrinsic HyperellipticTwoTorsionTest(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum) -> Any
   {}
   // prec := Precision(Parent(w));
   prec := Parent(w)`prec;
@@ -133,7 +133,7 @@ intrinsic PolarPart(f::RngSerLaurElt) -> RngSerLaurElt
 end intrinsic;
 
 /*
-intrinsic RiemannRochBasisHyperellipticFormal(m::RngIntElt, Gamma::GrpPSL2, hyperelliptic_polys::SeqEnum) -> Any
+intrinsic RiemannRochBasisHyperellipticFormal(m::RngIntElt, Gamma::GrpPSL2Tri, hyperelliptic_polys::SeqEnum) -> Any
   {Basis for L(m*infinity_1)...but formal like}
   v, u := Explode(hyperelliptic_polys);
   g := Genus(Gamma);
@@ -156,7 +156,7 @@ intrinsic RiemannRochBasisHyperellipticFormal(m::RngIntElt, Gamma::GrpPSL2, hype
 end intrinsic;
 */
 
-intrinsic RiemannRochBasisHyperellipticFormal(m::RngIntElt, Gamma::GrpPSL2, hyperelliptic_polys::SeqEnum) -> Any
+intrinsic RiemannRochBasisHyperellipticFormal(m::RngIntElt, Gamma::GrpPSL2Tri, hyperelliptic_polys::SeqEnum) -> Any
   {Basis for L(m*infinity_1)...}
   v, u := Explode(hyperelliptic_polys);
   g := Genus(Gamma);
@@ -212,7 +212,7 @@ intrinsic RiemannRochBasisHyperellipticFormal(m::RngIntElt, Gamma::GrpPSL2, hype
   return basis;
 end intrinsic;
 
-intrinsic NewtonHyperellipticVanishingEquations(Gamma::GrpPSL2) -> Any
+intrinsic NewtonHyperellipticVanishingEquations(Gamma::GrpPSL2Tri) -> Any
   {}
   // setup
     white_vars := Gamma`TriangleNewtonVariables0;
@@ -529,7 +529,7 @@ intrinsic NewtonHyperellipticVanishingEquations(Gamma::GrpPSL2) -> Any
   return equations;
 end intrinsic;
 
-intrinsic NewtonHyperellipticGetBasicEquations(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonHyperellipticGetBasicEquations(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Computes basic Newton equations (ramification, order of vanishing) and assigns them to Gamma.}
   // the s and the t
     sigma := Gamma`TriangleSigma;
@@ -727,7 +727,7 @@ intrinsic NewtonHyperellipticGetBasicEquations(Gamma::GrpPSL2) -> GrpPSL2
 end intrinsic;
 
 // TODO
-intrinsic NewtonHyperellipticGetBasicInitializationValues(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonHyperellipticGetBasicInitializationValues(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Assigns start_vector [c4, c6, points0, points1, pointsoo, extra_points, lc, num_coeffs, den_coeffs] to Gamma.}
   // assertions
   assert assigned Gamma`TriangleNumericalPrecision;
@@ -871,7 +871,7 @@ intrinsic NewtonHyperellipticGetBasicInitializationValues(Gamma::GrpPSL2) -> Grp
 end intrinsic;
 
 // TODO
-intrinsic NewtonHyperellipticGetRescalingEquation(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonHyperellipticGetRescalingEquation(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {assign (polynomial equation for rescaling) to Gamma.}
   // setup
     basic_equations := Gamma`TriangleNewtonBasicEquations;
@@ -991,7 +991,7 @@ intrinsic NewtonIterate(equations::SeqEnum[RngMPolElt], start::SeqEnum[FldComElt
   error "Newton failed!";
 end intrinsic;
 
-intrinsic NewtonIterate(Gamma::GrpPSL2, precNewton::RngIntElt) -> GrpPSL2
+intrinsic NewtonIterate(Gamma::GrpPSL2Tri, precNewton::RngIntElt) -> GrpPSL2Tri
   {uses equations and initial values assigned to Gamma.}
   // {Assigns start_vector [c4, c6, points0, points1, pointsoo, extra_points, lc, num_coeffs, den_coeffs] to Gamma.}
   equations := Gamma`TriangleNewtonEquations;
@@ -1012,7 +1012,7 @@ intrinsic NewtonIterate(Gamma::GrpPSL2, precNewton::RngIntElt) -> GrpPSL2
   return Gamma;
 end intrinsic;
 
-intrinsic NewtonHyperellipticRecognize(Gamma::GrpPSL2 : bound := 0) -> GrpPSL2
+intrinsic NewtonHyperellipticRecognize(Gamma::GrpPSL2Tri : bound := 0) -> GrpPSL2Tri
   {Recognize elements of solution (complex numbers) with power relations up to bound.}
   coeffs_list := [* *];
   cfs := Gamma`TriangleNewtonSolution;
@@ -1081,7 +1081,7 @@ intrinsic NewtonHyperellipticRecognize(Gamma::GrpPSL2 : bound := 0) -> GrpPSL2
 end intrinsic;
 
 // TODO
-intrinsic NewtonHyperellipticMakeBelyiMaps(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonHyperellipticMakeBelyiMaps(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Assigns Belyi curve and Belyi map to Gamma after some sanity checks.}
   sigma := Gamma`TriangleSigma;
   genus := Genus(Gamma);
