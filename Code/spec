@@ -11,6 +11,7 @@
   galoisorbits.m
   genuszero.m
   genusone.m
+  GrpPSL2_overrides.m
   hackobj.m
   hyperelliptic.m
   mass.m

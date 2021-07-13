@@ -73,7 +73,7 @@ intrinsic Group(Gamma::GrpPSL2Tri) -> GrpFP, Map, Map
   DD := UnitDisc(Gamma);
   prec := DD`prec;
   Delta := ContainingTriangleGroup(Gamma);
-  FD := FundamentalDomain(Delta, DD);
+  FD := FundamentalDomain(Delta, DD : Precision := prec);
   ws := [FD[1], FD[3], FD[2]];
 
   sigma := DefiningPermutation(Gamma);
@@ -518,7 +518,7 @@ Output:
 intrinsic FundamentalDomain(Gamma::GrpPSL2Tri, HH::SpcHyp : Precision := 0) -> SeqEnum
   {Returns the fundamental domain for a triangle subgroup Gamma.}
 
-	a,b,c := Explode(DefiningABC(Gamma));
+  a,b,c := Explode(DefiningABC(Gamma));
 
   Delta := ContainingTriangleGroup(Gamma);
 
@@ -553,10 +553,13 @@ intrinsic FundamentalDomain(Gamma::GrpPSL2Tri, HH::SpcHyp : Precision := 0) -> S
   end if;
 
   if IsTriangleGroup(Gamma) then
+    Gamma`TriangleFD := V;
     return V;
   else
     // This is OK for now, but to be consistent with what else is being produced,
     // it should give the vertices in counterclockwise order by their argument.
-    return &cat[[delta*v : v in V] : delta in CosetRepresentatives(Gamma)];
+    FD := &cat[[delta*v : v in V] : delta in CosetRepresentatives(Gamma)];
+    Gamma`TriangleFD := FD;
+    return FD;
   end if;
 end intrinsic;
