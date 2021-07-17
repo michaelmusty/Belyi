@@ -29,6 +29,23 @@ intrinsic Matrix(g::GrpPSL2Elt : Precision := 0) -> GrpMatElt
   end if;
 end intrinsic;
 
+intrinsic Matrix(g::GrpPSL2Elt, D::SpcHyd) -> AlgMatElt
+  {Returns the matrix representation of g acting on the unit disc D.}
+
+  if assigned g`MatrixD and g`MatrixDCenter eq Center(D) and 
+      Precision(BaseRing(Parent(g`MatrixD))) eq D`prec then
+    return g`MatrixD;
+  end if;
+  RR := RealField(Parent(ComplexValue(Center(D))));
+  M := Matrix(g : Precision := Precision(RR));
+  ctr := ComplexValue(Center(D) : Precision:=Precision(RR), CheckInfinite:=false);
+  rot := Exp(Parent(ctr).1*Rotation(D));
+  Z0 := MatrixRing(ComplexField(RR), 2)![rot,-rot*ctr,1,-ComplexConjugate(ctr)];
+  g`MatrixD := Z0*M*Z0^(-1);
+  g`MatrixDCenter := Center(D);
+  return g`MatrixD;
+end intrinsic;
+
 // other dupls, just to get it to work
 
 intrinsic '^' (A::GrpPSL2Elt,k::RngIntElt) -> GrpPSL2Elt
