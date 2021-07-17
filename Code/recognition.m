@@ -2,8 +2,8 @@
 
 // TODO: Make sure TriangleRescaleCoefficients works for genus one.
 // Once it does, delete previous rescaling functions
-intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2, coeffs::SeqEnum, vals::SeqEnum : rescale_ind := 0) -> Any
-  {Given a GrpPSL2 Gamma, and SeqEnums coeffs and vals, return the rescaling factor lamba, as well as the rescaled coefficients.  coeffs should be of the form [curve_coeffs, num_coeffs, denom_coeffs], and vals [curve_vals, num_vals, denom_vals]}
+intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2Tri, coeffs::SeqEnum, vals::SeqEnum : rescale_ind := 0) -> Any
+  {Given a GrpPSL2Tri Gamma, and SeqEnums coeffs and vals, return the rescaling factor lamba, as well as the rescaled coefficients.  coeffs should be of the form [curve_coeffs, num_coeffs, denom_coeffs], and vals [curve_vals, num_vals, denom_vals]}
   g := Genus(Gamma);
   prec := Gamma`TriangleNumericalPrecision;
   eps := 10^(-prec/2);
@@ -77,8 +77,8 @@ intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2, coeffs::SeqEnum, vals::Seq
 end intrinsic;
 
 // TODO: Make work for genus 2, at least
-intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2] : prec := 40) -> Any
-  {Given a sequence of triangle subgroups (GrpPSL2s), write FldComElt invariants and coefficients for the curve and BelyiMap to the objects.}
+intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : prec := 40) -> Any
+  {Given a sequence of triangle subgroups (GrpPSL2Tris), write FldComElt invariants and coefficients for the curve and BelyiMap to the objects.}
   // should we return a bool?
   // check if numerical data already exists for this object
   assert #Gammas gt 0;
@@ -103,8 +103,8 @@ intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2] : prec := 40) -> A
   initial_Gamma := Gammas[1];
   genus := Genus(initial_Gamma);
   if genus eq 1 then
-    _:= TriangleUnitDisc(initial_Gamma : Precision := prec);
-    Sk := TrianglePowerSeriesBasis(initial_Gamma, 2 : prec := prec);
+    _ := UnitDisc(initial_Gamma : Precision := prec);
+    Sk := PowerSeriesBasis(initial_Gamma, 2 : prec := prec);
     CC<I> := BaseRing(Parent(Sk[1][1]));
     DDs := initial_Gamma`TriangleDDs;
     // get numerical data for initial_Gamma
@@ -112,8 +112,8 @@ intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2] : prec := 40) -> A
     if #Gammas ge 2 then
       for j in [2..#Gammas] do
         Gamma := Gammas[j];
-        _:= TriangleUnitDisc(Gamma : Precision := prec);
-        Sk := TrianglePowerSeriesBasis(Gamma, 2 : prec := prec);
+        _:= UnitDisc(Gamma : Precision := prec);
+        Sk := PowerSeriesBasis(Gamma, 2 : prec := prec);
         _, i_j, num_bool_j := TriangleGenusOneNumericalBelyiMap(Sk[1],Gamma : rescale_ind := rescale_ind, num_bool := num_bool);
         //need to make sure same indices of coefficients are used in computing lambda!
         if i_j ne rescale_ind or num_bool_j ne num_bool then
@@ -122,8 +122,8 @@ intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2] : prec := 40) -> A
       end for;
     end if;
   elif genus eq 2 then
-    _:= TriangleUnitDisc(initial_Gamma : Precision := prec);
-    Sk := TrianglePowerSeriesBasis(initial_Gamma, 2 : prec := prec);
+    _ := UnitDisc(initial_Gamma : Precision := prec);
+    Sk := PowerSeriesBasis(initial_Gamma, 2 : prec := prec);
     CC<I> := BaseRing(Parent(Sk[1][1]));
     DDs := initial_Gamma`TriangleDDs;
     // get numerical data for initial_Gamma
@@ -131,8 +131,8 @@ intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2] : prec := 40) -> A
     if #Gammas ge 2 then
       for j in [2..#Gammas] do
         Gamma := Gammas[j];
-        _:= TriangleUnitDisc(Gamma : Precision := prec);
-        Sk := TrianglePowerSeriesBasis(Gamma, 2 : prec := prec);
+        _ := UnitDisc(Gamma : Precision := prec);
+        Sk := PowerSeriesBasis(Gamma, 2 : prec := prec);
         TriangleHyperellipticNumericalCoefficients(Sk, Gamma);
       end for;
     end if;
@@ -238,7 +238,7 @@ intrinsic GaloisMinPoly(L::SeqEnum[FldComElt], eps::FldReElt) -> Any
   return f_QQ, cs;
 end intrinsic;
 
-intrinsic TriangleLengthSort(Gammas::SeqEnum[GrpPSL2]) -> Any
+intrinsic TriangleLengthSort(Gammas::SeqEnum[GrpPSL2Tri]) -> Any
   {}
   assert #Gammas gt 0;
   genus := Genus(Gammas[1]);
@@ -279,7 +279,7 @@ intrinsic TriangleLengthSort(Gammas::SeqEnum[GrpPSL2]) -> Any
   return coeffs_sorted, Gammas_sorted;
 end intrinsic;
 
-intrinsic TriangleRecognizeCoefficients(Gammas::SeqEnum[GrpPSL2] : ExactAl := "GaloisOrbits", DegreeBound := 0) -> Any
+intrinsic TriangleRecognizeCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : ExactAl := "GaloisOrbits", DegreeBound := 0) -> Any
   {Given a sequence of triangle subgroups with all the numerical stuff computed, to each one assign a number field, coefficients of the curve and Belyi map as elements of this number field. ExactAl specifies algorithm by which coefficients are recognized. Options are GaloisOrbits (requires the sequence of Gammas to be closed under the action of Galois) and AlgebraicNumbers which attempts to recognize the algebraic coefficients directly over a number field with degree bounded by DegreeBound, if given (otherwise taken to be the size of the pointed passport for Gamma).}
   assert #Gammas gt 0;
   genus := Genus(Gammas[1]);
@@ -548,7 +548,7 @@ intrinsic TriangleRecognizeCoefficients(Gammas::SeqEnum[GrpPSL2] : ExactAl := "G
   return "Exact curve and Belyi map data computed and assigned";
 end intrinsic;
 
-intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2 : DegreeBound := 0) -> Any
+intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2Tri : DegreeBound := 0) -> Any
   {Given a triangle subgroup with all the numerical stuff computed, assign it a number field, coefficients of the curve and Belyi map as elements of this number field.}
   if Genus(Gamma) eq 1 then
     vprint Shimura : "Looking for coefficient to recognize number field...";
@@ -633,8 +633,8 @@ intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2 : DegreeBound :=
   end if;
 end intrinsic;
 
-intrinsic TriangleMakeBelyiMap(Gamma::GrpPSL2) -> Any
-  {Given a GrpPSL2 with the number field K recognized and exact data computed construct the Belyi curve and Belyi map, then return and assign them.}
+intrinsic TriangleMakeBelyiMap(Gamma::GrpPSL2Tri) -> Any
+  {Given a GrpPSL2Tri with the number field K recognized and exact data computed construct the Belyi curve and Belyi map, then return and assign them.}
   sigma := Gamma`TriangleSigma;
   genus := Genus(Gamma);
   curve_coeffs := Gamma`TriangleExactCurveCoefficients;
@@ -728,8 +728,8 @@ intrinsic TriangleMakeBelyiMap(Gamma::GrpPSL2) -> Any
   return X, phi;
 end intrinsic;
 
-intrinsic TriangleMakeBelyiMaps(Gammas::SeqEnum[GrpPSL2]) -> Any
-  {Given a sequence of GrpPSL2 with the number field K recognized and exact data computed for each Gamma, construct the Belyi curves and Belyi maps.}
+intrinsic TriangleMakeBelyiMaps(Gammas::SeqEnum[GrpPSL2Tri]) -> Any
+  {Given a sequence of GrpPSL2Tri with the number field K recognized and exact data computed for each Gamma, construct the Belyi curves and Belyi maps.}
   for i := 1 to #Gammas do
     TriangleMakeBelyiMap(Gammas[i]);
   end for;

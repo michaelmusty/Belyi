@@ -1,4 +1,4 @@
-intrinsic TriangleTheta(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2 :
+intrinsic TriangleTheta(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2Tri :
                         Al := "ByValues", Recompute := false) -> Any
 {}
   if not Recompute and assigned Gamma`TriangleTheta and
@@ -202,12 +202,12 @@ intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
   return true, Kop, v, conj, uCC;
 end intrinsic;
 
-intrinsic TriangleK(Gamma::GrpPSL2) -> Any, Any, Any
+intrinsic TriangleK(Gamma::GrpPSL2Tri) -> Any, Any, Any
 {}
   return Gamma`TriangleK, Gamma`TriangleKv, Gamma`TriangleKIsConjugated;
 end intrinsic;
 
-intrinsic TriangleK(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2 : m := 0) -> Any, Any, Any
+intrinsic TriangleK(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2Tri : m := 0) -> Any, Any, Any
 {}
   CCw := Parent(Sk[1][1]);
   CC := BaseRing(CCw);
@@ -259,7 +259,7 @@ intrinsic TriangleK(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2 : m := 0)
   return K, v, conj, fc[n];
 end intrinsic;
 
-intrinsic RecognizeSeries(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2 : KeepTheta := true, m := 0) -> Any
+intrinsic RecognizeSeries(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2Tri : KeepTheta := true, m := 0) -> Any
 {}
   CCw := Parent(Sk[1][1]);
   CC := BaseRing(CCw);

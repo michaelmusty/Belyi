@@ -1,4 +1,4 @@
-intrinsic InternalTriangleGenus(Gamma::GrpPSL2) -> RngIntElt
+intrinsic Genus(Gamma::GrpPSL2Tri) -> RngIntElt
   {Returns the genus of the quotient of the upper half-plane by Gamma.}
 
   if IsTriangleGroup(Gamma) then
@@ -15,7 +15,7 @@ intrinsic InternalTriangleGenus(Gamma::GrpPSL2) -> RngIntElt
   return g;
 end intrinsic;
 
-intrinsic InternalTriangleSignature(Gamma::GrpPSL2) -> SeqEnum
+intrinsic Signature(Gamma::GrpPSL2Tri) -> SeqEnum
   {Returns the signature of the quotient of the upper half-plane by Gamma.}
 
   abc := DefiningABC(Gamma);
@@ -41,11 +41,9 @@ intrinsic InternalTriangleSignature(Gamma::GrpPSL2) -> SeqEnum
   return <Genus(Gamma), ellinvs>;
 end intrinsic;
 
-intrinsic AutomorphismGroup(Gamma::GrpPSL2) -> GrpPerm
+intrinsic AutomorphismGroup(Gamma::GrpPSL2Tri) -> GrpPerm
   {For Gamma a triangle subgroup, returns the automorphism group of the 
    associated Belyi map.}
-
-  require IsTriangleSubgroup(Gamma) : "Gamma must be a subgroup of a triangle group";
 
   sigma := DefiningPermutation(Gamma);
   Sd := Universe(sigma);
@@ -66,14 +64,13 @@ Output:
 ----------------------------------------------------------------------------
 */
 
-intrinsic SkDimension(Gamma::GrpPSL2,k::RngIntElt) -> RngIntElt
+intrinsic SkDimension(Gamma::GrpPSL2Tri, k::RngIntElt) -> RngIntElt
   {Returns the dimension of the vector space Sk of modular forms of weight k for Gamma.}
 
-  require IsTriangleSubgroup(Gamma) : "Gamma must be a triangle subgroup";
   require k mod 2 eq 0 : "k must be even";
 
-  g := InternalTriangleGenus(Gamma);
-  cycles := InternalTriangleSignature(Gamma)[2];
+  g := Genus(Gamma);
+  cycles := Signature(Gamma)[2];
 
   if k lt 0 then
     dim := 0;

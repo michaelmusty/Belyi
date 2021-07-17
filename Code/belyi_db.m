@@ -869,8 +869,8 @@ intrinsic BelyiMapSanityCheck(s::BelyiDB : lax := false) -> Any
   end if;
 end intrinsic;
 
-intrinsic BelyiDBToGammas(s::BelyiDB) -> SeqEnum[GrpPSL2]
-  {Creates a sequence of GrpPSL2s from a BelyiDB object.}
+intrinsic BelyiDBToGammas(s::BelyiDB) -> SeqEnum[GrpPSL2Tri]
+  {Creates a sequence of GrpPSL2Tris from a BelyiDB object.}
   assert s`BelyiDBType eq "Hyperbolic";
   ppass := s`BelyiDBPointedPassport;
   Gammas := [];
@@ -887,7 +887,7 @@ intrinsic BelyiDBToGammas(s::BelyiDB) -> SeqEnum[GrpPSL2]
   return Gammas;
 end intrinsic;
 
-intrinsic GammasToBelyiDB(Gammas::SeqEnum[GrpPSL2]) -> BelyiDB
+intrinsic GammasToBelyiDB(Gammas::SeqEnum[GrpPSL2Tri]) -> BelyiDB
   {Assumes Gammas have everything computed and creates a BelyiDB object with sanity checks.}
   // setup
     ppass := [];

@@ -2,14 +2,20 @@
 //
 // TRIANGLE GROUPS
 //
-// This file contains the basic structures and hackobj nonsense for triangle groups.
+// This file contains the basic structures and types for triangle groups.
 //
 // KMNSV-351, June 2013
 //
 //====================
 
-declare attributes GrpPSL2:  // = Gamma, a Fuchsian group
+declare type GrpPSL2Tri[GrpPSL2Elt]: GrpPSL2;  
+  // meaningless, since inheritance is not implemented; might as well be a new type
 
+declare attributes GrpPSL2Tri:  // = Gamma, a Fuchsian group
+
+  UnderlyingGrpPSL2, 
+                    // Underling GrpPSL2 (inheritance is broken)
+  
   TriangleWhichCoset,
                     // index of white vertex for each coset
   TriangleDDs,      // unit disks centered at white vertices
@@ -24,9 +30,7 @@ declare attributes GrpPSL2:  // = Gamma, a Fuchsian group
                     // complex number used to recognize number field
   TriangleBelyiCurve,
                     // Algebraic curve representing the Riemann surface Gamma\H
-  TriangleBelyiMap,
-                    //Equation for Belyi map as rational function
-  TriangleBool,     // = IsTriangleSubgroup(Gamma), flag to use triangle routines
+  TriangleBelyiMap, // Equation for Belyi map as rational function
   TriangleSigma,    // = DefiningPermutation(Gamma), permutation defining the (sub)group Gamma.
                     // Empty list [] if full triangle group
   TriangleABC,      // = DefiningABC(Gamma), the orders a,b,c defining the (sub)group.
@@ -60,7 +64,7 @@ declare attributes GrpPSL2:  // = Gamma, a Fuchsian group
                     // defined for triangle groups
 
   TriangleCosets, TriangleCosetGraph, TriangleSidePairing,
-                    // = TriangleCosetRepresentatives(Gamma), cosets and coset graph of
+                    // = CosetRepresentatives(Gamma), cosets and coset graph of
                     // Gamma in Delta
 
   TriangleDessin,
@@ -102,97 +106,64 @@ declare attributes GrpPSL2:  // = Gamma, a Fuchsian group
   TriangleKMinPoly,
                     // min poly for number field
   TriangleRiemannRochParameters, // [s,t] s and t: numerator in L(too), denominator in L((s+t)oo)
-  /*
-  NEWTON GENUS ONE
-  */
-  TrianglePeriodLattice, // period lattice of elliptic curve
-  TriangleNewtonSk, // Sk what more to say?
-  TriangleNewtonFD, //
-  TriangleNewtonCoordinateSeries, // x and y
-  TriangleNewtonRamificationPoints0, // ramification points corresponding to sigma0 (excluding w=0...I think)
-  TriangleNewtonDiscRamificationPoints0, // ramification points corresponding to sigma0 (excluding w=0...I think) in DD
-  TriangleNewtonRamificationMultiplicities0, // ramification multiplicities corresponding to sigma0
-  TriangleNewtonRamificationPoints1, // ramification points corresponding to sigma1
-  TriangleNewtonDiscRamificationPoints1, // ramification points corresponding to sigma1 in DD
-  TriangleNewtonRamificationMultiplicities1, // ramification multiplicities corresponding to sigma1
-  TriangleNewtonRamificationPointsoo, // ramification points corresponding to sigmaoo
-  TriangleNewtonDiscRamificationPointsoo, // ramification points corresponding to sigmaoo in DD
-  TriangleNewtonRamificationMultiplicitiesoo, // ramification multiplicities corresponding to sigmaoo
-  TriangleNewtonVariablesC4C6, // variables in polynomial ring for c4 c6
-  TriangleNewtonVariablesHyperellipticCurveCoefficients, // variables in in polynomial ring for hyperelliptic curve
-  TriangleNewtonVariables0, // variables in polynomial ring for white points
-  TriangleNewtonVariables1, // variables in polynomial ring for black points
-  TriangleNewtonVariablesoo, // variables in polynomial ring for cross points
-  TriangleNewtonVariablesLeadingCoefficient, // variable in polynomial ring for leading coeff
-  TriangleNewtonVariablesNumeratorCoefficients, // variables in polynomial ring for numerator coeffs
-  TriangleNewtonVariablesDenominatorCoefficients, // variables in polynomial ring for denominator coeffs
-  TriangleNewtonVariablesSpecial, // variables in polynomial ring for special point (x_s, y_s)
-  TriangleNewtonBasicEquations, // equations for white, black, cross points and ramification
-  TriangleNewtonRescalingData, // [gcd, wts, nonzero_inds, nonzero_vals] for rescaling equation
-  TriangleNewtonRescalingEquation, // equation for rescaling
-  TriangleNewtonEquations, // all the equations
-  TriangleNewtonInitializationC4,
-  TriangleNewtonInitializationC6,
-  TriangleNewtonInitializationNumeratorCoefficients,
-  TriangleNewtonInitializationDenominatorCoefficients,
-  TriangleNewtonInitializationSpecialPoint, // common zero of the numerator and denominator (if necessary) 
-  TriangleNewtonInitialization, // all the starting values
-  TriangleNewtonSolution, // after Newton iteration
-  TriangleNewtonSolutionExact, // recognized solution
-  TriangleNewtonDebug,
+
   /*
   MISC
   */
   TriangleNewtonHyperellipticLeadingCoefficient,
   TriangleIsHyperelliptic; // Is Gamma hyperelliptic? (with genus gt 2)
 
-intrinsic IsTriangleSubgroup(Gamma::GrpPSL2) -> BoolElt
-  {Returns true if Gamma is a subgroup of a triangle group.}
 
-  if assigned Gamma`TriangleBool then
-    return Gamma`TriangleBool;
-  else
-    return false;
-  end if;
+
+
+
+intrinsic 'eq'(Gamma1::GrpPSL2Tri, Gamma2::GrpPSL2Tri) -> BoolElt
+  {Returns true if Gamma1 eq Gamma2.}
+
+  return DefiningABC(Gamma1) eq DefiningABC(Gamma2) and
+         DefiningPermutation(Gamma1) eq DefiningPermutation(Gamma2);
 end intrinsic;
 
-intrinsic IsTriangleGroup(Gamma::GrpPSL2) -> BoolElt
+intrinsic Print(Gamma::GrpPSL2Tri) 
+  {Print Gamma.}
+
+  if Gamma`TriangleD gt 1 then
+    printf "Subgroup of index d = %o defined by permutation\n%o\nof ", 
+       IndexDegree(Gamma), DefiningPermutation(Gamma);
+  end if;
+  a,b,c := Explode(DefiningABC(Gamma));
+  printf "Triangle group Delta(%o,%o,%o)", a,b,c; 
+end intrinsic;
+
+intrinsic IsTriangleGroup(Gamma::GrpPSL2Tri) -> BoolElt
   {Returns true if Gamma is a (full) triangle group.}
 
-  return IsTriangleSubgroup(Gamma) and Gamma`TriangleD eq 1;
+  return Gamma`TriangleD eq 1;
 end intrinsic;
 
-intrinsic DefiningPermutation(Gamma::GrpPSL2) -> BoolElt
+intrinsic DefiningPermutation(Gamma::GrpPSL2Tri) -> BoolElt
   {Returns the permutation defining a triangle subgroup Gamma.
    Returns the empty list if Gamma is the full triangle group.}
-
-  require IsTriangleSubgroup(Gamma) : "Must be a subgroup of a triangle group.";
 
   return Gamma`TriangleSigma;
 end intrinsic;
 
-intrinsic DefiningABC(Gamma::GrpPSL2) -> BoolElt
+intrinsic DefiningABC(Gamma::GrpPSL2Tri) -> BoolElt
   {Returns the parameters a,b,c associated to the triangle group Delta
    containing Gamma.}
-
-  require IsTriangleSubgroup(Gamma) : "Must be a subgroup of a triangle group.";
 
   return Gamma`TriangleABC;
 end intrinsic;
 
-intrinsic IndexDegree(Gamma::GrpPSL2) -> BoolElt
+intrinsic IndexDegree(Gamma::GrpPSL2Tri) -> BoolElt
   {Index of Gamma in its associated triangle group.}
-
-  require IsTriangleSubgroup(Gamma) : "Must be a subgroup of a triangle group.";
 
   return Gamma`TriangleD;
 end intrinsic;
 
-intrinsic DefiningPermutationRepresentation(Gamma::GrpPSL2) -> Map
+intrinsic DefiningPermutationRepresentation(Gamma::GrpPSL2Tri) -> Map
   {Returns the permutation representation defining Gamma.
    Returns the trivial representation if Gamma is the full triangle group.}
-
-  require IsTriangleSubgroup(Gamma) : "Must be a subgroup of a triangle group.";
 
   if IsTriangleGroup(Gamma) then
     return map<Gamma -> SymmetricGroup(1) | x :-> (1) >;
@@ -201,14 +172,13 @@ intrinsic DefiningPermutationRepresentation(Gamma::GrpPSL2) -> Map
   end if;
 end intrinsic;
 
-intrinsic TriangleGroup(a::RngIntElt, b::RngIntElt, c::RngIntElt : Simplify := 1) -> GrpPSL2
+intrinsic TriangleGroup(a::RngIntElt, b::RngIntElt, c::RngIntElt : Simplify := 1) -> GrpPSL2Tri
   {Creates the triangle group Delta(a,b,c).}
 
   require a ge 2 and b ge 2 and c ge 2 : "Must have a,b,c >= 2.";
   require 1/a+1/b+1/c lt 1 : "Must be hyperbolic (for now, sorry!)";
 
-  Delta := HackobjCreateRaw(GrpPSL2);
-  Delta`TriangleBool := true;
+  Delta := New(GrpPSL2Tri);
   Delta`TriangleSigma := [];
   Delta`TriangleABC := [a,b,c];
   Delta`TriangleD := 1;
@@ -225,7 +195,7 @@ intrinsic TriangleGroup(a::RngIntElt, b::RngIntElt, c::RngIntElt : Simplify := 1
   return Delta;
 end intrinsic;
 
-intrinsic TriangleSubgroup(sigma::SeqEnum[GrpPermElt] : Delta := [], Simplify := 1) -> GrpPSL2
+intrinsic TriangleSubgroup(sigma::SeqEnum[GrpPermElt] : Delta := [], Simplify := 1) -> GrpPSL2Tri
   {Creates the triangle subgroup associated to the permutation sigma.
    Creates a new triangle group containing if Delta is not specified.
    "Simplify" records how much to try to simplify the underlying quaternion algebra:
@@ -242,7 +212,7 @@ intrinsic TriangleSubgroup(sigma::SeqEnum[GrpPermElt] : Delta := [], Simplify :=
   Sd := Universe(sigma);
   require IsTransitive(sub<Sd | sigma>) : "sigma must be a transitive permutation triple";
 
-  Gamma := HackobjCreateRaw(GrpPSL2);
+  Gamma := New(GrpPSL2Tri);
 
   Gamma`TriangleBool := true;
   Gamma`TriangleSigma := sigma;
@@ -267,10 +237,8 @@ intrinsic TriangleSubgroup(sigma::SeqEnum[GrpPermElt] : Delta := [], Simplify :=
   return Gamma;
 end intrinsic;
 
-intrinsic ContainingTriangleGroup(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic ContainingTriangleGroup(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Returns the containing triangle group.}
-
-  require IsTriangleSubgroup(Gamma) : "Must be a subgroup of a triangle group.";
 
   if IndexDegree(Gamma) eq 1 then
     return Gamma;
@@ -279,10 +247,8 @@ intrinsic ContainingTriangleGroup(Gamma::GrpPSL2) -> GrpPSL2
   end if;
 end intrinsic;
 
-intrinsic MonodromyGroup(Gamma::GrpPSL2) -> GrpPerm
-  {Returns the Monodromy group associated to a triangle subgroup.}
-
-  require IsTriangleSubgroup(Gamma) : "Must be a subgroup of a triangle group.";
+intrinsic MonodromyGroup(Gamma::GrpPSL2Tri) -> GrpPerm
+  {Returns the monodromy group associated to a triangle subgroup.}
 
   sigma := DefiningPermutation(Gamma);
   if sigma eq [] then
@@ -292,10 +258,10 @@ intrinsic MonodromyGroup(Gamma::GrpPSL2) -> GrpPerm
   end if;
 end intrinsic;
 
-intrinsic InternalTriangleIn(x::., Gamma::GrpPSL2) -> BoolElt
+intrinsic InternalTriangleIn(x::., Gamma::GrpPSL2Tri) -> BoolElt
   {Returns true if x lies in Gamma by checking cosets.}
 
-  require Type(x) eq GrpPSL2Elt : "Must be a triangle group element";
+  require Type(Parent(x)) eq GrpPSL2Tri : "Must be a triangle group element";
 
   // verify good triangle group
   Gammap := Parent(x);
@@ -314,7 +280,7 @@ intrinsic InternalTriangleIn(x::., Gamma::GrpPSL2) -> BoolElt
   return Eltseq(pi(x))[1] eq 1;
 end intrinsic;
 
-intrinsic InternalTriangleCoercion(Gamma::GrpPSL2, x::.) -> BoolElt, GrpPSL2Elt
+intrinsic IsCoercible(Gamma::GrpPSL2Tri, x::.) -> BoolElt, GrpPSL2Elt
   {Internal coercion for triangle subgroups.}
 
   if IsTriangleGroup(Gamma) then
@@ -328,7 +294,7 @@ intrinsic InternalTriangleCoercion(Gamma::GrpPSL2, x::.) -> BoolElt, GrpPSL2Elt
   case Type(x):
     when RngIntElt:
       if x ne 1 then return false; end if;
-      u := HackobjCreateRaw(GrpPSL2Elt);
+      u := New(GrpPSL2Elt);
       u`Element := UDelta!1;
       u`Parent := Gamma;
       return true, u;
@@ -349,7 +315,7 @@ intrinsic InternalTriangleCoercion(Gamma::GrpPSL2, x::.) -> BoolElt, GrpPSL2Elt
 
     when GrpFPElt:
       if Parent(x) ne UDelta then return false; end if;
-      g := HackobjCreateRaw(GrpPSL2Elt);
+      g := New(GrpPSL2Elt);
       g`Element := x;
       g`Parent := Delta;
       if IsTriangleGroup(Gamma) or InternalTriangleIn(g, Gamma) then
@@ -364,7 +330,7 @@ intrinsic InternalTriangleCoercion(Gamma::GrpPSL2, x::.) -> BoolElt, GrpPSL2Elt
         return false;
       end if;
       x := UDelta!x;
-      g := HackobjCreateRaw(GrpPSL2Elt);
+      g := New(GrpPSL2Elt);
       g`Element := x;
       g`Parent := Gamma;
       return true, g;
@@ -374,9 +340,15 @@ intrinsic InternalTriangleCoercion(Gamma::GrpPSL2, x::.) -> BoolElt, GrpPSL2Elt
   return false;
 end intrinsic;
 
-intrinsic '.'(Gamma::GrpPSL2, i::RngIntElt) -> GrpPSL2Elt
+intrinsic '.'(Gamma::GrpPSL2Tri, i::RngIntElt) -> GrpPSL2Elt
   {Returns the ith generator of the group Gamma.}
 
   UGamma, mUGamma := Group(Gamma);
   return mUGamma(UGamma.i);
+end intrinsic;
+
+intrinsic 'Id'(Gamma::GrpPSL2Tri) -> GrpPSL2Elt
+  {Returns the identity element of Gamma.}
+
+  return Gamma!1;
 end intrinsic;

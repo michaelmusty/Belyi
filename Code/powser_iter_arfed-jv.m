@@ -5,7 +5,7 @@ FDReduce := function(wp, Gamma);
   zp := DiscToPlane(HH, wp);
 
   // Reduce to fundamental domain
-  deltaH, w, jind := TriangleReduceToFundamentalDomain(Gamma, wp);
+  deltaH, w, jind := ReduceToFundamentalDomain(Gamma, wp);
 
   deltaHmat := Matrix(deltaH);  // Default is matrix on upper half-plane
   jAut := deltaHmat[2,1]*ComplexValue(zp) + deltaHmat[2,2];  // automorphy factor
@@ -16,7 +16,7 @@ end function;
 
 
 
-intrinsic TrianglePowerSeriesBasis(Gamma::GrpPSL2, k::RngIntElt :
+intrinsic PowerSeriesBasis(Gamma::GrpPSL2Tri, k::RngIntElt :
                                    prec := 0, N := 0, Q := 0, dim := 0,
                                    Federalize := true, Al := "Arnoldi", UseRamOffsets := true) -> Any
 {prec is the precision to compute in (must be at least precision of the unit disc;
@@ -26,14 +26,13 @@ intrinsic TrianglePowerSeriesBasis(Gamma::GrpPSL2, k::RngIntElt :
  Al is either "Arnoldi" (uses Arnoldi iteration) or
  "Full" (computes the full matrix and the SVD).}
 
-  require IsTriangleSubgroup(Gamma) : "Gamma must be a triangle subgroup";
   require k gt 0 and k mod 2 eq 0 : "k >= 2 must be even";
 
-  DD := TriangleUnitDisc(Gamma);
+  DD := UnitDisc(Gamma);
   if prec ne 0 then
     if prec ne DD`prec then
-      print "WARNING: precision input into TrianglePowerSeriesBasis is different than specified in Gamma";
-      DD := TriangleUnitDisc(Gamma : Precision := prec);
+      print "WARNING: precision input into PowerSeriesBasis is different than specified in Gamma";
+      DD := UnitDisc(Gamma : Precision := prec);
     end if;
   else // prec eq 0 
     prec := DD`prec;
@@ -104,7 +103,7 @@ intrinsic TrianglePowerSeriesBasis(Gamma::GrpPSL2, k::RngIntElt :
   vprintf Shimura : "Ramification degrees e = %o and offsets s = %o\n", es, ss;
 
   if Federalize then
-    deltas := TriangleCosetRepresentatives(Gamma);
+    deltas := CosetRepresentatives(Gamma);
     sigma := DefiningPermutation(Gamma);
     //the first entry in each cycle of sigma0
     //E.g., sigma0 = (13)(256)(4), then vinds = [1,2,4]
@@ -129,7 +128,7 @@ intrinsic TrianglePowerSeriesBasis(Gamma::GrpPSL2, k::RngIntElt :
     vprintf Shimura : "Indices of vertices to be used: %o\n", vinds;
     vprintf Shimura : "Coset identifiers: %o\n", whichcoset;
   else
-    deltas := TriangleCosetRepresentatives(Gamma);
+    deltas := CosetRepresentatives(Gamma);
     whichcoset := [1 : i in [1..#deltas]];
     nv := 1;
     DDs := [DD];

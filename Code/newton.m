@@ -1,6 +1,6 @@
 declare verbose BelyiNewton, 1;
 
-intrinsic GetAssignedAttributes(Gamma::GrpPSL2) -> SeqEnum
+intrinsic GetAssignedAttributes(Gamma::GrpPSL2Tri) -> SeqEnum
   {return assigned attributes of Gamma in a sequence.}
   attrs := GetAttributes(Type(Gamma));
   ass := [];
@@ -14,7 +14,7 @@ end intrinsic;
 
 /*
 BEFORE NEWTONGALOISORBITS
-intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2] : precstart := 40, precNewton := 1000, bound := 0) -> SeqEnum
+intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewton := 1000, bound := 0) -> SeqEnum
   {NewtonGenusOne(Gamma) for Gamma in Gammas (loop over entire passport).}
   t0 := Cputime();
   for i := 1 to #Gammas do
@@ -28,7 +28,7 @@ end intrinsic;
 */
 
 // NewtonGaloisOrbits
-intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2] : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2
+intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2Tri
   {}
   SetVerbose("BelyiNewton", true); // temporarily don't print Shimura so we can see what's happening
   // SetVerbose("Shimura", false);
@@ -94,7 +94,7 @@ intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2] : precstart := 40, precNewton 
     return Gammas;
 end intrinsic;
 
-intrinsic NewtonGenusOne(Gamma::GrpPSL2 : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2
+intrinsic NewtonGenusOne(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2Tri
   {Less Naive wrapper...}
   SetVerbose("BelyiNewton", true); // temporarily don't print Shimura so we can see what's happening
   // SetVerbose("Shimura", false);
@@ -155,19 +155,19 @@ intrinsic NewtonGenusOne(Gamma::GrpPSL2 : precstart := 40, precNewton := 1000, b
     return Gamma;
 end intrinsic;
 
-intrinsic NewtonGetNumericalData(Gamma::GrpPSL2 : prec := 40) -> GrpPSL2
+intrinsic NewtonGetNumericalData(Gamma::GrpPSL2Tri : prec := 40) -> GrpPSL2Tri
   {Computes numerical data necessary for Newton, writes it to Gamma and returns Gamma.}
-  _:= TriangleUnitDisc(Gamma : Precision := prec);
+  _:= UnitDisc(Gamma : Precision := prec);
   // this is what takes time
   ass_bool := assigned Gamma`TriangleNewtonSk and assigned Gamma`TriangleNewtonFD and assigned Gamma`TriangleUnitDisc;
   if not (ass_bool and (Gamma`TriangleUnitDisc)`prec ge prec) then
-    Sk := TrianglePowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := true);
+    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := true);
   else
     Sk := Gamma`TriangleNewtonSk;
   end if;
   coeffs, _, _, nonzero_inds, wts, coordinate_series := TriangleGenusOneNumericalBelyiMap(Sk[1], Gamma); // assigns coordinate series to Gamma
   // assign fundamental domain to Gamma
-  DD := TriangleUnitDisc(Gamma : Precision := prec);
+  DD := UnitDisc(Gamma : Precision := prec);
   FD := FundamentalDomain(Gamma, DD);
   Gamma`TriangleUnitDisc := DD;
   Gamma`TriangleNewtonFD := FD;
@@ -175,7 +175,7 @@ intrinsic NewtonGetNumericalData(Gamma::GrpPSL2 : prec := 40) -> GrpPSL2
   return Gamma;
 end intrinsic;
 
-intrinsic NewtonGetRamificationPoints(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonGetRamificationPoints(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Assigns TriangleNewtonRamificationPoints0,1,oo to Gamma, a list of pairs [x_p,y_p] (for each of 0,1,oo) on the curve over CC.}
   // pull data from Gamma
   x, y := Explode(Gamma`TriangleNewtonCoordinateSeries);
@@ -227,7 +227,7 @@ intrinsic NewtonGetRamificationPoints(Gamma::GrpPSL2) -> GrpPSL2
 end intrinsic;
 
 /*
-intrinsic TwoTorsionTest(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum) -> Any
+intrinsic TwoTorsionTest(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum) -> Any
   {Given a point w in the hyperbolic disc associated to Gamma, test if w is a 2-torsion point of the associated elliptic curve.}
   assert Genus(Gamma) eq 1;
   Lambda := Gamma`TrianglePeriodLattice;
@@ -250,7 +250,7 @@ intrinsic TwoTorsionTest(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum) -> Any
 end intrinsic;
 */
 
-intrinsic TwoTorsionTest(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum) -> Any
+intrinsic TwoTorsionTest(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum) -> Any
   {Given a point w in the hyperbolic disc associated to Gamma, test if w is a 2-torsion point of the associated elliptic curve.}
   assert Genus(Gamma) eq 1;
   Lambda := Gamma`TrianglePeriodLattice;
@@ -276,7 +276,7 @@ intrinsic TwoTorsionTest(w::SpcHydElt, Gamma::GrpPSL2, Sk::SeqEnum) -> Any
   return torsion_bool;
 end intrinsic;
 
-intrinsic NewtonVanishingEquations(Gamma::GrpPSL2) -> Any
+intrinsic NewtonVanishingEquations(Gamma::GrpPSL2Tri) -> Any
   {}
   // setup
   white_vars := Gamma`TriangleNewtonVariables0;
@@ -542,7 +542,7 @@ intrinsic NewtonVanishingEquations(Gamma::GrpPSL2) -> Any
   return equations;
 end intrinsic;
 
-intrinsic NewtonGetBasicEquations(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonGetBasicEquations(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Computes basic Newton equations (ramification, order of vanishing) and assigns them to Gamma.}
   // the s and the t
     sigma := Gamma`TriangleSigma;
@@ -835,7 +835,7 @@ intrinsic NewtonGetBasicEquations(Gamma::GrpPSL2) -> GrpPSL2
   return Gamma;
 end intrinsic;
 
-intrinsic NewtonGetBasicInitializationValues(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonGetBasicInitializationValues(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Assigns start_vector [c4, c6, points0, points1, pointsoo, extra_points, lc, num_coeffs, den_coeffs] to Gamma.}
   // assertions
   assert assigned Gamma`TriangleNumericalPrecision;
@@ -967,7 +967,7 @@ intrinsic NewtonGetBasicInitializationValues(Gamma::GrpPSL2) -> GrpPSL2
   return Gamma;
 end intrinsic;
 
-intrinsic NewtonGetRescalingEquation(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonGetRescalingEquation(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {assign (polynomial equation for rescaling) to Gamma.}
   // setup
     basic_equations := Gamma`TriangleNewtonBasicEquations;
@@ -1087,7 +1087,7 @@ intrinsic NewtonIterate(equations::SeqEnum[RngMPolElt], start::SeqEnum[FldComElt
   error "Newton failed!";
 end intrinsic;
 
-intrinsic NewtonIterate(Gamma::GrpPSL2, precNewton::RngIntElt) -> GrpPSL2
+intrinsic NewtonIterate(Gamma::GrpPSL2Tri, precNewton::RngIntElt) -> GrpPSL2Tri
   {uses equations and initial values assigned to Gamma.}
   // {Assigns start_vector [c4, c6, points0, points1, pointsoo, extra_points, lc, num_coeffs, den_coeffs] to Gamma.}
   equations := Gamma`TriangleNewtonEquations;
@@ -1108,7 +1108,7 @@ intrinsic NewtonIterate(Gamma::GrpPSL2, precNewton::RngIntElt) -> GrpPSL2
   return Gamma;
 end intrinsic;
 
-intrinsic NewtonRecognize(Gamma::GrpPSL2 : bound := 0) -> GrpPSL2
+intrinsic NewtonRecognize(Gamma::GrpPSL2Tri : bound := 0) -> GrpPSL2Tri
   {Recognize elements of solution (complex numbers) with power relations up to bound.}
   coeffs_list := [* *];
   cfs := Gamma`TriangleNewtonSolution;
@@ -1176,7 +1176,7 @@ intrinsic NewtonRecognize(Gamma::GrpPSL2 : bound := 0) -> GrpPSL2
   return Gamma;
 end intrinsic;
 
-intrinsic NewtonMakeBelyiMaps(Gamma::GrpPSL2) -> GrpPSL2
+intrinsic NewtonMakeBelyiMaps(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Assigns Belyi curve and Belyi map to Gamma after some sanity checks.}
   sigma := Gamma`TriangleSigma;
   genus := Genus(Gamma);
@@ -1224,393 +1224,3 @@ intrinsic NewtonMakeBelyiMaps(Gamma::GrpPSL2) -> GrpPSL2
   end if;
   return Gamma;
 end intrinsic;
-
-// TODO
-
-// OLD
-/*
-  intrinsic NewtonGenusOne(Gamma::GrpPSL2 : precstart := 40, precNewton := 1000) -> Any
-    {Naive wrapper. Could (will) be redundant.}
-    curve_cs, map_cs := Explode(coeffs);
-    rescaling := [nonzero_inds, wts];
-    pts_E, mults := NewtonRamification(Gamma, Sk, powsers);
-    // eval_vector := [c4, c6] cat pts_1[1] cat pts_oo[1] cat pts_oo[2] cat [lc] cat denom_cs;
-    start := [];
-    Append(~start, curve_cs[2]);
-    Append(~start, curve_cs[3]);
-    for i := 1 to #pts_E do
-      for j := 1 to #pts_E[i] do
-        Append(~start, pts_E[i][j][1]);
-        Append(~start, pts_E[i][j][2]);
-      end for;
-    end for;
-    Append(~start, map_cs[1]); // lc
-    for i := 1 to #map_cs[2]-1 do // numerator coeffs (without leading term)
-      Append(~start, map_cs[2][i]);
-    end for;
-    for i := 1 to #map_cs[3]-1 do // denominator coeffs (without leading term)
-      Append(~start, map_cs[3][i]);
-    end for;
-    // start := [curve_cs[2], curve_cs[3]] cat pts_E[1] cat pts_E[2] cat pts_E[3] cat [map_cs[1]] cat map_cs[2] cat map_cs[3];
-    equations := NewtonGenerateEquations(Gamma, mults, rescaling);
-    vprintf Shimura : "#start = %o\n", #start;
-    for i := 1 to #equations do
-      Evaluate(equations[i], start);
-    end for;
-    sol_CC := NewtonIterate(equations, start, precNewton);
-    sigma := Gamma`TriangleSigma;
-    passport := PassportRepresentatives(sigma : Pointed := true);
-    bound := #passport;
-    vprintf Shimura : "Recognizing with degree bound = %o:\n", bound;
-    return NewtonRecognize(sol_CC, bound);
-  end intrinsic;
-
-  intrinsic NewtonRamification(Gamma::GrpPSL2, Sk::SeqEnum, powsers::SeqEnum) -> SeqEnum
-    {Returns a sequence pts of sequences of points (white, black, cross) on the elliptic curve, and a sequence mults of sequences of the corresponding multiplicities of the Belyi map at these points.}
-    // setup
-    x, y := Explode(powsers);
-    // assertions
-    assert Parent(powsers[1]) eq Parent(powsers[2]);
-    // TriangleIdentifyCoset
-    prec := Precision(Parent(Sk[1][1]));
-    DD := TriangleUnitDisc(Gamma : Precision := prec);
-    FD := FundamentalDomain(Gamma,DD);
-    sigma := Gamma`TriangleSigma;
-    sigma_switch := [sigma[1],sigma[3],sigma[2]]; // to make order the same as in FD: white, cross, black
-    sigma_cycs := [CycleDecomposition(s) : s in sigma_switch];
-    pts := [];
-    mults := [];
-    for i := 1 to 3 do
-      cycs := sigma_cycs[i];
-      pts_i := [];
-      mults_i := [];
-      for cyc in cycs do
-        Append(~mults_i, #cyc);
-        ind := cyc[1];
-        Append(~pts_i, FD[4*(ind-1)+i]);
-      end for;
-      Append(~pts, pts_i);
-      Append(~mults, mults_i);
-    end for;
-    pts := [pts[1], pts[3], pts[2]]; // now switch back to white, black, cross
-    mults := [mults[1], mults[3], mults[2]];
-    // make x and y using scaling factor saved to Gamma
-    //  Lambda := TriangleGenusOnePeriods(Sk[1], Gamma);
-     // x,y,_,_,_ := TriangleGenusOneEllipticCurve(Lambda, Gamma : Ncoeffs := 100);
-      //lambda := Gamma`TriangleRescalingFactor;
-      //x := x*lambda^2;
-      //y := y*lambda^3;
-    // delete the point that maps to point at infinity
-    Remove(~pts[1],1);
-    Remove(~mults[1],1);
-    // map points in disc to points on elliptic curve
-    pts_E := [];
-    for i := 1 to 3 do
-      pts_E_i := [];
-      for j := 1 to #pts[i] do
-        Append(~pts_E_i, TriangleDiscToEllipticCurve(pts[i][j], Gamma, Sk, x, y));
-      end for;
-      Append(~pts_E, pts_E_i);
-    end for;
-    return pts_E, mults;
-  end intrinsic;
-
-  intrinsic NewtonGenerateEquations(Gamma::GrpPSL2, mults::SeqEnum[SeqEnum[RngIntElt]], rescaling::SeqEnum) -> SeqEnum[RngMPolElt]
-    {For cycle structure 42-42-33, mults is [[4,2],[4,2],[3,3]]. Rescaling is a pair: first entry is a list of nonzero indices of coeffs of numerical Belyi map and second entry is wts of these used to obtain rescaling factor lambda.}
-    // the s and the t
-    sigma := Gamma`TriangleSigma;
-    d := Gamma`TriangleD;
-    s := #CycleDecomposition(sigma[1])[1];
-    if s eq d then // TODO hack
-      t := 0;
-    else
-      t := d-s+1;
-    end if;
-    // number of points is also number of mults
-    mults_white, mults_black, mults_cross := Explode(mults);
-    // Remove(~mults_white,1); // don't include point at oo!
-    num_points := #mults_white+#mults_black+#mults_cross;
-    // generate polynomial ring
-    var_names := ["c4", "c6"];
-    for i := 1 to #mults_white do
-      Append(~var_names, Sprintf("x%o_w", i));
-      Append(~var_names, Sprintf("y%o_w", i));
-    end for;
-    for i := 1 to #mults_black do
-      Append(~var_names, Sprintf("x%o_b", i));
-      Append(~var_names, Sprintf("y%o_b", i));
-    end for;
-    for i := 1 to #mults_cross do
-      Append(~var_names, Sprintf("x%o_c", i));
-      Append(~var_names, Sprintf("y%o_c", i));
-    end for;
-    Append(~var_names, "lc");
-    for i := 1 to t-1 do // assume numerator is monic, TODO what about when t is 1?!?!
-      if i eq 1 then
-        Append(~var_names, Sprintf("a%o", 0));
-      else
-        Append(~var_names, Sprintf("a%o", i));
-      end if;
-    end for;
-    for i := 1 to s+t-1 do // assume denominator is monic
-      if i eq 1 then
-        Append(~var_names, Sprintf("b%o", 0));
-      else
-        Append(~var_names, Sprintf("b%o", i));
-      end if;
-    end for;
-    // make R
-    R := PolynomialRing(Rationals(), #var_names, "grevlex");
-    AssignNames(~R, var_names);
-    // make pairs for points variables cuz...jeez
-    inv_vars := [R.1, R.2];
-    white_vars := []; // pairs [x1_w, y1_w],...
-    for i := 1 to #mults_white do
-      x_ind := 1+2*i;
-      y_ind := 2+2*i;
-      Append(~white_vars, [R.x_ind, R.y_ind]);
-    end for;
-    black_vars := []; // pairs [x1_b, y1_b],...
-    for i := 1 to #mults_black do
-      x_ind := 1+2*#mults_white+2*i;
-      y_ind := 2+2*#mults_white+2*i;
-      Append(~black_vars, [R.x_ind, R.y_ind]);
-    end for;
-    cross_vars := [];
-    for i := 1 to #mults_cross do
-      x_ind := 1+2*#mults_white+2*#mults_black+2*i;
-      y_ind := 2+2*#mults_white+2*#mults_black+2*i;
-      Append(~cross_vars, [R.x_ind, R.y_ind]);
-    end for;
-    //
-    printf "white vars = %o\n", white_vars;
-    printf "black vars = %o\n", black_vars;
-    printf "cross vars = %o\n", cross_vars;
-    // make lists of variables for coefficients of Belyi map
-    lc_ind := 2*(1+num_points)+1;
-    lc_var := R.lc_ind;
-    num_vars := [];
-    for i := 1 to t-1 do
-      ind := 2*(1+num_points)+i+1;
-      Append(~num_vars, R.ind);
-    end for;
-    printf "R = %o\n", R;
-    den_vars := [];
-    // TODO what if t=1
-    for i := 1 to s+t-1 do
-      ind := 2*(1+num_points)+1+#num_vars+i;
-      Append(~den_vars, R.ind);
-    end for;
-    printf "num vars = %o\n", num_vars;
-    printf "den vars = %o\n", den_vars;
-    // make the equations
-    equations := [];
-    Rfrac := FieldOfFractions(R);
-    // equation for rescaling
-    // TODO what if xgcd is not 1?
-    // look in galoisorbits.m TriangleRescaleCoefficients assign something to Gamma and get it here ftw
-    nonzero_inds, wts := Explode (rescaling);
-    assert #nonzero_inds eq #wts;
-    rescaling_equation := R!1;
-    map_vars := num_vars cat [R!1] cat den_vars cat [R!1]; // meowow
-    for i := 1 to #wts do
-      rescaling_equation *:= Rfrac!(map_vars[nonzero_inds[i]])^wts[i];
-    end for;
-    Append(~equations, R!Numerator(rescaling_equation - 1));
-    // equations for the points
-    for pt_list in [white_vars, black_vars, cross_vars] do
-      i := 1;
-      while i le #pt_list do
-        pt := pt_list[i];
-        Append(~equations, pt[2]^2-(pt[1]^3-27*inv_vars[1]*pt[1]-54*inv_vars[2]));
-        i := i+1;
-      end while;
-    end for;
-    // equations for ramification
-    Ser<t> := LaurentSeriesRing(Rfrac);
-    // white equations
-    for k := 1 to #white_vars do
-      pt := white_vars[k];
-      x_p := Ser!pt[1];
-      y_p := Ser!pt[2];
-      u := -y_p+y_p*Sqrt(1+(t^3+3*t^2*x_p+3*t*x_p^2+(-27*inv_vars[1])*t)/(y_p^2)); // negative?
-      // numerator
-      num := Ser!0;
-      for i := 1 to #num_vars do // numerator monomials except leading term
-        if i mod 2 eq 0 then
-          num +:= num_vars[i]*(t+x_p)^(i/2);
-        elif i eq 1 then
-          num +:= num_vars[i];
-        else // i>1 odd
-          num +:= num_vars[i]*(t+x_p)^((i-3) div 2)*(u+y_p);
-        end if;
-      end for;
-      if (#num_vars+1) eq 1 then // numerator just has constant term (which doesn't appear in num_vars)
-        num +:= 1;
-      elif (#num_vars+1) mod 2 eq 0 then // numerator leading term
-        num +:= (t+x_p)^((#num_vars+1)/2);
-      else
-        num +:= (t+x_p)^((#num_vars+1-3) div 2)*(u+y_p);
-      end if;
-      num *:= -lc_var; // negative because TriangleGenusOneNumericalBelyiMap outputs NEGATIVES of numerator coeffs
-      phi0 := num;
-      for j := 0 to mults_white[k]-1 do // vanish to order mults_white[k]
-        Append(~equations, R!Numerator(Rfrac!Coefficient(phi0, j)));
-      end for;
-    end for;
-    // black equations: remember that TriangleGenusOneNumericalBelyiMap outputs NEGATIVES of numerator coeffs
-    for k := 1 to #black_vars do
-      pt := black_vars[k];
-      x_p := Ser!pt[1];
-      y_p := Ser!pt[2];
-      u := -y_p+y_p*Sqrt(1+(t^3+3*t^2*x_p+3*t*x_p^2+(-27*inv_vars[1])*t)/(y_p^2)); // negative?
-      // numerator
-      num := Ser!0;
-      for i := 1 to #num_vars do // numerator monomials except leading term
-        if i mod 2 eq 0 then
-          num +:= num_vars[i]*(t+x_p)^(i/2);
-        elif i eq 1 then
-          num +:= num_vars[i];
-        else // i>1 odd
-          num +:= num_vars[i]*(t+x_p)^((i-3) div 2)*(u+y_p);
-        end if;
-      end for;
-      if (#num_vars+1) eq 1 then
-        num +:= 1;
-      elif (#num_vars+1) mod 2 eq 0 then // numerator leading term
-        num +:= (t+x_p)^((#num_vars+1)/2);
-      else
-        num +:= (t+x_p)^((#num_vars+1-3) div 2)*(u+y_p);
-      end if;
-      num *:= -lc_var; // negative because TriangleGenusOneNumericalBelyiMap outputs NEGATIVES of numerator coeffs
-      // denominator
-      den := Ser!0;
-      for i := 1 to #den_vars do // denominator monomials except leading term
-        if i mod 2 eq 0 then
-          den +:= den_vars[i]*(t+x_p)^(i/2);
-        elif i eq 1 then
-          den +:= den_vars[i];
-        else // i>1 odd
-          den +:= den_vars[i]*(t+x_p)^((i-3) div 2)*(u+y_p);
-        end if;
-      end for;
-      if (#den_vars+1) eq 1 then
-        den +:= 1; // Belyi map is polynomial
-      elif (#den_vars+1) mod 2 eq 0 then // denominator leading term
-        den +:= (t+x_p)^((#den_vars+1)/2);
-      else
-        den +:= (t+x_p)^((#den_vars+1-3) div 2)*(u+y_p);
-      end if;
-      // -lc(num)-(den)
-      phi1 := num - den;
-      for j := 0 to mults_black[k]-1 do // vanish to order mults_black[k]
-        Append(~equations, R!Numerator(Rfrac!Coefficient(phi1, j)));
-      end for;
-    end for;
-    // cross equations
-    for k := 1 to #cross_vars do
-      pt := cross_vars[k];
-      x_p := Ser!pt[1];
-      y_p := Ser!pt[2];
-      u := -y_p+y_p*Sqrt(1+(t^3+3*t^2*x_p+3*t*x_p^2+(-27*inv_vars[1])*t)/(y_p^2)); // negative?
-      phioo := Ser!0;
-      for i := 1 to #den_vars do // denominator monomials except leading term
-        if i mod 2 eq 0 then
-          phioo +:= den_vars[i]*(t+x_p)^(i/2);
-        elif i eq 1 then
-          phioo +:= den_vars[i];
-        else // i>1 odd
-          phioo +:= den_vars[i]*(t+x_p)^((i-3) div 2)*(u+y_p);
-        end if;
-      end for;
-      if #den_vars+1 eq 1 then
-        phioo +:= 1; // Belyi map is polynomial
-      elif (#den_vars+1) mod 2 eq 0 then // denominator leading term
-        phioo +:= (t+x_p)^((#den_vars+1)/2);
-      else
-        phioo +:= (t+x_p)^((#den_vars+1-3) div 2)*(u+y_p);
-      end if;
-      for j := 0 to mults_cross[k]-1 do // vanish to order mults_cross[k]
-        // Append(~equations, Rfrac!Coefficient(phioo, j));
-        Append(~equations, R!Numerator(Rfrac!Coefficient(phioo, j)));
-      end for;
-    end for;
-    // TODO if sigma0 has a (d-1) cycle (function below)
-    return equations;
-  end intrinsic;
-
-  // TODO
-  intrinsic NewtonIterate(equations::SeqEnum[RngMPolElt], start::SeqEnum[FldComElt], precNewton::RngIntElt) -> SeqEnum[FldComElt]
-    {Newton iterate starting solution to equations (polynomials) to get a solution to precision precNewton.}
-    // TODO assertions?
-    printf "#start = %o\n", #start;
-    R := Parent(equations[1]);
-    vars := GeneratorsSequence(R);
-    printf "variables = %o\n", vars;
-    // make Jacobian
-    J := ZeroMatrix(R, #vars, #equations);
-    for i := 1 to #vars do
-      for j := 1 to #equations do
-        J[i,j] := Derivative(equations[j], i); // mind your is and js
-      end for;
-    end for;
-    printf "Ncols(J) = %o, Nrows(J) = %o, #start = %o\n", Ncols(J), Nrows(J), #start;
-    printf "#vars = %o, #equations = %o\n", #vars, #equations;
-    assert Ncols(J) ge Nrows(J);
-    assert Nrows(J) eq #start;
-    precstart := Precision(Parent(start[1]));
-    prec := precstart;
-    solvec := ChangeRing(Vector(start), ComplexField(prec)); // solvec is the solution vector that Newton updates
-    err := Max([Abs(Evaluate(eqn, Eltseq(start))) : eqn in equations]);
-    for i := 1 to 50 do
-      // update solvec precision
-      solvec := ChangeRing(solvec, ComplexField(prec));
-      // compute error and prec
-      vprintf Shimura : "Newton iteration %o:\n", i;
-      err := Max([Abs(Evaluate(eqn, Eltseq(solvec))) : eqn in equations]);
-      vprintf Shimura : "err = %o\n", err;
-      if prec ge precNewton then
-        prec +:= Ceiling(1/10*precNewton);
-      else
-        prec := Max([precstart,Min([precNewton,Ceiling(11/10*prec)]),Min([precNewton,Ceiling(-2*Log(err)/Log(10))])]);
-      end if;
-      vprintf Shimura : "prec = %o\n", prec;
-      // update solvec
-      equations_eval := [Evaluate(eqn, Eltseq(solvec)) : eqn in equations]; // SeqEnum of evaluated equations
-      J_eval := Evaluate(J, Eltseq(solvec)); // Jacobian evaluated
-      Q, L := QLDecomposition(J_eval);
-      solvec := solvec - Vector(equations_eval)*(L^-1)*Conjugate(Transpose(Q));
-      // check if our solvec is good enough
-      if prec ge precNewton and err lt 10^(-precNewton+Log(precNewton)) then
-        vprintf Shimura : "Newton worked with precNewton = %o\n", precNewton;
-        return Eltseq(solvec);
-      end if;
-    end for;
-    // if we make it out then Newton didn't work
-    error "Newton failed!";
-  end intrinsic;
-
-  // TODO assign things to Gamma (see TriangleMakeBelyiMaps in galoisorbits.mag)
-  intrinsic NewtonRecognize(cfs::SeqEnum[FldComElt], bound::RngIntElt) -> Any
-    {Recognize elements of sol with power relations up to bound. Returns a sequence of Eltseq(minpoly).}
-    coeffs_list := [* *];
-    // bl is true if K is found
-    bl := false;
-    cfs := Reverse(cfs);
-    // cfs := Reverse([u] cat phixden_seq cat phixnum_seq);
-    cfs_ind := 0;
-    while not bl and cfs_ind lt #cfs do
-      cfs_ind +:= 1;
-      bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], bound);
-    end while;
-    if not bl then
-      error "K not found; is the Galois orbit smaller than the passport size?  Try smaller m!";
-    end if;
-    for a in cfs do
-      printf "a = %o\n", a;
-      printf "recognize = %o\n", RecognizeOverK(a, K, v, conj);
-      Append(~coeffs_list, RecognizeOverK(a, K, v, conj));
-    end for;
-    return coeffs_list;
-  end intrinsic;
-*/

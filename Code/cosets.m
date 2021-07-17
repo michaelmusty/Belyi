@@ -12,9 +12,9 @@ Output:
 */
 
 import "../../../../magma/package/Geometry/GrpPSL2/GrpPSL2Shim/domain.m" :
-  InternalShimuraSequenceDomain, InternalShimuraPruneGens, InternalShimuraInterreduce;
+  InternalShimuraInterreduce;
 
-intrinsic TriangleCosetRepresentatives(Gamma::GrpPSL2 : Al := "Petal", FindSmallestCosets := false) -> SeqEnum
+intrinsic CosetRepresentatives(Gamma::GrpPSL2Tri : Al := "Petal", FindSmallestCosets := false) -> SeqEnum
   {Returns a sequence of coset representatives for Gamma in its
    containing triangle group Delta.
    If Al eq "Petal", then prefer 'a' moves; otherwise,
@@ -35,7 +35,7 @@ intrinsic TriangleCosetRepresentatives(Gamma::GrpPSL2 : Al := "Petal", FindSmall
   AssignLabel(~G, Vertices(G)[1], Delta!1);
 
   sidepairing := [];
-  DD := TriangleUnitDisc(Delta);
+  DD := UnitDisc(Delta);
   D0 := DD!0;
   FDDelta := FundamentalDomain(Delta, DD);
 
@@ -187,7 +187,7 @@ intrinsic TriangleCosetRepresentatives(Gamma::GrpPSL2 : Al := "Petal", FindSmall
   if FindSmallestCosets then
     // Find smallest cosets
     gammas := [d[1] : d in sidepairing];
-    DD := TriangleUnitDisc(Gamma);
+    DD := UnitDisc(Gamma);
     domain := ChangeUniverse(gammas, Gamma);
     domain := [gamma : gamma in domain | not IsScalar(Quaternion(gamma))];
 
@@ -265,86 +265,16 @@ intrinsic TriangleCosetRepresentatives(Gamma::GrpPSL2 : Al := "Petal", FindSmall
   return cosets, G, sidepairing;
 end intrinsic;
 
-intrinsic TriangleIdentifyCoset(Gamma::GrpPSL2, delta::GrpPSL2Elt) -> GrpPSL2Elt, RngIntElt
+intrinsic IdentifyCoset(Gamma::GrpPSL2Tri, delta::GrpPSL2Elt) -> GrpPSL2Elt, RngIntElt
   {Returns the coset Gamma*alpha_i that delta belongs, together with its index i.}
   // or the other way around, or with inverses...
 
-  require IsTriangleSubgroup(Gamma) : "Gamma must be a triangle subgroup";
   require delta in ContainingTriangleGroup(Gamma) :
                    "delta must belong to containing triangle group";
 
-  cosets := TriangleCosetRepresentatives(Gamma);
+  cosets := CosetRepresentatives(Gamma);
   pi := DefiningPermutationRepresentation(Gamma);
 
   i := 1^pi(delta);
   return cosets[i], i;
 end intrinsic;
-
-/*
-----------------------------------------------------------------------------
-----------------------------------------------------------------------------
-Side Pairings/group presentation
-Input:
-	cosetGraph: a list of triples, coset from, delta elt via, coset to.
-	triple: hyperbolic triple defining Delta<a,b,c>.
-	prec: working precision
-Output:
-	return: A list of the side pairings for the exterior edges of the fundamental
-		domain of Gamma.
-----------------------------------------------------------------------------
-
-
-// Currently broken and needs to be translated
-
-//Update: Sidepairing is already computed in TriangleCosetRepresentatives,
-//so this code is redundant.  We do need code that takes a sidepairing and produces
-//a presentation, though.
-
-intrinsic InternalTriangleGroupPresentation(Gamma::GrpPSL2) -> GrpFP, Map, Map
-  {Returns a presentation U for the triangle subgroup Gamma,
-   a map U -> Gamma.} // and a map U -> BaseRing(Gamma); will we need this?
-
-  if IsTriangleGroup(Gamma) then
-    return Gamma`TriangleGroup, Gamma`TriangleGroupMap;
-  end if;
-
-  cosets, cosetGraph := TriangleCosetRepresentatives(Gamma);
-  triangles := FundamentalDomain(Gamma);
-
-  sides := [];
-  for t in triangles do
-    Append(~sides, [*t[1], {t[2,1], t[2,3]}, 1*]);
-    Append(~sides, [*t[1], {t[2,3], t[2,2]}, 2*]);
-    Append(~sides, [*t[1], {t[2,2], t[2,4]}, 3*]);
-    Append(~sides, [*t[1], {t[2,4], t[2,1]}, 4*]);
-  end for;
-
-  outSides := [];
-  for s1 in sides do
-    outSide := true;
-    for s2 in sides[Index(sides, s1)..#s1] do
-      if s1[2] eq s2[2] then
-        outSide := false;
-        break;
-      end if;
-    end for;
-      if outSide then
-        Append(~outSides, s1);
-      end if;
-  end for;
-
-  sidePairs := [];
-  for edge in cosetGraph do
-    for side in outSides do
-      if edge[1] eq side[1] and side[3] eq 4 and edge[2] eq "0" then
-        Append(~sidePairs, [*[*edge[1],4*],[*edge[3],1*]*]);
-      elif edge[1] eq side[1] and side[3] eq 2 and edge[2] eq "1" then
-        Append(~sidePairs, [*[*edge[1],2*],[*edge[3],3*]*]);
-      end if;
-    end for;
-  end for;
-  return sidePairs;
-
-end intrinsic;
-
-*/

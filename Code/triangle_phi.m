@@ -1,7 +1,7 @@
 import "genuszero.m" : RemoveLeadingZeros;
 import "powser_iter_arfed.m" : FDReduce;
 
-intrinsic TrianglePhi(GGamma::GrpPSL2 : p := 1, prec := 0, Bound := 100) -> Any
+intrinsic TrianglePhi(GGamma::GrpPSL2Tri : p := 1, prec := 0, Bound := 100) -> Any
   {Computes solutions (Fp1 and Fp2) to the _2F_1 hypergeometric differential equation;
    Computes and returns psip as the ratio of these solutions scaled by kappa;
    Computes and returns series for phi (phipser) as the reversion of psip;
@@ -12,13 +12,13 @@ intrinsic TrianglePhi(GGamma::GrpPSL2 : p := 1, prec := 0, Bound := 100) -> Any
   Delta := ContainingTriangleGroup(GGamma);
   a,b,c := Explode(DefiningABC(Delta));
 
-  DD := TriangleUnitDisc(Delta);
+  DD := UnitDisc(Delta);
   if prec eq 0 then
     prec := DD`prec;
   end if;
   CC := ComplexField(prec);
 
-  FDDeltaH := InternalTriangleFDH(Delta, UpperHalfPlane() : Precision := prec);
+  FDDeltaH := FundamentalDomain(Delta, UpperHalfPlane() : Precision := prec);
   z0 := ComplexValue(FDDeltaH[1]);
   z1 := ComplexValue(FDDeltaH[3]);
 
@@ -53,17 +53,17 @@ intrinsic TrianglePhi(GGamma::GrpPSL2 : p := 1, prec := 0, Bound := 100) -> Any
   return Rw!phipser, kappa, psip;
 end intrinsic;
 
-intrinsic TriangleRamificationValues(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2 : NormalizeByTheta := true) -> Any
+intrinsic TriangleRamificationValues(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2Tri : NormalizeByTheta := true) -> Any
   {Input: Sk: A sequence of series expansions for modular forms of weight k of the triangle group Gamma
           Gamma: The triangle group
    Output: The ramification values for ratios of elements of Sk.
    Params: If "NormalizeByTheta", then each basis element fi of Sk is multiplied by Theta^si
            where si is the order of vanishing of fi at the center.}
 
-  alphas := TriangleCosetRepresentatives(Gamma);
+  alphas := CosetRepresentatives(Gamma);
 
   Delta := ContainingTriangleGroup(Gamma);
-  DD := TriangleUnitDisc(Gamma);
+  DD := UnitDisc(Gamma);
   prec := DD`prec;
   V := FundamentalDomain(Delta, DD);
   ws := [V[1],V[3],V[2]];
