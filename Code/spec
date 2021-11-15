@@ -7,6 +7,7 @@
   belyi_db.m
   belyi_main.m
   domain.m
+  euclidean-belyi-helper.m
   extract.m
   galoisorbits.m
   genuszero.m
@@ -19,6 +20,7 @@
   newton_hyperelliptic-new.m
   nonhyperbolic.m
   passports.m
+  polredabs.m
   powser_iter_arfed.m
   reduce.m
   recognition.m
