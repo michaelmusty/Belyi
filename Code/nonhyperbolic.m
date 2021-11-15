@@ -186,6 +186,7 @@ intrinsic SphericalBelyiMap(sigma::SeqEnum[GrpPermElt]) -> FldFunFracSchElt
   return PP1, phix;
 end intrinsic;
 
+/*
 intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt]) -> FldFunFracSchElt
   {Euclidean triples and Belyi maps, finitely many hard-coded, the rest computed using isogenies.  JV}
   abc := [Order(sigma_s) : sigma_s in sigma];
@@ -386,5 +387,20 @@ intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt]) -> FldFunFracSchElt
       phi := 1/phi;
     end if;
   end if;
+  return X, phi;
+end intrinsic;
+*/
+
+import "euclidean-belyi-helper.m" : ComputeEucBelyiMap;
+
+intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt] : Al := "Splitting") -> FldFunFracSchElt
+  {Computes the Belyi map attached to Euclidean permutation triple sigma;
+   options for Al are "Torsion", "Hybrid", "Splitting"}
+
+  abc := [Order(sigma_s) : sigma_s in sigma];
+  d := Degree(Parent(sigma[1]));
+  prec := d*100;  // wild guess
+
+  X, phi := ComputeEucBelyiMap(sigma, abc, prec : Al := Al);
   return X, phi;
 end intrinsic;
