@@ -399,8 +399,31 @@ intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt] : Al := "Splitting") -> F
 
   abc := [Order(sigma_s) : sigma_s in sigma];
   d := Degree(Parent(sigma[1]));
-  prec := d*100;  // wild guess
+  prec := 20*d;  // wild guess
+
+  a,b,c := Explode(abc);
+  if a gt b and b gt c then
+    tau := Sym(3)!(1,3);
+  elif a gt b and a gt c then
+    assert b le c;
+    tau := Sym(3)!(1,2,3);
+  elif a gt b then
+    assert a le c and b le c;
+    tau := Sym(3)!(1,2);
+  elif a gt c then
+    assert a le b;
+    tau := Sym(3)!(1,3,2); 
+  elif b gt c then
+    assert a le b and a le c;
+    tau := Sym(3)!(2,3);
+  else
+    assert a le b and b le c;
+    tau := Id(Sym(3));
+  end if;
+  sigma := S3Action(tau, sigma);
+  abc := [Order(sigma_s) : sigma_s in sigma];
 
   X, phi := ComputeEucBelyiMap(sigma, abc, prec : Al := Al);
+  phi := S3Action(tau^-1,phi);
   return X, phi;
 end intrinsic;

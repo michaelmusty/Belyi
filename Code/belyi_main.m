@@ -7,9 +7,9 @@ intrinsic S3Action(tau::GrpPermElt, phi::FldFunFracSchElt) -> FldFunFracSchElt
   elif tau eq S!(1,3) then
     return 1/phi;
   elif tau eq S!(2,3) then
-    return phi/(1-phi);
+    return phi/(phi-1);
   elif tau eq S!(1,2,3) then
-    return 1/phi-1;
+    return 1-1/phi;
   elif tau eq S!(1,3,2) then
     return 1/(1-phi);
   else

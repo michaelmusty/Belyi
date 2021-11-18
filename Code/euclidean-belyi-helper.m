@@ -135,10 +135,11 @@ GetN := function(presigma, delta_type);
   P := Parent(sigma[1]);
   abcIsID := (sigma[1]*sigma[2]*sigma[3] eq P!(1));
   M := Matrix(GetBasis(sigma, delta_type));
-    // N := AbsoluteValue(Determinant(M));
+  // N := AbsoluteValue(Determinant(M));
     // JV: this is overkill for many purposes, we only need to work with the lcm!
   N := Lcm(M[1,1],M[2,2]);
   return N, AbsoluteValue(Determinant(M));
+  // return N;
 end function;
 
 //===============================================================
@@ -170,6 +171,7 @@ PickKernelWithDistinctXs := function(presigma, delta_type);
   end for;
   KernelRelativeToStandardBasis := [[p[1]*n1, p[1]*n2 + p[2]*m2] : p in coors];
   _, N := GetN(presigma, delta_type);
+  // N := GetN(presigma, delta_type);
   scaledKer := [[(1/N)*p[1], (1/N)*p[2]]: p in KernelRelativeToStandardBasis];
   Exclude(~scaledKer, [0,0]);
   return scaledKer;
