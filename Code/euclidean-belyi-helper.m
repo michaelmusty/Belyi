@@ -794,6 +794,8 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Splitting");
   sigma, vertnumber, size := PreProcessingConjugation(presigma, delta_type);
   R := GetR(sigma, delta_type);
 
+  assert delta_type in [[2,4,4],[2,3,6],[3,3,3]];
+
   if Al eq "Torsion" then
     kerpol := TorsionKerpol(sigma, delta_type, prec);
   elif Al eq "Hybrid" then

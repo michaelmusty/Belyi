@@ -425,5 +425,15 @@ intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt] : Al := "Splitting") -> F
 
   X, phi := ComputeEucBelyiMap(sigma, abc, prec : Al := Al);
   phi := S3Action(tau^-1,phi);
+  // I think there is still an issue with [2,4,4] triples and the S_3-action
+  if not BelyiMapSanityCheck(sigma, X, phi) then
+    assert abc eq [2,4,4];
+    for tau in Sym(3) do
+      if BelyiMapSanityCheck(sigma, X, S3Action(tau,phi)) then
+        phi := S3Action(tau,phi);
+        break;
+      end if;
+    end for;
+  end if;  
   return X, phi;
 end intrinsic;
