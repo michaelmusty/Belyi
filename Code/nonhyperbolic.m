@@ -420,10 +420,10 @@ intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt] : Al := "Splitting") -> F
     assert a le b and b le c;
     tau := Id(Sym(3));
   end if;
-  sigma := S3Action(tau, sigma);
-  abc := [Order(sigma_s) : sigma_s in sigma];
+  sigmatau := S3Action(tau, sigma);
+  abc := [Order(sigmatau_s) : sigmatau_s in sigmatau];
 
-  X, phi := ComputeEucBelyiMap(sigma, abc, prec : Al := Al);
+  X, phi := ComputeEucBelyiMap(sigmatau, abc, prec : Al := Al);
   phi := S3Action(tau^-1,phi);
   // I think there is still an issue with [2,4,4] triples and the S_3-action
   if not BelyiMapSanityCheck(sigma, X, phi) then
