@@ -788,11 +788,13 @@ substituteforyfour := function(phi, yfoursub);
   return substituteforyfour_poly(Numerator(phi), yfoursub)/substituteforyfour_poly(Denominator(phi), yfoursub);
 end function;
 
-ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Torsion");
+ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Splitting");
   // This function takes a transitive Euclidean permutation triple and constructs the corresponding Belyi map
   // and optionally allows users to choose which method is used to compute the kernel polynomial of the relevant isogeny
   sigma, vertnumber, size := PreProcessingConjugation(presigma, delta_type);
   R := GetR(sigma, delta_type);
+
+  assert delta_type in [[2,4,4],[2,3,6],[3,3,3]];
 
   if Al eq "Torsion" then
     kerpol := TorsionKerpol(sigma, delta_type, prec);
@@ -814,12 +816,10 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Torsion");
   elif delta_type eq [2,4,4] then
     if vertnumber eq 1 then
       comp := (X + 1)^2/(X-1)^2;
-    elif vertnumber eq 2 then
-      comp := X^2;
     else
       comp := X^2;
     end if;
-  else
+  else  // delta_type eq [2,3,6]
     if vertnumber eq 1 then       
       if (Type(Parent(X)) ne RngMPol) then
         if BaseField(Parent(X)) ne Rationals() then
@@ -897,11 +897,7 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Torsion");
 
   if r eq 1 then
     // means we keep the elliptic curve
-    if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
-      X := EllipticCurve([minField | 0,1]);
-    else
-      X := EllipticCurve([minField | -1,0]);
-    end if;
+    X := XTG;
     KX<x,y> := FunctionField(X);
     if Rank(Parent(out)) eq 3 then
       out := Evaluate(out,[x,y,1]);
