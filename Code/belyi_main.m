@@ -17,6 +17,11 @@ intrinsic S3Action(tau::GrpPermElt, phi::FldFunFracSchElt) -> FldFunFracSchElt
   end if;
 end intrinsic;
 
+intrinsic S3Orbit(phi::FldFunFracSchElt) -> SeqEnum 
+  {Produce the orbit of phi under the action of S3 permuting 0, 1, and oo.}
+  return [S3Action(el, phi) : el in Sym(3)];
+end intrinsic;
+
 // sigma one at a time
 intrinsic BelyiMap(sigma::SeqEnum[GrpPermElt] : prec := 0, Al := "Default", ExactAl := "AlgebraicNumbers", DegreeBound := 0, precNewton := 0, Federalize := true) -> Any, Any
   {Computes the Belyi curve X and Belyi map f associated to the permutation triple sigma. Same description as below.}
