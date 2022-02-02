@@ -7,11 +7,22 @@ intrinsic Genus(Gamma::GrpPSL2Tri) -> RngIntElt
 
   // Riemann-Hurwitz formula
   sigma := DefiningPermutation(Gamma);
-  d := IndexDegree(Gamma);
-  g2 := -2*d + &+[&+[ e[2]*(e[1]-1) : e in CycleStructure(sigma[i])] : i in [1..3]];
-  g := (g2+2)/2;
-  g := Integers()!g;
+  /*
+    d := IndexDegree(Gamma);
+    g2 := -2*d + &+[&+[ e[2]*(e[1]-1) : e in CycleStructure(sigma[i])] : i in [1..3]];
+    g := (g2+2)/2;
+    g := Integers()!g;
+  */
+  return Genus(sigma);
+end intrinsic;
 
+intrinsic Genus(sigma::SeqEnum[GrpPermElt]) -> RngIntElt
+  {Returns the genus of the quotient of the upper half-plane by the triangle subgroup associated to sigma.}
+  d := Degree(Parent(sigma[1]));
+  // Riemann-Hurwitz formula
+  g2 := -2*d + &+[&+[ e[2]*(e[1]-1) : e in CycleStructure(sigma[i])] : i in [1..3]];
+  assert g2 mod 2 eq 0;
+  g := (g2+2) div 2;
   return g;
 end intrinsic;
 
