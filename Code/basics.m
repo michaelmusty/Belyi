@@ -42,7 +42,7 @@ intrinsic Signature(Gamma::GrpPSL2Tri) -> SeqEnum
 end intrinsic;
 
 intrinsic AutomorphismGroup(Gamma::GrpPSL2Tri) -> GrpPerm
-  {For Gamma a triangle subgroup, returns the automorphism group of the 
+  {For Gamma a triangle subgroup, returns the automorphism group of the
    associated Belyi map.}
 
   sigma := DefiningPermutation(Gamma);
@@ -50,7 +50,12 @@ intrinsic AutomorphismGroup(Gamma::GrpPSL2Tri) -> GrpPerm
   return Centralizer(Sd, sub<Sd | sigma>);
 end intrinsic;
 
+intrinsic QuaternionAlgebra(Gamma::GrpPSL2Tri) -> AlgQuat
+  {For Gamma a triangle subgroup, returns the quaternion algebra asssocaited
+  to Gamma.}
 
+  return Gamma`BaseRing;
+end intrinsic;
 
 /*
 ----------------------------------------------------------------------------
@@ -84,4 +89,3 @@ intrinsic SkDimension(Gamma::GrpPSL2Tri, k::RngIntElt) -> RngIntElt
 
   return dim;
 end intrinsic;
-
