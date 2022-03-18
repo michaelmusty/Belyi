@@ -897,13 +897,15 @@ intrinsic NewtonGetBasicInitializationValues(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
     vprintf Shimura : "Denominator equation :\n%o\n", phi_den;
     roots_num := Roots(eqn_num);
     roots_den := Roots(eqn_den);
+    vprintf Shimura : "numerator roots = %o\n", [ComplexField(10)!el[1] : el in roots_num];
+    vprintf Shimura : "denominator roots = %o\n", [ComplexField(10)!el[1] : el in roots_den];
     common_bool := false;
     for i := 1 to #roots_num do // looking for common roots of num and den
       a := roots_num[i][1];
-      vprintf Shimura : "numerator root = %o\n", a;
+      //vprintf Shimura : "numerator root = %o\n", a;
       for j := 1 to #roots_den do
         b := roots_den[j][1];
-        vprintf Shimura : "\tdenominator root = %o\n", b;
+        //vprintf Shimura : "\tdenominator root = %o\n", b;
         if Abs(a-b) lt 10^(-prec/4) then // wild guess
           common_bool := true;
           a0 := a;
