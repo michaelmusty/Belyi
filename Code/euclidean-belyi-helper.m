@@ -489,7 +489,7 @@ TorsionKerpol := function(sigma, delta_type, prec);
     if K0 eq Rationals() then
       K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
       m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
@@ -772,7 +772,7 @@ RevTorsionKerpol := function(sigma, delta_type, prec);
     if K0 eq Rationals() then
       K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
       m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
@@ -892,7 +892,7 @@ HybridKerpol := function(sigma, delta_type, prec);
     if K0 eq Rationals() then
       K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
       m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
@@ -972,7 +972,7 @@ SplittingKerpol := function(sigma, delta_type, prec);
     if K0 eq Rationals() then
       K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
       m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
