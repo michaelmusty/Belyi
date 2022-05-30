@@ -489,7 +489,7 @@ TorsionKerpol := function(sigma, delta_type, prec);
     if K0 eq Rationals() then
       K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
       m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
@@ -772,7 +772,7 @@ RevTorsionKerpol := function(sigma, delta_type, prec);
     if K0 eq Rationals() then
       K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
       m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
@@ -892,7 +892,7 @@ HybridKerpol := function(sigma, delta_type, prec);
     if K0 eq Rationals() then
       K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
       m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
@@ -972,7 +972,7 @@ SplittingKerpol := function(sigma, delta_type, prec);
     if K0 eq Rationals() then
       K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
       m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
@@ -990,6 +990,13 @@ end function;
 //
 //
 //===============================================================
+
+  // This function computes the kernel polynomial by finding its
+  // roots algebraically as x-coordinates of torsion points on EDelta.
+  // This version revises the "torsion" approach by reducing to a case
+  // where the kernel is cyclic then composing with a multiplication map
+
+
 CycRedKerpol := function(sigma, delta_type, prec);
   N := Integers()!GetN(sigma, delta_type);
   g := Getg(sigma, delta_type);
@@ -1184,7 +1191,7 @@ CycRedKerpol := function(sigma, delta_type, prec);
     if K0 eq Rationals() then
       K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
       m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
@@ -1199,136 +1206,6 @@ end function;
 
 
 
-//===============================================================
-//
-//
-// Splitting with proper cyclic factor
-//
-//
-//================================================================
-
-SmallerSplittingKerpol := function(sigma, delta_type, prec);
-  N := Integers()!GetN(sigma, delta_type);
-  g := Getg(sigma, delta_type);
-  b := GetBasis(sigma, delta_type);
-  n1 := Integers()!b[1][1]/g;
-  n2 := Integers()!b[1][2];
-  m2 := Integers()!b[2][2]/g;
-
-  if N eq 1 then
-    return 1;
-  end if;
-
-  if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
-    E := EllipticCurve([0,1]);
-    K := NumberField(Polynomial([1,1,1]));
-  else
-    E := EllipticCurve([-1,0]);
-    K := NumberField(Polynomial([1,0,1]));
-  end if;
-
-  if g ge 2 then
-	N := Integers()!(N/(g^2));
-  end if;
-  phiN := DivisionPolynomial(E, N);
-
-  if N eq 1 then
-    return DivisionPolynomial(E,g);
-  end if;
-
-
-  // Step 2 in Algorithm 3.2.2
-
-
-  RQ := PolynomialRing(RationalField());
-  remainingPoly:= phiN;
-  divisors := Divisors(N);
-  Exclude(~divisors, N);
-  properDivisorDivpols := [DivisionPolynomial(E,m): m in divisors ];
-  for pol in properDivisorDivpols do
-    gcd := GreatestCommonDivisor(RQ!pol, RQ!remainingPoly);
-    remainingPoly := RQ!(remainingPoly/gcd);
-  end for;
-
-
-  // Step 3 in Algorithm 3.2.2
-
-
-  RK:=PolynomialRing(K);
-  remainingPoly := RK!remainingPoly;
-  factors := [pair[1] : pair in Factorization(remainingPoly)];
-  orderedFactors := Sort(factors);
-
-  highestDegree := Degree(orderedFactors[#orderedFactors]);
-  simplerCandidates := [ ];
-  for factor in orderedFactors do
-    if (Degree(factor) eq highestDegree) and (Coefficients(factor) subset Rationals()) then
-      Append(~simplerCandidates, factor);
-    end if;
-  end for;
-
-  if #simplerCandidates ge 1 then
-    gN := simplerCandidates[#simplerCandidates];
-  else
-    gN := orderedFactors[#orderedFactors];
-  end if;
-
-
-  L := ext<K|gN>;
-  RL<xL> := PolynomialRing(L);
-  phiN := RL!phiN;
-  comproots:= WFindComplexRoots(sigma, delta_type, prec, g);
-  v := InfinitePlaces(L)[1];
-  cands := [r[1]:r in Roots(phiN)] cat [0];
-  rootsInCC := [Evaluate(r, v : Precision := prec) : r in cands];
-  algRoots := [ ];
-  if (#comproots ge 1 and #rootsInCC ge 1) then
-    for root in comproots do
-      rootsDif := [AbsoluteValue(root - CCroot) : CCroot in rootsInCC];
-      minDiff, index := Minimum(rootsDif);
-      match := cands[index];
-      Append(~algRoots, match);
-    end for;
-  end if;
-
-  // Step 6 in Algorithm 3.2.5
-
-  if #algRoots ge 1 then
-    kerpol := &*[xL - root : root in algRoots];
-  else
-    kerpol := 1;
-  end if;
-
-
-  if g ge 2 then
-    phig := RL!DivisionPolynomial(E,g);
-    kerpol := RL!((phig*kerpol)/xL);
-  end if;
-
-  // Simplifying kerpol if possible
-
-  if Type(kerpol) ne RngIntElt then
-    if L eq Rationals() then
-      K0 := L;
-    else
-      K0:= sub<L|Coefficients(kerpol)>;
-    end if;
-    kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
-    if K0 eq Rationals() then
-      K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
-    else
-      f0, K01seq := PolredabsWithRoot(MinimalPolynomial(K0.1));
-      K0op := NumberField(f0);
-      m0op := hom<K0 -> K0op | K0op!K01seq>;
-    end if;
-    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
-    kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
-    kerpol := kerpol0op;
-  else
-    kerpol := kerpol;
-  end if;
-  return kerpol;
-end function;
 
 //===============================================================
 //
@@ -1569,7 +1446,6 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Cyc");
         end if;  
       elif BaseRing(Parent(X)) ne Rationals() then
         K := BaseRing(Parent(X));
-        //print "AYo?";
         alp := K!alp;
       else
         K:= ext<Rationals()|Polynomial([1,-1,1])>;
@@ -1607,13 +1483,9 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Cyc");
     out := substituteforxsquar(preout, x);
   elif r eq 3 then
     swap := -Evaluate(XTGeq,[0,y,-1]);
-    //print XTG;
-    //print swap;
     // XTGeq solved for x^3 in terms of y
     preout := substituteforxcube(comp, swap);
-    //print preout;
     out := substitutefory(preout, x);
-    //print out;
   elif r eq 2 then
     swap := -Evaluate(XTGeq,[x,0,1]);
     // XTQeq solved for y^2 in terms of x
