@@ -12,6 +12,26 @@ RemoveLeadingZeros := function(f,eps);
   return Parent(f)!fes, sf;
 end function;
 
+TriangleGenusZeroMakeCurveAndMap := function(Gamma);
+  assert assigned Gamma`TriangleExactBelyiMapLeadingCoefficient;
+  assert assigned Gamma`TriangleExactBelyiMapNumeratorCoefficients;
+  assert assigned Gamma`TriangleExactBelyiMapDenominatorCoefficients;
+
+  uK := Gamma`TriangleExactBelyiMapLeadingCoefficient;
+  phixnumK_seq := Gamma`TriangleExactBelyiMapNumeratorCoefficients;
+  phixdenK_seq := Gamma`TriangleExactBelyiMapDenominatorCoefficients;
+  K := Parent(uK);
+     
+  Kig := PolynomialRing(K);
+  phix := uK*(Kig!phixnumK_seq)/(Kig!phixdenK_seq);
+  PP1 := Curve(ProjectiveSpace(PolynomialRing(K, 2)));
+  KPP1<x> := FunctionField(PP1);
+  phix := Evaluate(phix,x);
+  Gamma`TriangleBelyiCurve := PP1;
+  Gamma`TriangleBelyiMap := phix;
+  return PP1, phix;
+end function;
+
 intrinsic TrianglePhiGenusZeroRecognizeSeries(Skb::SeqEnum[RngSerPowElt], Gamma::GrpPSL2Tri) -> Any
 {Takes as input recognized power series over the ground field and returns the Belyi map as a rational function.}
   Theta := Gamma`TriangleTheta;
@@ -111,6 +131,8 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
   tf := Coefficient(g,sg+2*e);
   chg := (-ta*td*tf + ta*te^2 - tb*td*te + tc*td^2);
   cgh := (ta^2*tf - ta*tb*te - ta*tc*td + tb^2*td);
+  
+  vprintf Shimura : "cgh = %o, chg = %o\n", ComplexField(6)!cgh, ComplexField(6)!chg;
 
   if Al eq "NumericalKernel" then // or "NumericalKernelSetTheta" then
     Delta := ContainingTriangleGroup(Gamma);
@@ -135,6 +157,7 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
     assert Abs(LeadingCoefficient(phixnum)) gt eps;
     assert Abs(LeadingCoefficient(phixden)) gt eps;
     u := LeadingCoefficient(phixnum)/LeadingCoefficient(phixden);
+
   else  // "ByRamification" or "Newton"
     ram := TriangleRamificationValues(Sk, Gamma : NormalizeByTheta := false);
     fact := TriangleGenusZeroFactorizationPattern(Gamma);
@@ -153,24 +176,27 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
       polv := [];
       for j := 1 to #fact[i] do
         rts := [Theta*(td*ram[i][r][#Sk]-ta*ram[i][r][#Sk-1])/(cgh*ram[i][r][#Sk-1]+chg*ram[i][r][#Sk]) : r in fact[i][j][2]];
-        print i, j, rts;
+        vprint Shimura : i, j, rts;
         rts_nooo := [r : r in rts | Abs(r) lt 10^(prec/2)]; // nooooooooooooooooooo!
         if #rts_nooo eq #rts then
           Append(~polv, <&*[xCC-r : r in rts], fact[i][j][1]>);
         else
           if #rts_nooo gt 0 then
             Append(~polv, <&*[xCC-r : r in rts_nooo], fact[i][j][1]>);
-          else
-            Append(~polv, <Parent(xCC)!1, fact[i][j][1]>);
+          // else
+            // Append(~polv, <Parent(xCC)!1, fact[i][j][1]>);
           end if;
           if Al eq "Newton" then
-            error "A ramification point apparently has value oo, and this breaks Newton.  Please report and we will treat this case.";
+            ramptatoo_data := [i, fact[i][j][1]];  
+            // RamInfinity explanation:
+            // first element is i = 1,2,3, saying num, den, or num-1;
+            // second element is the ramification index that needs to be avoided 
           end if;
         end if;
       end for;
       Append(~polsvec, polv);
     end for;
-
+    
     aut := #AutomorphismGroup(Gamma);
     if Al eq "ByRamification" and aut gt 1 then
       // renormalize Theta by rescaling factor lambda
@@ -217,26 +243,34 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
       phixoo1 := phixpol_oo-phixpol_1;
       phix01 := phixpol_0-phixpol_1;
       u := Coefficient(phixoo1,0)/Coefficient(phix01,0);   // could take any coefficient here
+      vprint Shimura : "deg(phi_0) = deg(phi_1) = deg(phi_oo)\n";
       vprint Shimura : Max([Abs(c) : c in Coefficients(u*phixpol_0-phixpol_oo-(u-1)*phixpol_1)]);
     else // solve u*phi_0 - phi_oo = v*phi_1
       if degphi_1 eq degphi_oo then
         assert degphi_0 lt degphi_1;
         u := -Coefficient(phixpol_1,degphi_0)+Coefficient(phixpol_oo,degphi_0);
+        vprint Shimura : "deg(phi_1) = deg(phi_oo)\n";
         vprint Shimura : Max([Abs(c) : c in Coefficients(u*phixpol_0-phixpol_oo+phixpol_1)]);        
       elif degphi_0 eq degphi_oo then
         assert degphi_1 lt degphi_0;
         u := 1;
+        vprint Shimura : "deg(phi_0) = deg(phi_oo)\n";
         vprint Shimura : Max([Abs(c) : c in Coefficients(phixpol_0-phixpol_oo-phixpol_1)]);
       elif degphi_0 eq degphi_1 then
         assert degphi_oo lt degphi_0;
         u := 1/(Coefficient(phixpol_0,degphi_oo)-Coefficient(phixpol_1,degphi_oo));
+        vprint Shimura : "deg(phi_0) = deg(phi_1)\n";
         vprint Shimura : Max([Abs(c) : c in Coefficients(u*phixpol_0-phixpol_oo-u*phixpol_1)]);        
       end if;
     end if;
 
     if Al eq "Newton" then
       assert precNewton gt 0;
-      polsvec, u := TrianglePhiGenusZeroNewton(polsvec, u, Gamma, precNewton);
+      if assigned ramptatoo_data then
+        polsvec, u := TrianglePhiGenusZeroNewton(polsvec, u, Gamma, precNewton : RamInfinity := ramptatoo_data);
+      else
+        polsvec, u := TrianglePhiGenusZeroNewton(polsvec, u, Gamma, precNewton);
+      end if;
 
       phixpol_0 := &*[f[1]^f[2] : f in polsvec[1]];
       phixpol_1 := &*[f[1]^f[2] : f in polsvec[2]];
@@ -264,11 +298,15 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
   vprint Shimura : "Looking for coefficient to recognize number field...";  
   bl := false;
   cfs := Reverse([u] cat phixden_seq cat phixnum_seq);
-  cfs_ind := 0;
-  while not bl and cfs_ind lt #cfs do
-    cfs_ind +:= 1;
-    bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], m);
-  end while;
+  for mtry := m to 1 by -1 do 
+    printf "    ==> trying degree m = %o", mtry;
+    cfs_ind := 0;
+    while not bl and cfs_ind lt #cfs do
+      cfs_ind +:= 1;
+      bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], mtry);
+    end while;
+    if bl then break; end if;
+  end for;
   if not bl then
     error "K not found; is the Galois orbit smaller than the passport size?  Try smaller m!";
   end if;
@@ -283,30 +321,12 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
   uK_seq, phixnumK_seq, phixdenK_seq := Explode(RecognizeOverK([[u],phixnum_seq,phixden_seq], K, v, conj));
   
   vprint Shimura : "...Coefficients recognized!";
-  uK := uK_seq[1];
+  uK := K!uK_seq[1];
   Gamma`TriangleExactBelyiMapLeadingCoefficient := uK;
   Gamma`TriangleExactBelyiMapNumeratorCoefficients := phixnumK_seq;
   Gamma`TriangleExactBelyiMapDenominatorCoefficients := phixdenK_seq;
 
-  Kig := PolynomialRing(K);
-  phix := uK*(Kig!phixnumK_seq)/(Kig!phixdenK_seq);
-  PP1 := Curve(ProjectiveSpace(PolynomialRing(K, 2)));
-  KPP1<x> := FunctionField(PP1);
-  phix := Evaluate(phix,x);
-  Gamma`TriangleBelyiCurve := PP1;
-  Gamma`TriangleBelyiMap := phix;
-  /*
-  num := Numerator(phix);
-  den := Denominator(phix);
-  lc_num := LeadingCoefficient(num)
-  num := num/lc_num;
-  lc_den := LeadingCoefficient(den);
-  den := den/lc_den;
-  lc := lc_num/lc_den;
-  Gamma`TriangleExactBelyiMapLeadingCoefficient := lc;
-  Gamma`TriangleExactBelyiMapNumeratorCoefficients := Coefficients(num);
-  Gamma`TriangleExactBelyiMapDenominatorCoefficients := Coefficients(den);
-  */
+  PP1, phix := TriangleGenusZeroMakeCurveAndMap(Gamma);
 
   return PP1, phix;
 end intrinsic;
@@ -370,14 +390,19 @@ intrinsic TriangleGenusZeroFactorizationPattern(Gamma::GrpPSL2Tri) -> Any
   return fact;
 end intrinsic;
 
-intrinsic TrianglePhiGenusZeroEquations(Gamma::GrpPSL2Tri : WithInverses := true) -> Any
+intrinsic TrianglePhiGenusZeroEquations(sigma::SeqEnum[GrpPermElt] : WithInverses := true, RamInfinity := []) -> Any
 {System of equations for Gamma.}
+  // RamInfinity := [i, j] means i = 1,2,3 corresponding to 0,1,oo, and j means the cycles of order j;
+  // e.g. [1,3] means the cycle of order 3 above 0 is oo.
 
-  sigma := DefiningPermutation(Gamma);
   Ccyc := [CycleStructure(c) : c in sigma];
 
+  if #RamInfinity gt 1 then assert #RamInfinity eq 2; end if;
+
+  naut := #PointedAutomorphismGroup(sigma);
+  assert naut eq 1;  // Need trivial pointed automorphism group
+
   // must ensure first one contains 1
-  a := Order(sigma[1]);
   e := #CycleDecomposition(sigma[1])[1]; //length of cycle containing 1 in sigma0
   i := 1;
   while Ccyc[1][i][1] ne e do
@@ -385,14 +410,15 @@ intrinsic TrianglePhiGenusZeroEquations(Gamma::GrpPSL2Tri : WithInverses := true
   end while;
   Ccyc[1] := [Ccyc[1][i]] cat Ccyc[1][1..i-1] cat Ccyc[1][i+1..#Ccyc[1]];
 
-  require Ccyc[1][1][1] ge 2 and Ccyc[1][1][1] ne a : "Need cycle containing 1 in sigma_0 to have length >= 2 and < a, for convenience";
+  require Ccyc[1][1][1] ge 2 : "Need cycle containing 1 in sigma_0 to have length >= 2, for convenience";
 
   // Declare variables
-  numVars := &+[&+[c[2] : c in Ccyc[i]] : i in [1..3]]; //Sum of number of cycles in perm'ns in sigma
-  numVarsXtra := &+[#c : c in Ccyc];  //Sum of number of cycles of distinct length in sigma
+  numVars := &+[&+[c[2] : c in Ccyc[i]] : i in [1..3]] - (#RamInfinity div 2); 
+     //Sum of number of cycles in perm'ns in sigma, minus 0 or 1 according as if there is ram at oo or not 
+  numVarsXtra := &+[#c : c in Ccyc]+1;  //Sum of number of cycles of distinct length in sigma, and constant coeff
 
   if WithInverses then
-    Pa<[a]> := PolynomialRing(Rationals(), numVars + numVarsXtra+1);
+    Pa<[a]> := PolynomialRing(Rationals(), numVars + numVarsXtra);
   else
     Pa<[a]> := PolynomialRing(Rationals(), numVars);
   end if;
@@ -410,24 +436,46 @@ intrinsic TrianglePhiGenusZeroEquations(Gamma::GrpPSL2Tri : WithInverses := true
         jFactors[i] *:= Polynomial([0] cat a[cnt..cnt+c[2]-2] cat [1])^c[1];
         if c[2] gt 1 then
           Append(~constCoeffs, cnt);
-          cnt +:= c[2]-1;
+          if #RamInfinity gt 0 and RamInfinity[1] eq i and RamInfinity[2] eq Ccyc[i][j][1] then
+            cnt +:= c[2]-2;
+            normeqij cat:= [[i,j,k,cnt+k] : k in [1..c[2]-3]];
+          else
+            cnt +:= c[2]-1;
+            normeqij cat:= [[i,j,k,cnt+k] : k in [1..c[2]-2]];
+          end if;
         end if;
-        normeqij cat:= [[i,j,k,cnt+k] : k in [1..c[2]-2]];
       else
-        jFactors[i] *:= Polynomial(a[cnt..cnt+c[2]-1] cat [1])^c[1];
-        Append(~constCoeffs, cnt);
-        if c[2] eq 1 then
-          Append(~normeqij, [i,j,-1,cnt]);
+        if #RamInfinity gt 0 and RamInfinity[1] eq i and RamInfinity[2] eq Ccyc[i][j][1] then
+          jFactors[i] *:= Polynomial(a[cnt..cnt+c[2]-2] cat [1])^c[1];
+          Append(~constCoeffs, cnt);
+          if c[2] eq 2 then
+            Append(~normeqij, [i,j,-1,cnt]);
+          elif c[2] gt 2 then
+            normeqij cat:= [[i,j,k,cnt+k] : k in [0..c[2]-2]];
+          end if;
+          cnt +:= c[2]-1;
         else
-          normeqij cat:= [[i,j,k,cnt+k] : k in [0..c[2]-2]];
+          jFactors[i] *:= Polynomial(a[cnt..cnt+c[2]-1] cat [1])^c[1];
+          Append(~constCoeffs, cnt);
+          if c[2] eq 1 then
+            Append(~normeqij, [i,j,-1,cnt]);
+          else
+            normeqij cat:= [[i,j,k,cnt+k] : k in [0..c[2]-2]];
+          end if;
+          cnt +:= c[2];
         end if;
-        cnt +:= c[2];
       end if;
     end for;
   end for;
+  
   // Constant factors
   jFactors[1] *:= a[numVars];
-  jFactors[2] *:= a[numVars]-1;
+  if Degree(jFactors[1]) eq Degree(jFactors[2]) then
+    jFactors[2] *:= a[numVars]-1;
+  else
+    assert #RamInfinity gt 0;
+    jFactors[2] *:= -1;
+  end if;
 
   // Set up equations
   jSolveNum := jFactors[1]-jFactors[2]-jFactors[3];
@@ -438,13 +486,31 @@ intrinsic TrianglePhiGenusZeroEquations(Gamma::GrpPSL2Tri : WithInverses := true
   q0 := Coefficient(jFactors[3],0);
   q1 := Coefficient(jFactors[3],1);
 
-  normeq := q1*p0 - q0*p1;
+  a_sigma0 := Order(sigma[1]);
+  if &+[1/Order(s) : s in sigma] lt 1 then // hyperbolic, use phi
+    Gamma := TriangleSubgroup(sigma);
+    phi := TrianglePhi(Gamma : Bound := 3);
+    h1 := Coefficient(phi,a_sigma0);
+    h2 := Coefficient(phi,a_sigma0+a_sigma0/e);
+    if e ne a_sigma0 then assert h2 eq 0; end if;
+    assert h1 eq 1;
+
+    normeq := p1*q0 - p0*q1 - h2*p0^2/h1^2;
+  else // euclidean or spherical
+    normeq := p1*q0 - p0*q1;  // not really sure about this
+  end if;
   for c in constCoeffs do
     while IsDivisibleBy(normeq, a[c]) do
       normeq div:= a[c];
     end while;
   end for;
-  normeqs := [normeq, a[normeqij[1][4]] - a[normeqij[1][4]+1]];
+  normeqs := [normeq];
+  normeqs := [normeq];
+  if normeqij[1][3] eq -1 then
+    Append(~normeqs, a[normeqij[1][4]]-1);
+  else
+    Append(~normeqs, a[normeqij[1][4]] - a[normeqij[1][4]+1]);
+  end if;
 
   cfs := Coefficients(jSolveNum);
      // cat &cat[Coefficients(Derivative(jSolveNum,s)) : s in [1..Degree(jSolveNum)]];
@@ -462,9 +528,35 @@ intrinsic TrianglePhiGenusZeroEquations(Gamma::GrpPSL2Tri : WithInverses := true
   return I, jFactors, constCoeffs, normeqij;
 end intrinsic;
 
-intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComElt, Gamma::GrpPSL2Tri, precNewton::RngIntElt) -> Any
+intrinsic TriangleGenusZeroDirect(sigma::SeqEnum[GrpPermElt] : RamInfinity := []) -> List
+{Tries direct method, gives a sequence of solutions with correct partition triple, but no guarantee that mondromy is correct unless irreducible.}
+
+  I, jFactors := TrianglePhiGenusZeroEquations(sigma : RamInfinity := RamInfinity, WithInverses := true);
+  vsolve := SolveZeroDimIdeal(I);
+
+  phis := [* *];
+  for vv in vsolve do
+    v := vv[1];
+    Gamma := HackobjCreateRaw(GrpPSL2Tri);
+    Gamma`TriangleSigma := sigma;
+
+    Gamma`TriangleExactBelyiMapLeadingCoefficient := Universe(v)!1;
+    Gamma`TriangleExactBelyiMapNumeratorCoefficients := [Evaluate(c,v) : c in Coefficients(jFactors[1])];
+    Gamma`TriangleExactBelyiMapDenominatorCoefficients := [Evaluate(c,v) : c in Coefficients(jFactors[3])];
+
+    PP1, phi := TriangleGenusZeroMakeCurveAndMap(Gamma);
+    Append(~phis, phi);
+  end for;
+  
+  return phis; 
+end intrinsic;
+
+intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComElt, Gamma::GrpPSL2Tri, precNewton::RngIntElt : RamInfinity := []) -> Any
 {Newton iterate from existing factorization to desired prec.}
   require Genus(Gamma) eq 0 : "Only for genus zero gamma";
+
+  sigma := DefiningPermutation(Gamma);
+  naut := #PointedAutomorphismGroup(sigma);
 
   CC := Parent(u);
   prec := Precision(CC);
@@ -472,7 +564,11 @@ intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComEl
 
   polsvecsc := polsvec;
 
-  I, jFactors, _, normeqij := TrianglePhiGenusZeroEquations(Gamma : WithInverses := false);
+  vprintf Shimura : "Calling TrianglePhiGenusZeroEquations with RamInfinity := %o\n", RamInfinity;
+
+  I, jFactors, _, normeqij := TrianglePhiGenusZeroEquations(sigma : RamInfinity := RamInfinity, WithInverses := false);
+
+  vprintf Shimura : "Defining ideal: %o\n", I;
 
   nij := 0;
   found_lambda := false;
@@ -487,14 +583,15 @@ intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComEl
     k := nm[3];
     cnt := nm[4];
     if k eq -1 then
+      assert naut eq 1;
       a1 := Coefficient(polsvecsc[i][j][1],0);
       a2 := 1; 
     else
       a1 := Coefficient(polsvecsc[i][j][1],k);
-      a2 := Coefficient(polsvecsc[i][j][1],k+1);
+      a2 := Coefficient(polsvecsc[i][j][1],k+naut);
     end if;
     if Abs(a1) gt eps and Abs(a2) gt eps then
-      lambda := a1/a2;
+      lambda := (a1/a2)^(1/naut);
       Append(~lambdas, [* lambda, a1, a2, nij *]);
       found_lambda := true;
     end if;
@@ -505,6 +602,7 @@ intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComEl
     error "Unable to normalize by setting two adjacent coefficients equal, try with a different algorithm";
   end if;
   
+  // lambdadat := Random(lambdas);
   lambdadat := lambdas[#lambdas];
   lambda := lambdadat[1];
   nm := normeqij[lambdadat[4]];
@@ -515,10 +613,15 @@ intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComEl
   Igens := Generators(I);
   Pa<[a]> := Universe(Igens);
   if k eq -1 then
-    Igens[2] := a[cnt]-1;
+    igens2 := a[cnt]-1;
   else
-    Igens[2] := a[cnt]-a[cnt+1];
+    igens2 := a[cnt]-a[cnt+naut];
   end if;
+  Igens[2] := igens2;
+  vprintf Shimura : "Taking normalizing equation %o\n", igens2;
+
+  vprintf Shimura : "*New* defining ideal: %o\n", Igens;
+
   I := ideal<Pa | Igens>;
 
   _<xCC> := Parent(polsvecsc[1][1][1]);
@@ -534,40 +637,83 @@ intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComEl
       end if;
     end for;
   end for;
-  assert &+[Degree(f[1])*f[2] : f in polsvecsc[1]] eq &+[Degree(f[1])*f[2] : f in polsvecsc[3]];
-  solvec cat:= [u];
+  phi0deg := &+[Degree(f[1])*f[2] : f in polsvecsc[1]];
+  phioodeg := &+[Degree(f[1])*f[2] : f in polsvecsc[3]];
+//  if phi0deg eq phioodeg then
+    solvec cat:= [u*lambda^(phi0deg-phioodeg)];
+//  end if;
   solvec := Vector(solvec);
 
   dd := Ncols(solvec);
   cfs := Generators(I)[1..dd];
+  // Sometimes the first equation (a normalizing equation) is not so well-behaved, 
+  // so we need a better choice for the dd local generators for the ideal
+  Pder := Matrix([[Derivative(P,Parent(P).i) : P in cfs] : i in [1..dd]]);
+  J := Matrix([[Evaluate(Pder[i][j],Eltseq(solvec)) : j in [1..dd]] : i in [1..dd]]);
+  Q, L := QLDecomposition(J);
+  if Abs(L[1,1]) lt eps then
+    // not invertible, need different equations; try without first one
+    assert #Generators(I) ge dd;  // Looks like Jacobian is not invertible, probably a precision issue
+    cfs := Generators(I)[2..dd+1];
+    Pder := Matrix([[Derivative(P,Parent(P).i) : P in cfs] : i in [1..dd]]);
+    J := Matrix([[Evaluate(Pder[i][j],Eltseq(solvec)) : j in [1..dd]] : i in [1..dd]]);
+    Q, L := QLDecomposition(J);
+    assert Abs(L[1,1]) gt eps;
+  end if;
 
   precstart := prec;
   itercnt := 0;
   while itercnt lt 50 do
     itercnt +:= 1;
     solvec := ChangeRing(solvec, ComplexField(prec));
-    fsol := [-Evaluate(P,Eltseq(solvec)) : P in cfs];
-    err := RealField()!Max([Abs(fs) : fs in fsol]);
 
-    if prec ge precNewton then
-      prec +:= Ceiling(1/10*precNewton);
-    else
-      prec := Max([precstart,Min([precNewton,Ceiling(11/10*prec)]),Min([precNewton,Ceiling(-2*Log(err)/Log(10))])]);
-    end if;
+    // redundant
+    fsol := [Evaluate(P,Eltseq(solvec)) : P in cfs];
+    fsolvec := Vector(fsol);
+    Fold := Norm(fsolvec);
 
-    vprintf Shimura : "%o: err = %o, prec = %o... ", itercnt, RealField(6)!err, prec;
-    if prec ge precNewton and err lt 10^(-precNewton+Log(precNewton)) then
-      vprintf Shimura : "\n";
-      break;
-    end if;
-    J := Matrix([[Evaluate(Derivative(P,Parent(P).i),Eltseq(solvec)) : P in cfs] : i in [1..dd]]);
+    vprintf Shimura : "%o: Fold = %o, prec = %o... \n", itercnt, RealField(6)!Fold, prec;
+    J := Matrix([[Evaluate(Pder[i][j],Eltseq(solvec)) : j in [1..dd]] : i in [1..dd]]);
     Q, L := QLDecomposition(J);
-    w := (Vector(fsol)*(L^-1))*Conjugate(Transpose(Q));   // this is ridiculous, shouldn't have to compute an inverse
-    // In QR, R = Transpose(A)*J.  What is the correct thing for QL? L2LA
+    w := (fsolvec*(L^-1))*Conjugate(Transpose(Q));   // this is ridiculous, shouldn't have to compute an inverse
+    // In QR = J, R = Transpose(Q)*J.  What is the correct thing for QL? L2LA
     // w := Vector(fsol)*NumericalPseudoinverse(J);      // why so slow?
     
-    vprintf Shimura : "Norm(w) = %o\n", RealField(6)!Sqrt(&+[Abs(ww)^2 : ww in Eltseq(w)]);
-    solvec +:= w;
+    vprintf Shimura : "   Norm(w) = %o\n", RealField(6)!Norm(w);
+
+    fsolnew := [Evaluate(P,Eltseq(solvec-w)) : P in cfs];
+    Fnew := Norm(Vector(fsolnew));
+
+    if Abs(Fnew) lt Abs(Fold/2) then // improved at least by a digit
+      vprintf Shimura : "   Fnew = %o < Fold/2 = %o, using Newton step\n", RealField(6)!Fnew, RealField(6)!Fold/2;
+      solvec -:= w;
+
+      if prec ge precNewton then
+        prec +:= Ceiling(1/10*precNewton);
+      else
+        prec := Max([precstart,Min([precNewton,Ceiling(11/10*prec)]),Min([precNewton,Ceiling(-Log(Fnew)/Log(10))])]);
+      end if;
+      if prec ge precNewton and Sqrt(Abs(Fnew)) lt 10^(-precNewton+Log(precNewton)) then
+        vprintf Shimura : "\n";
+        break;
+      end if;
+    else  // backtrack
+      vprintf Shimura : "   Fnew = %o > Fold/2 = %o, so backtracking!\n", RealField(6)!Fnew, RealField(6)!Fold/2;
+      FstJw := DotProduct(Conjugate(fsolvec)*J,w);
+      lambda := Abs(FstJw/(2*(Fnew-Fold-FstJw)));
+      vprintf Shimura : "   FstJw = %o; lambda = %o\n", ComplexField(6)!FstJw, ComplexField(6)!lambda;
+      if Abs(lambda) lt 10^-4 then
+        lambda *:= 10^-4/Abs(lambda);
+      end if;
+      if Abs(lambda) gt 1/2 then
+        lambda := 1/2;
+      end if;
+
+      fsolnew := [Evaluate(P,Eltseq(solvec-lambda*w)) : P in cfs];
+      Fnew := Norm(Vector(fsolnew));
+      
+      solvec -:= lambda*w;
+    end if; 
   end while;
   if itercnt eq 50 then
     error "Newton didn't converge or something?";
@@ -582,6 +728,10 @@ intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComEl
   for i := 1 to 3 do
     polv := [];
     for j := 1 to #fact[i] do
+      if RamInfinity ne [] and i eq RamInfinity[1] and fact[i][j][1] eq RamInfinity[2] then
+        // skip it
+        continue;
+      end if;
       if i eq 1 and j eq 1 then
         Append(~polv, <Polynomial([0] cat solvec[cnt..cnt+#fact[i][j][2]-2] cat [1]), fact[i][j][1]>);
         cnt +:= #fact[i][j][2]-1;

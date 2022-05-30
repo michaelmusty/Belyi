@@ -16,6 +16,7 @@ intrinsic PointedAutomorphismGroup(sigma::SeqEnum[GrpPermElt] : bp := 1, sh := 1
     return Stabilizer(G, gset ! cycle);
 end intrinsic;
 
+/*
 intrinsic WishlistCase1(d::RngIntElt : just_names := false) -> Any
   {returns a list of pairs [* s, sigma *] where s is a BelyiDB object and AutomorphismGroup(sigma) gt PointedAutomorphismGroup(sigma) gt 1.}
   // directory stuff
@@ -77,3 +78,4 @@ intrinsic WishlistCase2(d::RngIntElt : just_names := false) -> Any
   end for;
   return case2;
 end intrinsic;
+*/
