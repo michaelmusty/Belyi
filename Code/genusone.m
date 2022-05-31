@@ -2,6 +2,8 @@
 // Genus one
 // ================================================================================
 
+import "hyperelliptic.m" : ZeroifyCoeffsLaurent;
+
 declare attributes GrpPSL2Tri:  
 
   TrianglePeriodLattice, // period lattice of elliptic curve
@@ -38,7 +40,18 @@ declare attributes GrpPSL2Tri:
   TriangleNewtonInitialization, // all the starting values
   TriangleNewtonSolution, // after Newton iteration
   TriangleNewtonSolutionExact, // recognized solution
-  TriangleNewtonDebug;
+  TriangleNewtonDebug,
+  TriangleNewtonNeedsExtra; // set when there is a need for extra variables for common zero;
+
+NeedsExtra := function(Gamma);
+  if not assigned Gamma`TriangleNewtonNeedsExtra then
+    sigma := Gamma`TriangleSigma;
+	  d := Gamma`TriangleD;
+  	s := #CycleDecomposition(sigma[1])[1];
+    Gamma`TriangleNewtonNeedsExtra := d gt Degree(Universe(sigma)) and s lt d;
+  end if;
+  return Gamma`TriangleNewtonNeedsExtra;
+end function;
 
 intrinsic PrincipalPeriods(w_is::Any) -> Any
   {Computes the principal periods for Gamma.}
@@ -60,6 +73,10 @@ end intrinsic;
 intrinsic TriangleGenusOnePeriods(Sk1::SeqEnum[RngSerPowElt], Gamma::GrpPSL2Tri) -> Any
   {Given series expansions (in the form of the output of TrianglePowerSeriesBasis) for holomorphic differential on Gamma, return a basis for the period lattice.}
   require Genus(Gamma) eq 1 : "Only for genus one";
+
+  if assigned Gamma`TrianglePeriodLattice then
+    return Gamma`TrianglePeriodLattice;
+  end if;
 
   CC<I> := BaseRing(Parent(Sk1[1]));
   prec := Precision(CC);
@@ -305,7 +322,7 @@ xcoeffs := function(N,c4,c6);
   // N is number of coefficients computed
   as := [Parent(c4)!1];
   for m in [2..N] do
-  L := m-3; // Note index shifting: a_L is in as[L+3], e.g. a_{-1} is as[2]
+    L := m-3; // Note index shifting: a_L is in as[L+3], e.g. a_{-1} is as[2]
     a_new := 0;
     for k in [1..(L+1)] do
       a_new := a_new + (L-k)*(k-2)*as[L-k+3]*as[k-2+3]; // a_{L-k}*a_{k-2}
@@ -371,38 +388,56 @@ intrinsic TriangleGenusOneNumericalBelyiMap(Sk1::SeqEnum[RngSerPowElt], Gamma::G
   the coefficients of the numerator, and the coefficients of the denominator ],
   and assigns everything to Gamma.}
 
-  // TODO wild guess for Ncoeffs
-  if Ncoeffs eq 0 then
-    Ncoeffs := 200;
-  end if;
-
   require Genus(Gamma) eq 1 : "Only for genus 1 triangle subgroups";  
   Delta := ContainingTriangleGroup(Gamma);
   phi, kappa := TrianglePhi(Delta);
   CC<I> := BaseRing(Parent(Sk1[1]));
   PowCC := PowerSeriesRing(CC);
   a := DefiningABC(Gamma)[1];
-  CC := Parent(kappa);
   prec := Precision(CC);
+  epsilon := 10^(-prec/2);
+
+  // DD := UnitDisc(Gamma);
+  // rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
 
   sigma := DefiningPermutation(Gamma);
   d := Degree(Parent(sigma[1]));
   cycs := CycleDecomposition(sigma[1]);
-  s := #CycleDecomposition(sigma[1])[1];
+  s := #cycs[1];
   t := d - s + 1;
+  e := a div s;
+
+  // TODO wild guess for Ncoeffs
+  if Ncoeffs eq 0 then
+    Ncoeffs := e*200;
+  end if;
 
   Lambda := TriangleGenusOnePeriods(Sk1, Gamma);
   vprint Shimura : "Computing elliptic functions...";
-  // x,y,c4,c6,j := TriangleGenusOneEllipticCurve(Lambda, Gamma : Ncoeffs := 100); FIXME
   x,y,c4,c6,j := TriangleGenusOneEllipticCurve(Lambda, Gamma : Ncoeffs := Ncoeffs);
   x := Evaluate(x,kappa*Parent(x).1);
   y := Evaluate(y,kappa*Parent(x).1);
 
   vprint Shimura : "Composing power series...";    
-  u := 2*I*Integral(Evaluate(Sk1[1],kappa*Parent(Sk1[1]).1));
-  xu := Evaluate(x+O(Parent(x).1^prec),u+O(Parent(u).1^prec));
-  yu := Evaluate(y+O(Parent(y).1^prec),u+O(Parent(u).1^prec));
+  u := (2*I)*Integral(Evaluate(Sk1[1],kappa*Parent(Sk1[1]).1));
+  uprec := Precision(Parent(u));
+  xu := Evaluate(x+O(Parent(x).1^uprec),u+O(Parent(u).1^uprec));
+  yu := Evaluate(y+O(Parent(y).1^uprec),u+O(Parent(u).1^uprec));
 
+/*
+  xuyulc := Sqrt(LeadingCoefficient(xu));
+  xu /:= xuyulc^2;
+  yu /:= xuyulc^3; 
+  x /:= xuyulc^2;
+  y /:= xuyulc^3;
+  c4 /:= xuyulc^4;
+  c6 /:= xuyulc^6;
+*/
+  // these are only well-defined up to scaling, anyways
+
+  xu := ZeroifyCoeffsLaurent(xu, epsilon);
+  yu := ZeroifyCoeffsLaurent(yu, epsilon);
+  
   GenerateLSpaceBasisAnalytic := function(n);
     basis := [Parent(xu)!1];
     for i in [2..n] do
@@ -417,31 +452,37 @@ intrinsic TriangleGenusOneNumericalBelyiMap(Sk1::SeqEnum[RngSerPowElt], Gamma::G
 
   numbasis := GenerateLSpaceBasisAnalytic(t);
   denombasis := GenerateLSpaceBasisAnalytic(s+t);
-  numdim := #numbasis;
-  denomdim := #denombasis;
 
   vprintf Shimura: "s = %o, t = %o\n", s, t; // printing
-  e := a div #CycleDecomposition(sigma[1])[1];
   vprintf Shimura: "e = %o\n", e; // printing
 
   vprint Shimura : "Computing numerical kernel...";    
-  series := [f*phi : f in denombasis] cat numbasis;
+  series := [f*phi : f in denombasis[1..t+s]] cat numbasis[1..t];
   minval := Min([Valuation(ser) : ser in series]);
+  minval /:= e;
   vprintf Shimura: "minval = %o\n", minval; // printing
   // TODO: how many columns?  The + 10 is a hack
   M := Matrix([[Coefficient(f,e*n) : n in [minval..minval+s+2*t-1+10]] : f in series]);
   // M := Matrix([[Coefficient(f,e*n) : n in [minval..minval+e*(numdim+denomdim-1)]] : f in series]);
   printf "nrows = %o, ncols = %o\n", Nrows(M), Ncols(M);
 
-  DD := UnitDisc(Gamma);
-  rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
+  // DD := UnitDisc(Gamma);
+  // rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
   // epsilon := Re(CC!10^(-Floor((9/10)*(prec + Ncols(M)*Log(10,rho)))));
-  epsilon := 10^(-prec/2);
+  // k := NumericalKernel(M : Epsilon := epsilon);
   k := NumericalKernel(M : Epsilon := epsilon);
-  vprintf Shimura: "Dimension of kernel = %o\n", Dimension(KSpaceWithBasis(k));
-  assert Dimension(KSpaceWithBasis(k)) eq 1;
+  vprintf Shimura: "Dimension of kernel = %o\n", Nrows(k);
+  assert Nrows(k) eq 1;
+/*
+  if Nrows(k) eq 0 then
+    ncols := Ncols(M);
+    repeat
+      ncols -:= 1;
+      k := NumericalKernel(Submatrix(M,1,1,Nrows(M),ncols));
+    until Nrows(k) eq 1;
+  end if;
+*/
   k := Eltseq(k[1]);
-
   // get rid of machine zeroes
   k_new := [];
   for el in k do                     
@@ -491,6 +532,8 @@ intrinsic TriangleGenusOneNumericalBelyiMap(Sk1::SeqEnum[RngSerPowElt], Gamma::G
   y_newton := Evaluate(y,(1/kappa)*Parent(x).1);
   x_newton := x_newton*lambda^2;
   y_newton := y_newton*lambda^3;
+  // x_newton := x*lambda^2;
+  // y_newton := y*lambda^3;
   assert Parent(x_newton) eq Parent(y_newton);
   Gamma`TriangleNewtonCoordinateSeries := [x_newton, y_newton];
   return [* [j,c4,c6], [* lc, num_coeffs, denom_coeffs *] *], rescale_ind, num_bool, nonzero_inds, wts, [x_newton, y_newton];

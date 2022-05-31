@@ -19,6 +19,7 @@ intrinsic TriangleTheta(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2Tri :
     // TODO: Use finer information from automorphism group here (PointedReps?)
     sigma := DefiningPermutation(Gamma);
     _, gap1 := Max([#c : c in CycleDecomposition(sigma[1])]);
+    gap1 := 1;   // blarg?
     Sk1 := [f[gap1] : f in Sk];
 
     // Find the element in the basis with the smallest "gap" between nonzero coefficients
@@ -411,9 +412,15 @@ intrinsic RecognizeOverK(Skc::SeqEnum[SeqEnum[FldComElt]], K::FldAlg, v::PlcNumE
   Skb := [];
   for fc in Skc do
     fb := [];
+    prevden := 1;
     for n := 0 to #fc-1 do
       if m eq 1 then
-        lin := LinearRelation(ZKbCC cat [-Re(fc[n+1])] : Al := "LLL");
+        powrel := PowerRelation(-prevden*Re(fc[n+1]),1 : Al := "LLL");
+        if Degree(powrel) lt 1 then 
+          lin := [0,1];
+        else
+          lin := Eltseq(powrel);
+        end if;
       else
         lin := LinearRelation(ZKbCC cat [-fc[n+1]] : Al := "LLL");
       end if;
@@ -421,7 +428,8 @@ intrinsic RecognizeOverK(Skc::SeqEnum[SeqEnum[FldComElt]], K::FldAlg, v::PlcNumE
         error "Failed to find linear relation in RecognizeOverK";
       end if;
       print "Denominator", lin[m+1], "should be not too large!";
-      Append(~fb, (ZK!lin[1..m])/lin[m+1]);
+      Append(~fb, (ZK!lin[1..m])/lin[m+1]/prevden);
+      prevden *:= lin[m+1];
       fbv := CC!Evaluate(fb[#fb],v : Precision := Precision(CC));
       if conj then fbv := Conjugate(fbv); end if;
       err := Abs(fbv - fc[n+1]);

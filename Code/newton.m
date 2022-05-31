@@ -1,5 +1,7 @@
 declare verbose BelyiNewton, 1;
 
+import "genusone.m" : NeedsExtra;
+
 intrinsic GetAssignedAttributes(Gamma::GrpPSL2Tri) -> SeqEnum
   {return assigned attributes of Gamma in a sequence.}
   attrs := GetAttributes(Type(Gamma));
@@ -545,109 +547,109 @@ end intrinsic;
 intrinsic NewtonGetBasicEquations(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {Computes basic Newton equations (ramification, order of vanishing) and assigns them to Gamma.}
   // the s and the t
-    sigma := Gamma`TriangleSigma;
-    d := Gamma`TriangleD;
-    s := #CycleDecomposition(sigma[1])[1];
-    if s eq d then // TODO hack
-      t := 0;
+  sigma := Gamma`TriangleSigma;
+  d := Gamma`TriangleD;
+  s := #CycleDecomposition(sigma[1])[1];
+  if s eq d then // TODO hack
+    t := 0;
+  else
+    t := d-s+1;
+  end if;
+// number of points is also number of mults
+// pull multiplicities from Gamma
+  mults_white := Gamma`TriangleNewtonRamificationMultiplicities0;
+  mults_black := Gamma`TriangleNewtonRamificationMultiplicities1;
+  mults_cross := Gamma`TriangleNewtonRamificationMultiplicitiesoo;
+  num_points := #mults_white+#mults_black+#mults_cross;
+  num_coeffs_CC := Gamma`TriangleNumericalBelyiMapNumeratorCoefficients;
+  den_coeffs_CC := Gamma`TriangleNumericalBelyiMapDenominatorCoefficients;
+// generate polynomial ring
+  var_names := ["c4", "c6"];
+  for i := 1 to #mults_white do
+    Append(~var_names, Sprintf("x%o_w", i));
+    Append(~var_names, Sprintf("y%o_w", i));
+  end for;
+  for i := 1 to #mults_black do
+    Append(~var_names, Sprintf("x%o_b", i));
+    Append(~var_names, Sprintf("y%o_b", i));
+  end for;
+  for i := 1 to #mults_cross do
+    Append(~var_names, Sprintf("x%o_c", i));
+    Append(~var_names, Sprintf("y%o_c", i));
+  end for;
+  Append(~var_names, "lc");
+  // for i := 1 to t-1 do // assume numerator is monic, TODO what about when t is 1?!?!
+  for i := 1 to #num_coeffs_CC-1 do // assume numerator is monic, TODO what about when t is 1?!?!
+    if i eq 1 then
+      Append(~var_names, Sprintf("a%o", 0));
     else
-      t := d-s+1;
+      Append(~var_names, Sprintf("a%o", i));
     end if;
-  // number of points is also number of mults
-  // pull multiplicities from Gamma
-    mults_white := Gamma`TriangleNewtonRamificationMultiplicities0;
-    mults_black := Gamma`TriangleNewtonRamificationMultiplicities1;
-    mults_cross := Gamma`TriangleNewtonRamificationMultiplicitiesoo;
-    num_points := #mults_white+#mults_black+#mults_cross;
-    num_coeffs_CC := Gamma`TriangleNumericalBelyiMapNumeratorCoefficients;
-    den_coeffs_CC := Gamma`TriangleNumericalBelyiMapDenominatorCoefficients;
-  // generate polynomial ring
-    var_names := ["c4", "c6"];
-    for i := 1 to #mults_white do
-      Append(~var_names, Sprintf("x%o_w", i));
-      Append(~var_names, Sprintf("y%o_w", i));
-    end for;
-    for i := 1 to #mults_black do
-      Append(~var_names, Sprintf("x%o_b", i));
-      Append(~var_names, Sprintf("y%o_b", i));
-    end for;
-    for i := 1 to #mults_cross do
-      Append(~var_names, Sprintf("x%o_c", i));
-      Append(~var_names, Sprintf("y%o_c", i));
-    end for;
-    Append(~var_names, "lc");
-    // for i := 1 to t-1 do // assume numerator is monic, TODO what about when t is 1?!?!
-    for i := 1 to #num_coeffs_CC-1 do // assume numerator is monic, TODO what about when t is 1?!?!
-      if i eq 1 then
-        Append(~var_names, Sprintf("a%o", 0));
-      else
-        Append(~var_names, Sprintf("a%o", i));
-      end if;
-    end for;
-    // for i := 1 to s+t-1 do // assume denominator is monic (might not work if numerator or denominator happens to lie in a smaller L-space) try next line instead
-    for i := 1 to #den_coeffs_CC-1 do // assume denominator is monic
-      if i eq 1 then
-        Append(~var_names, Sprintf("b%o", 0));
-      else
-        Append(~var_names, Sprintf("b%o", i));
-      end if;
-    end for;
-    // make special point variables if we need to
-    if s lt d then
-      Append(~var_names, "x_s");
-      Append(~var_names, "y_s");
+  end for;
+  // for i := 1 to s+t-1 do // assume denominator is monic (might not work if numerator or denominator happens to lie in a smaller L-space) try next line instead
+  for i := 1 to #den_coeffs_CC-1 do // assume denominator is monic
+    if i eq 1 then
+      Append(~var_names, Sprintf("b%o", 0));
+    else
+      Append(~var_names, Sprintf("b%o", i));
     end if;
-  // make R
-    R := PolynomialRing(Rationals(), #var_names, "grevlex");
-    AssignNames(~R, var_names);
-    // make pairs for points variables cuz...jeez
-    inv_vars := [R.1, R.2];
-    white_vars := []; // pairs [x1_w, y1_w],...
-    for i := 1 to #mults_white do
-      x_ind := 1+2*i;
-      y_ind := 2+2*i;
-      Append(~white_vars, [R.x_ind, R.y_ind]);
-    end for;
-    black_vars := []; // pairs [x1_b, y1_b],...
-    for i := 1 to #mults_black do
-      x_ind := 1+2*#mults_white+2*i;
-      y_ind := 2+2*#mults_white+2*i;
-      Append(~black_vars, [R.x_ind, R.y_ind]);
-    end for;
-    cross_vars := [];
-    for i := 1 to #mults_cross do
-      x_ind := 1+2*#mults_white+2*#mults_black+2*i;
-      y_ind := 2+2*#mults_white+2*#mults_black+2*i;
-      Append(~cross_vars, [R.x_ind, R.y_ind]);
-    end for;
-    vprintf Shimura : "white vars = %o\n", white_vars;
-    vprintf Shimura : "black vars = %o\n", black_vars;
-    vprintf Shimura : "cross vars = %o\n", cross_vars;
-    // make lists of variables for coefficients of Belyi map
-    lc_ind := 2*(1+num_points)+1;
-    lc_var := R.lc_ind;
-    num_vars := [];
-    for i := 1 to #num_coeffs_CC-1 do
-      ind := 2*(1+num_points)+i+1;
-      Append(~num_vars, R.ind);
-    end for;
-    vprintf Shimura : "R = %o\n", R;
-    den_vars := [];
-    // TODO what if t=1
-    for i := 1 to #den_coeffs_CC-1 do
-      ind := 2*(1+num_points)+1+#num_vars+i;
-      Append(~den_vars, R.ind);
-    end for;
-    vprintf Shimura : "num vars = %o\n", num_vars;
-    vprintf Shimura : "den vars = %o\n", den_vars;
-    if s lt d then
-      special_vars := [];
-      Append(~special_vars, R.(#var_names-1));
-      Append(~special_vars, R.#var_names);
-    end if;
-    // make the equations
-    equations := [];
-    Rfrac := FieldOfFractions(R);
+  end for;
+  // make special point variables if we need to
+  if NeedsExtra(Gamma) then
+    Append(~var_names, "x_s");
+    Append(~var_names, "y_s");
+  end if;
+// make R
+  R := PolynomialRing(Rationals(), #var_names, "grevlex");
+  AssignNames(~R, var_names);
+  // make pairs for points variables cuz...jeez
+  inv_vars := [R.1, R.2];
+  white_vars := []; // pairs [x1_w, y1_w],...
+  for i := 1 to #mults_white do
+    x_ind := 1+2*i;
+    y_ind := 2+2*i;
+    Append(~white_vars, [R.x_ind, R.y_ind]);
+  end for;
+  black_vars := []; // pairs [x1_b, y1_b],...
+  for i := 1 to #mults_black do
+    x_ind := 1+2*#mults_white+2*i;
+    y_ind := 2+2*#mults_white+2*i;
+    Append(~black_vars, [R.x_ind, R.y_ind]);
+  end for;
+  cross_vars := [];
+  for i := 1 to #mults_cross do
+    x_ind := 1+2*#mults_white+2*#mults_black+2*i;
+    y_ind := 2+2*#mults_white+2*#mults_black+2*i;
+    Append(~cross_vars, [R.x_ind, R.y_ind]);
+  end for;
+  vprintf Shimura : "white vars = %o\n", white_vars;
+  vprintf Shimura : "black vars = %o\n", black_vars;
+  vprintf Shimura : "cross vars = %o\n", cross_vars;
+  // make lists of variables for coefficients of Belyi map
+  lc_ind := 2*(1+num_points)+1;
+  lc_var := R.lc_ind;
+  num_vars := [];
+  for i := 1 to #num_coeffs_CC-1 do
+    ind := 2*(1+num_points)+i+1;
+    Append(~num_vars, R.ind);
+  end for;
+  vprintf Shimura : "R = %o\n", R;
+  den_vars := [];
+  // TODO what if t=1
+  for i := 1 to #den_coeffs_CC-1 do
+    ind := 2*(1+num_points)+1+#num_vars+i;
+    Append(~den_vars, R.ind);
+  end for;
+  vprintf Shimura : "num vars = %o\n", num_vars;
+  vprintf Shimura : "den vars = %o\n", den_vars;
+  if NeedsExtra(Gamma) then
+    special_vars := [];
+    Append(~special_vars, R.(#var_names-1));
+    Append(~special_vars, R.#var_names);
+  end if;
+  // make the equations
+  equations := [];
+  Rfrac := FieldOfFractions(R);
   // assign VARS to Gamma
   Gamma`TriangleNewtonVariablesC4C6 := inv_vars;
   Gamma`TriangleNewtonVariables0 := white_vars;
@@ -780,7 +782,7 @@ intrinsic NewtonGetBasicEquations(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   */
   print Parent(equations[1]); //printing
   // special equations
-  if s lt d then
+  if NeedsExtra(Gamma) then
     pt := special_vars;
     x_s := R!pt[1];
     y_s := R!pt[2];
@@ -828,7 +830,7 @@ intrinsic NewtonGetBasicEquations(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
     // Append(~equations, R!Numerator(Rfrac!(phi_den)));
   end if;
   // assign to Gamma
-  if s lt d then
+  if NeedsExtra(Gamma) then
     Gamma`TriangleNewtonVariablesSpecial := special_vars;
   end if;
   Gamma`TriangleNewtonBasicEquations := equations;
@@ -859,7 +861,7 @@ intrinsic NewtonGetBasicInitializationValues(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   end if;
   CC<I> := Parent(den_coeffs[1]);
   prec := Precision(CC);
-  if s lt d then
+  if NeedsExtra(Gamma) then
     vprint Shimura: "Not totally ramified, so trying to find common zero of numerator and denominator...";
     Rx<x> := PolynomialRing(CC);
     Ry<y> := PolynomialRing(Rx);
@@ -960,7 +962,7 @@ intrinsic NewtonGetBasicInitializationValues(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   Remove(~num, #num);
   den := Gamma`TriangleNewtonInitializationDenominatorCoefficients;
   Remove(~den, #den);
-  if s lt d then
+  if NeedsExtra(Gamma) then
     start := [c4, c6] cat white cat black cat cross cat [lc] cat num cat den cat [xs, ys];
   else
     start := [c4, c6] cat white cat black cat cross cat [lc] cat num cat den;
@@ -972,44 +974,44 @@ end intrinsic;
 intrinsic NewtonGetRescalingEquation(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   {assign (polynomial equation for rescaling) to Gamma.}
   // setup
-    basic_equations := Gamma`TriangleNewtonBasicEquations;
-    R := Parent(basic_equations[1]);
-    Rfrac := FieldOfFractions(R);
-    lc_var := Gamma`TriangleNewtonVariablesLeadingCoefficient;
-    num_vars := Gamma`TriangleNewtonVariablesNumeratorCoefficients;
-    den_vars := Gamma`TriangleNewtonVariablesDenominatorCoefficients;
-    rescaling := Gamma`TriangleNewtonRescalingData; // [* gcd, wts, nonzero_inds, nonzero_vals *]
-    num_coeffs := Gamma`TriangleNumericalBelyiMapNumeratorCoefficients;
-    assert Parent(lc_var) eq R;
-  // rescaling
-    gcd, wts, nonzero_inds, nonzero_vals := Explode(rescaling);
-    lc_exponent := 0;
-    for i := 1 to #wts do
-      if nonzero_inds[i] le #num_coeffs then
-        lc_exponent +:= wts[i];
-      end if;
-    end for;
-    vprintf Shimura : "wts = %o\n", wts;
-    assert #nonzero_inds eq #wts;
-    rescaling_equation := R!1;
-    wts_sum := &+[wts[i] : i in [1..#wts]];
-    assert wts_sum eq 0;
-    map_vars := num_vars cat [R!1] cat den_vars cat [R!1];
-    for i := 1 to #wts do
-      rescaling_equation *:= Rfrac!(map_vars[nonzero_inds[i]])^wts[i];
-      // vprintf Shimura : "i=%o, equation=%o\n", i, rescaling_equation;
-    end for;
-    // lc
-    printf "rescaling before = %o\n", rescaling_equation;
-    printf "wts = %o\n", wts;
-    printf "#num_coeffs = %o\n", #num_coeffs;
-    printf "nonzero_inds = %o\n", nonzero_inds;
-    printf "lc_exponent = %o\n", lc_exponent;
-    rescaling_equation *:= Rfrac!(lc_var)^lc_exponent;
-    printf "rescaling after = %o\n", rescaling_equation;
-  // assign to Gamma and return
-    Gamma`TriangleNewtonRescalingEquation := R!Numerator(rescaling_equation-1);
-    return Gamma;
+  basic_equations := Gamma`TriangleNewtonBasicEquations;
+  R := Parent(basic_equations[1]);
+  Rfrac := FieldOfFractions(R);
+  lc_var := Gamma`TriangleNewtonVariablesLeadingCoefficient;
+  num_vars := Gamma`TriangleNewtonVariablesNumeratorCoefficients;
+  den_vars := Gamma`TriangleNewtonVariablesDenominatorCoefficients;
+  rescaling := Gamma`TriangleNewtonRescalingData; // [* gcd, wts, nonzero_inds, nonzero_vals *]
+  num_coeffs := Gamma`TriangleNumericalBelyiMapNumeratorCoefficients;
+  assert Parent(lc_var) eq R;
+// rescaling
+  gcd, wts, nonzero_inds, nonzero_vals := Explode(rescaling);
+  lc_exponent := 0;
+  for i := 1 to #wts do
+    if nonzero_inds[i] le #num_coeffs then
+      lc_exponent +:= wts[i];
+    end if;
+  end for;
+  vprintf Shimura : "wts = %o\n", wts;
+  assert #nonzero_inds eq #wts;
+  rescaling_equation := R!1;
+  wts_sum := &+[wts[i] : i in [1..#wts]];
+  assert wts_sum eq 0;
+  map_vars := num_vars cat [R!1] cat den_vars cat [R!1];
+  for i := 1 to #wts do
+    rescaling_equation *:= Rfrac!(map_vars[nonzero_inds[i]])^wts[i];
+    // vprintf Shimura : "i=%o, equation=%o\n", i, rescaling_equation;
+  end for;
+  // lc
+  printf "rescaling before = %o\n", rescaling_equation;
+  printf "wts = %o\n", wts;
+  printf "#num_coeffs = %o\n", #num_coeffs;
+  printf "nonzero_inds = %o\n", nonzero_inds;
+  printf "lc_exponent = %o\n", lc_exponent;
+  rescaling_equation *:= Rfrac!(lc_var)^lc_exponent;
+  printf "rescaling after = %o\n", rescaling_equation;
+// assign to Gamma and return
+  Gamma`TriangleNewtonRescalingEquation := R!Numerator(rescaling_equation-1);
+  return Gamma;
 end intrinsic;
 
 intrinsic NewtonIterate(equations::SeqEnum[RngMPolElt], start::SeqEnum[FldComElt], precNewton::RngIntElt) -> SeqEnum[FldComElt]

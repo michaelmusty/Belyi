@@ -22,6 +22,17 @@ RemoveLeadingZerosLaurent := function(f,eps);
   return f;
 end function;
 
+ZeroifyCoeffsLaurent := function(f,eps);
+  f := RemoveLeadingZerosLaurent(f,eps);
+  vf := Valuation(f);
+  for i := vf to AbsolutePrecision(f)-1 do
+    if Abs(Coefficient(f,i)) lt eps then
+      f -:= Coefficient(f,i)*Parent(f).1^i;
+    end if;
+  end for;
+  return f;
+end function;
+
 function ZeroifyCoeffs(coeffs, eps)
   assert Type(coeffs) eq SeqEnum;
   //assert #coeffs gt 0;
