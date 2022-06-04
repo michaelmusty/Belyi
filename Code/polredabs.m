@@ -40,7 +40,7 @@ intrinsic Polredbestabs(f::RngUPolElt) -> RngUPolElt, SeqEnum, BoolElt
   return f, Eltseq(K.1), true;
 
   fbest, fbest_root := Polredabs(f : Best := true);
-  fredabs, fredabs_root, bl := Polredabs(fbest);
+  fredabs, fredabs_root, bl := Polredabs(fbest : Best := false);
 
   K := NumberField(f);
   Kbest := NumberField(fbest);
@@ -78,7 +78,7 @@ intrinsic Polredbestabs(K::Fld) -> RngUPolElt, Map, BoolElt
     if IsZero(fbest) then
         return K, hom<K -> K | K.1>, false;
     end if;
-    fredabs, fredabs_root, bl1 := Polredabs(fbest);
+    fredabs, fredabs_root, bl1 := Polredabs(fbest : Best := false);
     if IsZero(fredabs) then
         return K, hom<K -> K | K.1>, false;
     end if;

@@ -299,7 +299,7 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
   bl := false;
   cfs := Reverse([u] cat phixden_seq cat phixnum_seq);
   for mtry := m to 1 by -1 do 
-    printf "    ==> trying degree m = %o", mtry;
+    vprintf Shimura : "    ==> trying degree m = %o", mtry;
     cfs_ind := 0;
     while not bl and cfs_ind lt #cfs do
       cfs_ind +:= 1;

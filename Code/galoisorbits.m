@@ -133,6 +133,7 @@ intrinsic Polredabs(l::List) -> List
   end if;
 end intrinsic;
 
+/*
 intrinsic Polredabs(s::BelyiDB) -> BelyiDB
   {Polredabs fields, curves, and maps of s.}
   // assert BaseFieldDataSanityCheck(s);
@@ -149,6 +150,7 @@ intrinsic Polredabs(s::BelyiDB) -> BelyiDB
   // curves
   // maps
 end intrinsic;
+*/
 
 /* TODO
 intrinsic BaseFieldDataSanityCheck(s::BelyiDB) -> BoolElt
@@ -157,6 +159,7 @@ intrinsic BaseFieldDataSanityCheck(s::BelyiDB) -> BoolElt
 end intrinsic;
 */
 
+/*
 intrinsic IsPolredabsMatch(s::BelyiDB) -> BoolElt
   {check that base fields of the passport match polredabs.}
   ppass := s`BelyiDBPointedPassport;
@@ -190,6 +193,7 @@ intrinsic IsPolredabsMatch(s::BelyiDB) -> BoolElt
     return false;
   end if;
 end intrinsic;
+*/
 
 intrinsic CompareUpToBaseFieldIsomorphism(f1::FldFunFracSchElt, f2::FldFunFracSchElt) -> BoolElt
   {True if f1 and f2 have isomorphic base fields and have the same coefficients after applying this isomorphism.}
@@ -288,6 +292,7 @@ intrinsic BelyiDBGaloisOrbitsComputer(s::BelyiDB) -> BelyiDB
 end intrinsic;
 */
 
+/*
 intrinsic BelyiConstant(d_bound::RngIntElt, k::RngIntElt) -> FldRatElt
   {}
   RR := RealField();
@@ -328,7 +333,9 @@ intrinsic BelyiConstant(d_bound::RngIntElt, k::RngIntElt) -> FldRatElt
   vprintf Shimura : "#orbits: %o\n", num_orbits;
   return RR!(num_passes/num_orbits);
 end intrinsic;
+*/
 
+/*
 intrinsic GaloisOrbitsSanityCheck(s::BelyiDB) -> BoolElt
   {}
   if assigned s`BelyiDBGaloisOrbits then
@@ -359,4 +366,4 @@ intrinsic GaloisOrbitsSanityCheck(s::BelyiDB) -> BoolElt
     error "Galois orbits not computed.\n";
   end if;
 end intrinsic;
-
+*/
