@@ -422,7 +422,7 @@ intrinsic RecognizeOverK(Skc::SeqEnum[SeqEnum[FldComElt]], K::FldAlg, v::PlcNumE
           lin := Eltseq(powrel);
         end if;
       else
-        lin := LinearRelation(ZKbCC cat [-fc[n+1]] : Al := "LLL");
+        lin := LinearRelation(ZKbCC cat [-prevden*fc[n+1]] : Al := "LLL");
       end if;
       if lin[m+1] eq 0 then
         error "Failed to find linear relation in RecognizeOverK";
