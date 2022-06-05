@@ -2,6 +2,7 @@
 // 7T6-[7,7,3]-7-7-331-g2.m
 // 7T7-[4,12,12]-421-43-43-g1.m
 
+/*
 intrinsic Polredabs(f::RngUPolElt) -> RngUPolElt
   { A smallest generating polynomial of the number field, using pari. }
   cmd := Sprintf(
@@ -57,18 +58,19 @@ intrinsic MachineZero(z::FldComElt) -> BoolElt
     return false;
   end if;
 end intrinsic;
-
+*/
+/*
 intrinsic Polredabs(mp::Map, K::FldNum, vK::PlcNumElt, is_conjugated::BoolElt) -> Any
   {returns L, vL, and a boolean where L is Polredabs(K) and vL is pullback of vK under the isomorphism mp : L -> K.}
   if Degree(K) eq 1 then // we don't polredabsify QQ
     return K, vK, is_conjugated;
   end if;
-  /*
+  
   // after we do some sanity checking uncomment this
   if DefiningPolynomial(K) eq Polredabs(DefiningPolynomial(K)) then
     return l;
   end if;
-  */
+  
   assert ISA(Type(K), FldNum) and ISA(Type(vK), PlcNumElt) and ISA(Type(is_conjugated), BoolElt);
   L := Domain(mp); // mp : L -> K
   assert DefiningPolynomial(L) eq DefiningPolynomial(Polredabs(L));
@@ -132,6 +134,7 @@ intrinsic Polredabs(l::List) -> List
     return [* L, vL, is_conjugated_L, l[4] *];
   end if;
 end intrinsic;
+*/
 
 /*
 intrinsic Polredabs(s::BelyiDB) -> BelyiDB

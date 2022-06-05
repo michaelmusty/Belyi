@@ -57,7 +57,7 @@ intrinsic Polredabs(K::Fld : Best := true) -> FldNum, Map, BoolElt
   if Type(K) eq FldRat then
     return K, hom< K -> K | >;
   else
-    fredabs, fredabs_root, bl := Polredabs(DefiningPolynomial(K));
+    fredabs, fredabs_root, bl := Polredabs(DefiningPolynomial(K) : Best := Best);
     if IsZero(fredabs) then
         return K, hom<K -> K | K.1>, false;
     end if;

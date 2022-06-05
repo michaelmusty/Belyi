@@ -660,6 +660,7 @@ intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComEl
     Q, L := QLDecomposition(J);
     assert Abs(L[1,1]) gt eps;
   end if;
+  assert &and[Abs(L[i,i]) gt eps : i in [1..dd]];
 
   precstart := prec;
   itercnt := 0;
