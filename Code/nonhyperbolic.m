@@ -1,5 +1,5 @@
 intrinsic SphericalBelyiMap(sigma::SeqEnum[GrpPermElt]) -> FldFunFracSchElt
-  {Spherical triples and Belyi maps, hard-coded.  JV}
+  {Spherical triples and Belyi maps, hard-coded.}
   PP1 := Curve(ProjectiveSpace(PolynomialRing(Rationals(), 2)));
   KPP1<x> := FunctionField(PP1);
 
@@ -13,7 +13,7 @@ intrinsic SphericalBelyiMap(sigma::SeqEnum[GrpPermElt]) -> FldFunFracSchElt
     assert abc_sorted[2] eq abc_sorted[3];
     phix := x^abc_sorted[3];
     if abc[1] eq 1 then
-      phix := phix-1; // 1-phix?
+      phix := 1-phix; 
     else
       phix := 1/(1-phix);
     end if;
@@ -22,7 +22,7 @@ intrinsic SphericalBelyiMap(sigma::SeqEnum[GrpPermElt]) -> FldFunFracSchElt
       phix := -(x*(x-1)/(x-1/2))^2;
     else
       cheb_bool := false;
-      sigmacyc_seq := SetToSequence(sigmacyc);
+      sigmacyc_seq := [CycleStructure(sigma_s) : sigma_s in sigma];
       for s in [1..#sigmacyc_seq] do
         cycs := sigmacyc_seq[s];
         for i := 1 to #cycs do
@@ -58,13 +58,6 @@ intrinsic SphericalBelyiMap(sigma::SeqEnum[GrpPermElt]) -> FldFunFracSchElt
             phix := 1 - 1/(1 - phix);
           end if;
         end if;
-        /*
-        if abc[1] ne 2 then
-          phix := 1/phix;
-        elif abc[2] ne 2 then
-          phix := 1-1/(1-phix); // should this be 1-1/(1-phix) as below?
-        end if;
-        */
       else
         vprint Shimura : "Dihedral spherical Belyi map";
         phix := (-1/4)*(x^abc_sorted[3] + 1/x^abc_sorted[3]) + 1/2; // this is the answer for [2,2,3]
