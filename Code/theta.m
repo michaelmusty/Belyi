@@ -181,7 +181,8 @@ intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
   vprintf Shimura : "  ...%o\n", K;
   vprint Shimura : "  ...Trying to optimize"; 
   
-  Kop, iotaop := OptimizedRepresentation(K : Ramification := [p[1] : p in ps]);
+  // Kop, iotaop := OptimizedRepresentation(K : Ramification := [p[1] : p in ps]);
+  Kop, iotaop := Polredbestabs(K);
   uop := iotaop(u);
   
   vprintf Shimura : "  ...successfully optimized\n  Kop = %o\n  now finding complex embedding\n", Kop;
@@ -303,7 +304,7 @@ intrinsic RecognizeSeries(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2Tri 
         if lin[m+1] eq 0 then
           break;
         end if;
-        Append(~fb, (ZK!lin[1..m])/lin[m+1]);  // no factorial here!
+        Append(~fb, K!((ZK!lin[1..m])/lin[m+1]));  // no factorial here!
       end for;
 
       // only take first two recognized coefficients at first
@@ -428,7 +429,7 @@ intrinsic RecognizeOverK(Skc::SeqEnum[SeqEnum[FldComElt]], K::FldAlg, v::PlcNumE
         error "Failed to find linear relation in RecognizeOverK";
       end if;
       print "Denominator", lin[m+1], "should be not too large!";
-      Append(~fb, (ZK!lin[1..m])/lin[m+1]/prevden);
+      Append(~fb, K!((ZK!lin[1..m])/lin[m+1]/prevden));
       prevden *:= lin[m+1];
       fbv := CC!Evaluate(fb[#fb],v : Precision := Precision(CC));
       if conj then fbv := Conjugate(fbv); end if;

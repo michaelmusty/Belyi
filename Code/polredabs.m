@@ -1,7 +1,7 @@
 intrinsic Polredabs(f::RngUPolElt : Best := true) -> RngUPolElt, SeqEnum, BoolElt
   { A smallest generating polynomial of the number field, using pari. }
 
-  vprint EndoFind, 3 : "Starting polredabs...";
+  vprint Shimura, 3 : "Starting polredabs...";
   if Best then
     cmdp := "polredbest";
   else
@@ -22,14 +22,14 @@ intrinsic Polredabs(f::RngUPolElt : Best := true) -> RngUPolElt, SeqEnum, BoolEl
     ssroot := ssroot cat [0 : i in [1..Degree(f)-#ssroot]];
   catch e
     print("WARNING: need gp at command-line for polredabs, without this many examples become intractable\n");
-    vprint EndoFind, 3 : "done.";
+    vprint Shimura, 3 : "done.";
     assert Type(BaseRing(Parent(f))) eq FldRat;
     lcm := LCM([ Denominator(c) : c in Coefficients(f) ]);
     f0 := Evaluate(f, (Parent(f).1)/lcm);
     f0 /:= LeadingCoefficient(f0);
     return f0, [0,1] cat [0: i in [1..Degree(f)-2]], false;
   end try;
-  vprint EndoFind, 3 : "done.";
+  vprint Shimura, 3 : "done.";
   return Parent(f) ! sspol, ssroot, true;
 end intrinsic;
 
@@ -40,7 +40,7 @@ intrinsic Polredbestabs(f::RngUPolElt) -> RngUPolElt, SeqEnum, BoolElt
   return f, Eltseq(K.1), true;
 
   fbest, fbest_root := Polredabs(f : Best := true);
-  fredabs, fredabs_root, bl := Polredabs(fbest);
+  fredabs, fredabs_root, bl := Polredabs(fbest : Best := false);
 
   K := NumberField(f);
   Kbest := NumberField(fbest);
@@ -57,7 +57,7 @@ intrinsic Polredabs(K::Fld : Best := true) -> FldNum, Map, BoolElt
   if Type(K) eq FldRat then
     return K, hom< K -> K | >;
   else
-    fredabs, fredabs_root, bl := Polredabs(DefiningPolynomial(K));
+    fredabs, fredabs_root, bl := Polredabs(DefiningPolynomial(K) : Best := Best);
     if IsZero(fredabs) then
         return K, hom<K -> K | K.1>, false;
     end if;
@@ -78,7 +78,7 @@ intrinsic Polredbestabs(K::Fld) -> RngUPolElt, Map, BoolElt
     if IsZero(fbest) then
         return K, hom<K -> K | K.1>, false;
     end if;
-    fredabs, fredabs_root, bl1 := Polredabs(fbest);
+    fredabs, fredabs_root, bl1 := Polredabs(fbest : Best := false);
     if IsZero(fredabs) then
         return K, hom<K -> K | K.1>, false;
     end if;

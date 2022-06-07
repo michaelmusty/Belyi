@@ -299,7 +299,7 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
   bl := false;
   cfs := Reverse([u] cat phixden_seq cat phixnum_seq);
   for mtry := m to 1 by -1 do 
-    printf "    ==> trying degree m = %o", mtry;
+    vprintf Shimura : "    ==> trying degree m = %o", mtry;
     cfs_ind := 0;
     while not bl and cfs_ind lt #cfs do
       cfs_ind +:= 1;
@@ -660,6 +660,7 @@ intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComEl
     Q, L := QLDecomposition(J);
     assert Abs(L[1,1]) gt eps;
   end if;
+  assert &and[Abs(L[i,i]) gt eps : i in [1..dd]];
 
   precstart := prec;
   itercnt := 0;
