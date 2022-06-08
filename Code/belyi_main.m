@@ -193,6 +193,8 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
 
   vprint Shimura : "Belyi map computed!  Now verifying...";
   
+  vprint Shimura : Gamma`TriangleBelyiCurve, Gamma`TriangleBelyiMap;
+
   if BelyiMapSanityCheck(DefiningPermutation(Gamma), Gamma`TriangleBelyiCurve, Gamma`TriangleBelyiMap) then
     vprint Shimura : "...verified!";
   	return Gamma`TriangleBelyiCurve, Gamma`TriangleBelyiMap, Gamma;
