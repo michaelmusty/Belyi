@@ -731,14 +731,16 @@ intrinsic TrianglePhiGenusZeroNewton(polsvec::SeqEnum[SeqEnum[Tup]], u::FldComEl
     for j := 1 to #fact[i] do
       if RamInfinity ne [] and i eq RamInfinity[1] and fact[i][j][1] eq RamInfinity[2] then
         // skip it
-        continue;
+        ramInfAdjust := RamInfinity[2];
+      else
+        ramInfAdjust := 0;
       end if;
       if i eq 1 and j eq 1 then
-        Append(~polv, <Polynomial([0] cat solvec[cnt..cnt+#fact[i][j][2]-2] cat [1]), fact[i][j][1]>);
-        cnt +:= #fact[i][j][2]-1;
+        Append(~polv, <Polynomial([0] cat solvec[cnt..cnt+#fact[i][j][2]-2-ramInfAdjust] cat [1]), fact[i][j][1]>);
+        cnt +:= #fact[i][j][2]-1-ramInfAdjust;
       else
-        Append(~polv, <Polynomial(solvec[cnt..cnt+#fact[i][j][2]-1] cat [1]), fact[i][j][1]>);
-        cnt +:= #fact[i][j][2];
+        Append(~polv, <Polynomial(solvec[cnt..cnt+#fact[i][j][2]-1-ramInfAdjust] cat [1]), fact[i][j][1]>);
+        cnt +:= #fact[i][j][2]-ramInfAdjust;
       end if;
     end for;
     Append(~polsvecsc, polv);
