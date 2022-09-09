@@ -549,7 +549,7 @@ intrinsic FundamentalDomain(Gamma::GrpPSL2Tri, HH::SpcHyp : Precision := 0) -> S
 	y := Sqrt(Cosec(Pi(RR)/a)^2 - (x - Cot(Pi(RR)/a))^2);
 	I := Sqrt(RR!-1);
 
-    V := [HH | I, x+y*I, t*I, -x+y*I];
+    V := [HH | I, (x+y*I), (t*I), (-x+y*I)];
   end if;
 
   if IsTriangleGroup(Gamma) then
