@@ -386,13 +386,13 @@ end intrinsic;
 
 import "euclidean-belyi-helper.m" : ComputeEucBelyiMap;
 
-intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt] : Al := "Splitting") -> FldFunFracSchElt
+intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt] : Al := "Cyc") -> FldFunFracSchElt
   {Computes the Belyi map attached to Euclidean permutation triple sigma;
    options for Al are "Torsion", "Hybrid", "Splitting"}
 
   abc := [Order(sigma_s) : sigma_s in sigma];
   d := Degree(Parent(sigma[1]));
-  prec := 20*d;  // wild guess
+  prec := Round(20*Log(d)^2);  // wild guess
 
   a,b,c := Explode(abc);
   if a gt b and b gt c then
