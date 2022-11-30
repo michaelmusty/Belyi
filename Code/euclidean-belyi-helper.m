@@ -1393,7 +1393,7 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Cyc");
     kerpol := SplittingKerpol(sigma, delta_type, prec);
   elif Al eq "Rev" then
     kerpol := RevTorsionKerpol(sigma, delta_type, prec);
-  elif Al eq "Cyc" then
+  elif Al eq "Cyc" or Al eq "Default" then
     kerpol := CycRedKerpol(sigma, delta_type, prec);
   end if;
 
