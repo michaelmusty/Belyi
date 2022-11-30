@@ -1,3 +1,4 @@
+/*
 intrinsic Polredabs(f::RngUPolElt : Best := false) -> RngUPolElt, SeqEnum, BoolElt
   { A smallest generating polynomial of the number field, using pari. }
 
@@ -123,3 +124,4 @@ intrinsic MachineZero(z::FldComElt) -> BoolElt
     return false;
   end if;
 end intrinsic;
+*/

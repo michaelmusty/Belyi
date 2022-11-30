@@ -31,7 +31,7 @@ intrinsic BelyiMap(sigma::SeqEnum[GrpPermElt] : prec := 0, Al := "Default", Exac
     if chi gt 1 then
       X, phi := SphericalBelyiMap(sigma);
     elif chi eq 1 then
-      X, phi := EuclideanBelyiMap(sigma);
+      X, phi := EuclideanBelyiMap(sigma : Al := Al);
     end if;
   
     if BelyiMapSanityCheck(sigma, X, phi) then
