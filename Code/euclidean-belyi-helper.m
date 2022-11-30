@@ -487,13 +487,10 @@ TorsionKerpol := function(sigma, delta_type, prec);
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
     if K0 eq Rationals() then
-      K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
+      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
     else
-      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
-      K0op := NumberField(f0);
-      m0op := hom<K0 -> K0op | K0op!K01seq>;
+      K0op, m0op := Polredabs(K0);
     end if;
-    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     kerpol := kerpol0op;
   else
@@ -770,13 +767,10 @@ RevTorsionKerpol := function(sigma, delta_type, prec);
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
     if K0 eq Rationals() then
-      K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
+      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
     else
-      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
-      K0op := NumberField(f0);
-      m0op := hom<K0 -> K0op | K0op!K01seq>;
+      K0op, m0op := Polredabs(K0);
     end if;
-    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     kerpol := kerpol0op;
   else
@@ -890,11 +884,9 @@ HybridKerpol := function(sigma, delta_type, prec);
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
     if K0 eq Rationals() then
-      K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
+      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
     else
-      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
-      K0op := NumberField(f0);
-      m0op := hom<K0 -> K0op | K0op!K01seq>;
+      K0op, m0op := Polredabs(K0);
     end if;
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     kerpol := kerpol0op;
@@ -970,11 +962,9 @@ SplittingKerpol := function(sigma, delta_type, prec);
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
 
     if K0 eq Rationals() then
-      K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
+      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
     else
-      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
-      K0op := NumberField(f0);
-      m0op := hom<K0 -> K0op | K0op!K01seq>;
+      K0op, m0op := Polredabs(K0);
     end if;
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     return kerpol0op;
@@ -1189,13 +1179,10 @@ CycRedKerpol := function(sigma, delta_type, prec);
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
     if K0 eq Rationals() then
-      K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
+      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
     else
-      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
-      K0op := NumberField(f0);
-      m0op := hom<K0 -> K0op | K0op!K01seq>;
+      K0op, m0op := Polredabs(K0);
     end if;
-    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     kerpol := kerpol0op;
   else
