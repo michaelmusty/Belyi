@@ -487,10 +487,13 @@ TorsionKerpol := function(sigma, delta_type, prec);
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
     if K0 eq Rationals() then
-      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
+      K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      K0op, m0op := Polredabs(K0);
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
+      K0op := NumberField(f0);
+      m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
+    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     kerpol := kerpol0op;
   else
@@ -767,10 +770,13 @@ RevTorsionKerpol := function(sigma, delta_type, prec);
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
     if K0 eq Rationals() then
-      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
+      K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      K0op, m0op := Polredabs(K0);
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
+      K0op := NumberField(f0);
+      m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
+    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     kerpol := kerpol0op;
   else
@@ -884,9 +890,11 @@ HybridKerpol := function(sigma, delta_type, prec);
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
     if K0 eq Rationals() then
-      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
+      K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      K0op, m0op := Polredabs(K0);
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
+      K0op := NumberField(f0);
+      m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     kerpol := kerpol0op;
@@ -962,9 +970,11 @@ SplittingKerpol := function(sigma, delta_type, prec);
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
 
     if K0 eq Rationals() then
-      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
+      K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      K0op, m0op := Polredabs(K0);
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
+      K0op := NumberField(f0);
+      m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     return kerpol0op;
@@ -1089,8 +1099,12 @@ CycRedKerpol := function(sigma, delta_type, prec);
       i := i + 1;
     end if;
   end while;
+  //print orb;
+  //print foundGen;
+  //print gen;
 
   compGener := EllipticExponential(E,[gen[1]/N, gen[2]/N] : Precision := prec)[1];
+  //print compGener;
   plugFacs := [* *];
   for fac in orderedFactors do
     coeffs := Coefficients(fac);
@@ -1109,6 +1123,7 @@ CycRedKerpol := function(sigma, delta_type, prec);
   minCandDiff, index := Minimum(candsDif);
 
   Px := cands[index];
+  //print Px;
 
   FL<x,y> := FunctionField(L,2);
   D := [* *];
@@ -1145,14 +1160,18 @@ CycRedKerpol := function(sigma, delta_type, prec);
 
   //Construct the nth X-coordinate maps
   preXmaps := [* *];
+  //print N;
   for n in [1..Floor(N/2)] do
     Append(~preXmaps, Px - D[n]*D[n+2]/D[n+1]^2);
   end for;
+  //print preXmaps;
   Xmaps := [* *];
   for map in preXmaps do
     Append(~Xmaps, subysquar(map, swap));
   end for;
   Xs := [Evaluate(f, [Px,1]): f in Xmaps];
+  //print Xmaps;
+  //print Xs;
 
   // Step 6 in Algorithm 3.2.5
 
@@ -1162,12 +1181,18 @@ CycRedKerpol := function(sigma, delta_type, prec);
     kerpol := 1;
   end if;
 
+  //print kerpol;
 
   if g ge 2 then
-    phig := RL!DivisionPolynomial(E,g);
-    kerpol := RL!((phig*kerpol)/xL);
+    multg := MultiplicationByMMap(E,g);
+    UnFL := FunctionField(L);
+    multBygXmap := UnFL!(IsogenyMapPhi(multg)/IsogenyMapPsiSquared(multg));
+    partialKerpol:=RL!Numerator(Evaluate(kerpol,multBygXmap));
+    divg := RL!DivisionPolynomial(E,g);
+    kerpol := RL!((divg*partialKerpol));
   end if;
 
+  //print kerpol;
 
   // Simplifying kerpol if possible
 
@@ -1179,10 +1204,13 @@ CycRedKerpol := function(sigma, delta_type, prec);
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
     if K0 eq Rationals() then
-      K0op, m0op := OptimizedRepresentation(K0);  // silly way to get something uniform
+      K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     else
-      K0op, m0op := Polredabs(K0);
+      f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
+      K0op := NumberField(f0);
+      m0op := hom<K0 -> K0op | K0op!K01seq>;
     end if;
+    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
     kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
     kerpol := kerpol0op;
   else
@@ -1405,6 +1433,7 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Cyc");
   else
     Rprov<X,Y>:=PolynomialRing(Rationals(),2);
   end if;
+
   if delta_type eq [3,3,3] then
     comp := (Y + 1)/2;
   elif delta_type eq [2,4,4] then
@@ -1422,7 +1451,12 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Cyc");
           rtsom := Roots(Polynomial([1,-1,1]), BaseField(Parent(X)));
           if #rtsom ge 1 then
             K := BaseField(Parent(X));
-            alp := rtsom[1][1];
+		v := InfinitePlaces(K)[1];
+		if Im(Evaluate(rtsom[1][1],v)) ge 0 then
+            	alp := rtsom[1][1];
+		else
+			alp := rtsom[2][1];
+		end if;
           else
             K := ext<BaseField(Parent(X)) | Polynomial([1,-1,1])>;
             alp := K.1;
