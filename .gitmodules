@@ -1,0 +1,3 @@
+[submodule "MagmaPolred"]
+	path = MagmaPolred
+	url = git@github.com:edgarcosta/MagmaPolred.git
