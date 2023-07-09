@@ -1,4 +1,4 @@
-subysquar_poly := function(phi, ysquarsub);
+ subysquar_poly := function(phi, ysquarsub);
   // this function takes as input phi, a polynomial in x and y,
   // which is in fact a rational function in x and y^2,
   // and returns as output what you get by substituting ysquarsub in for y^2
@@ -72,8 +72,8 @@ PreProcessingConjugation:= function(sigma, delta_type);
   // This function "preprocesses" a given triple sigma
   // so that 1 is the maximally fixed element
   // and so that c is the vertex of maximal rotation when possible
-  //If the triple is of the cba = ID variety, it also applies inverses to make
-  //it of the abc = ID variety that is standard for this algorithm
+  // If the triple is of the cba = ID variety, it also applies inverses to make
+  // it of the abc = ID variety that is standard for this algorithm
   P:= Parent(sigma[1]);
   abcIsID := (sigma[1]*sigma[2]*sigma[3] eq P!(1));
   if not abcIsID then
@@ -116,12 +116,14 @@ end function;
 //================================================================
 
 GetV:=function(sigma, delta_type);
-  //This function finds a spanning set for the translation group T(Gamma)
-  //Coordinates are given relative to the standard basis for T(Delta)
+  // This function finds a spanning set for the translation group T(Gamma)
+  // Coordinates are given relative to the standard basis for T(Delta)
   sigma_a := sigma[1];
   sigma_b := sigma[2];
   sigma_c := sigma[3];
 
+  // Note that the definitions of sigma_1 and sigma_2 below coincide 
+  // with Magma's periods for E(Delta)
   if delta_type eq [3,3,3] then
     sigma_1 := sigma_c^2*sigma_b^2*sigma_c^2*sigma_b*sigma_c^2;
     sigma_2 := sigma_b*sigma_c^2;
@@ -144,16 +146,26 @@ GetV:=function(sigma, delta_type);
 end function;
 
 GetBasis := function(presigma, delta_type);
-  //This function finds a basis for the translation group T(Gamma)
-  //Coordinates are given relative to the basis for T(Delta)
+  // This function finds a basis for the translation group T(Gamma)
+  // Coordinates are given relative to a basis for T(Delta) that
+  // results from Smith form simplifications, which may not
+  // coincide with the "standard" basis. Rcomp inverse converts
+
   sigma, vertnumber, size := PreProcessingConjugation(presigma, delta_type);
   V := GetV(sigma, delta_type);
   M := Matrix(V);
-  M0 := EchelonForm(M);
+  ME := EchelonForm(M);
+  
+  s1 := ME[1];
+  s2 := ME[2];
+  s :=  [s1,s2];
+  MEsqr := Matrix(s);
+  M0, Lcomp, Rcomp := SmithForm(MEsqr);
+  conv := Rcomp^-1;
   t1 := M0[1];
   t2 := M0[2];
   t  := [t1,t2];
-  return t;
+  return t, conv;
 end function;
 
 GetN := function(presigma, delta_type);
@@ -163,15 +175,13 @@ GetN := function(presigma, delta_type);
   abcIsID := (sigma[1]*sigma[2]*sigma[3] eq P!(1));
   M := Matrix(GetBasis(sigma, delta_type));
   N := AbsoluteValue(Determinant(M));
-    // JV: this is overkill for many purposes, we only need to work with the lcm!
-  //N := Lcm(M[1,1],M[2,2]);
   return N, AbsoluteValue(Determinant(M));
 end function;
 
 Getg := function(presigma, delta_type);
+  // This function calculates the gcd of n_1 and m_2
+  // which we later factor in the cyclic reduction kerpol method
   sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
-  P := Parent(sigma[1]);
-  abcIsID := (sigma[1]*sigma[2]*sigma[3] eq P!(1));
   M := Matrix(GetBasis(sigma, delta_type));
   g := Gcd(M[1,1],M[2,2]);
   return g;
@@ -188,11 +198,11 @@ end function;
 PickKernelWithDistinctXs := function(presigma, delta_type);
   // This function returns points in the kernel of the map from C mod T(Delta) to C mod T(Gamma)
   // whose images on E(Delta) have distinct x-coordinates
+  // Coordinates are fractions relative to periods of E(Delta)
   sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
 
-  basis:= GetBasis(sigma, delta_type);
+  basis, conv:= GetBasis(sigma, delta_type);
   n1 := basis[1][1];
-  n2 := basis[1][2];
   m2 := basis[2][2];
   lattice := [ [a,b] : a in [0..m2], b in [0..n1]];
   lattice := Sort(lattice);
@@ -204,7 +214,8 @@ PickKernelWithDistinctXs := function(presigma, delta_type);
   for cut in cuts do
      Exclude(~coors, cut);
   end for;
-  KernelRelativeToStandardBasis := [[p[1]*n1, p[1]*n2 + p[2]*m2] : p in coors];
+  KernelRelativeToSmithBasis := [[p[1]*n1, p[2]*m2] : p in coors];
+  KernelRelativeToStandardBasis := [[p[1]*conv[1][1] + p[2]*conv[2][1], p[1]*conv[1][2] + p[2]*conv[2][2]] : p in KernelRelativeToSmithBasis];
   _, N := GetN(presigma, delta_type);
   scaledKer := [[(1/N)*p[1], (1/N)*p[2]]: p in KernelRelativeToStandardBasis];
   Exclude(~scaledKer, [0,0]);
@@ -228,7 +239,6 @@ end function;
 FindComplexRoots := function(presigma, delta_type, prec);
   // This function gets the roots of the kernel polynomial determining the isogeny psi
   // as complex numbers up to a given precision
-  // sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
   if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
     E := EllipticCurve([0,1]);
   else
@@ -257,9 +267,7 @@ ChooseDivisionPolyFactors := function(presigma, delta_type, prec);
       plugIns := [AbsoluteValue(Evaluate(g, root)) : g in factors];
       minVal, index := Minimum(plugIns);
       match := factors[index];
-      //if Degree(match) ge 2 then
-        Append(~factorsToKeep, match);
-      //end if;
+      Append(~factorsToKeep, match);
     end for;
   end if;
   facsNoRepeats := Set(factorsToKeep);
@@ -282,9 +290,8 @@ WPickKernelWithDistinctXs := function(presigma, delta_type,g);
   // whose images on E(Delta) have distinct x-coordinates
   sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
 
-  basis:= GetBasis(sigma, delta_type);
+  basis, conv:= GetBasis(sigma, delta_type);
   n1 := basis[1][1]/g;
-  n2 := basis[1][2]/g;
   m2 := basis[2][2]/g;
   lattice := [ [a,b] : a in [0..m2], b in [0..n1]];
   lattice := Sort(lattice);
@@ -296,7 +303,8 @@ WPickKernelWithDistinctXs := function(presigma, delta_type,g);
   for cut in cuts do
      Exclude(~coors, cut);
   end for;
-  KernelRelativeToStandardBasis := [[p[1]*n1, p[1]*n2 + p[2]*m2] : p in coors];
+  KernelRelativeToSmithBasis := [[p[1]*n1, p[2]*m2] : p in coors];
+  KernelRelativeToStandardBasis := [[p[1]*conv[1][1] + p[2]*conv[2][1], p[1]*conv[1][2] + p[2]*conv[2][2]] : p in KernelRelativeToSmithBasis];
   _, N := GetN(presigma, delta_type);
   N := N/g^2;
   scaledKer := [[(1/N)*p[1], (1/N)*p[2]]: p in KernelRelativeToStandardBasis];
@@ -321,7 +329,7 @@ end function;
 WFindComplexRoots := function(presigma, delta_type, prec, g);
   // This function gets the roots of the kernel polynomial determining the isogeny psi
   // as complex numbers up to a given precision
-  // sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
+
   if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
     E := EllipticCurve([0,1]);
   else
@@ -486,19 +494,38 @@ TorsionKerpol := function(sigma, delta_type, prec);
       K0:= sub<L2|Coefficients(kerpol)>;
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
-    if K0 eq Rationals() then
+    
+    C1 := NumberField(Polynomial([1,1,1]));
+    C2 := NumberField(Polynomial([1,0,1]));
+    if K0 eq Rationals() or IsIsomorphic(K0, C1) or IsIsomorphic(K0, C2) then
       K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
+      kerpol0opCoeffs := [m0op(c) : c in Coefficients(kerpol0)];
     else
       f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
+      v := InfinitePlaces(K0)[1];
+      u := InfinitePlaces(K0op)[1];
+      RK0op := PolynomialRing(K0op);
+      kerpol0opCoeffs := [];
       m0op := hom<K0 -> K0op | K0op!K01seq>;
+      for elt in Coefficients(kerpol0) do
+        eltInCC := Evaluate(elt, v : Precision := prec);
+        mappedElt := m0op(elt);
+        algConjs := [r[1]:r in Roots(RK0op!MinimalPolynomial(mappedElt))];
+        conjsInCC := [Evaluate(con, u : Precision := prec) : con in algConjs];
+        conjsDif := [AbsoluteValue(eltInCC - con) : con in conjsInCC];
+        minDiff, index := Minimum(conjsDif);
+        match := algConjs[index];
+        Append(~kerpol0opCoeffs, match);
+      end for;
     end if;
-    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
-    kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
+
+    kerpol0op := Polynomial(kerpol0opCoeffs);
     kerpol := kerpol0op;
   else
     kerpol := kerpol;
   end if;
+  return kerpol;
 
   return kerpol;
 end function;
@@ -769,15 +796,33 @@ RevTorsionKerpol := function(sigma, delta_type, prec);
       K0:= sub<L|Coefficients(kerpol)>;
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
-    if K0 eq Rationals() then
+    
+    C1 := NumberField(Polynomial([1,1,1]));
+    C2 := NumberField(Polynomial([1,0,1]));
+    if K0 eq Rationals() or IsIsomorphic(K0, C1) or IsIsomorphic(K0, C2) then
       K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
+      kerpol0opCoeffs := [m0op(c) : c in Coefficients(kerpol0)];
     else
       f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
+      v := InfinitePlaces(K0)[1];
+      u := InfinitePlaces(K0op)[1];
+      RK0op := PolynomialRing(K0op);
+      kerpol0opCoeffs := [];
       m0op := hom<K0 -> K0op | K0op!K01seq>;
+      for elt in Coefficients(kerpol0) do
+        eltInCC := Evaluate(elt, v : Precision := prec);
+        mappedElt := m0op(elt);
+        algConjs := [r[1]:r in Roots(RK0op!MinimalPolynomial(mappedElt))];
+        conjsInCC := [Evaluate(con, u : Precision := prec) : con in algConjs];
+        conjsDif := [AbsoluteValue(eltInCC - con) : con in conjsInCC];
+        minDiff, index := Minimum(conjsDif);
+        match := algConjs[index];
+        Append(~kerpol0opCoeffs, match);
+      end for;
     end if;
-    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
-    kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
+
+    kerpol0op := Polynomial(kerpol0opCoeffs);
     kerpol := kerpol0op;
   else
     kerpol := kerpol;
@@ -924,6 +969,7 @@ SplittingKerpol := function(sigma, delta_type, prec);
   K := Rationals();
 
   // Iteratively extend QQ until it contains all the roots we need and collect roots
+  
 
   for g in pols do
     Kg, Rg := SplittingField(g);
@@ -931,6 +977,7 @@ SplittingKerpol := function(sigma, delta_type, prec);
     Append(~rootLists, Rg);
     K := Compositum(K, Kg);
   end for;
+
   rootsInK := [ ];
   for i in [1..#rootLists] do
     for j in [1..#rootLists[i]] do 
@@ -1000,14 +1047,14 @@ end function;
 CycRedKerpol := function(sigma, delta_type, prec);
   N := Integers()!GetN(sigma, delta_type);
   g := Getg(sigma, delta_type);
-  b := GetBasis(sigma, delta_type);
+  b, conv := GetBasis(sigma, delta_type);
   n1 := Integers()!b[1][1]/g;
-  n2 := Integers()!b[1][2];
   m2 := Integers()!b[2][2]/g;
 
   if N eq 1 then
     return 1;
   end if;
+
 
   if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
     E := EllipticCurve([0,1]);
@@ -1029,7 +1076,6 @@ CycRedKerpol := function(sigma, delta_type, prec);
 
   // Step 2 in Algorithm 3.2.2
 
-
   RQ := PolynomialRing(RationalField());
   remainingPoly:= phiN;
   divisors := Divisors(N);
@@ -1040,9 +1086,7 @@ CycRedKerpol := function(sigma, delta_type, prec);
     remainingPoly := RQ!(remainingPoly/gcd);
   end for;
 
-
   // Step 3 in Algorithm 3.2.2
-
 
   RK:=PolynomialRing(K);
   remainingPoly := RK!remainingPoly;
@@ -1086,25 +1130,7 @@ CycRedKerpol := function(sigma, delta_type, prec);
 
   v := InfinitePlaces(L)[1];
 
-  poss := [[t1*n1, t1*n2 + t2*m2] : t1 in [0..m2-1], t2 in [0..n1-1]];
-  foundGen := false;
-  i := 1;
-  while foundGen eq false do
-    check := poss[i];
-    orb := [[(Integers()!(l*check[1])) mod Integers()!N, (Integers()!(l*check[2])) mod Integers()!N] : l in [1..N]];
-    if #Set(orb) eq N then
-      gen := check;
-      foundGen := true;
-    else
-      i := i + 1;
-    end if;
-  end while;
-  //print orb;
-  //print foundGen;
-  //print gen;
-
-  compGener := EllipticExponential(E,[gen[1]/N, gen[2]/N] : Precision := prec)[1];
-  //print compGener;
+  compGener := EllipticExponential(E,[(1/N)*conv[1][1], (1/N)*conv[1][2]] : Precision := prec)[1];
   plugFacs := [* *];
   for fac in orderedFactors do
     coeffs := Coefficients(fac);
@@ -1121,9 +1147,7 @@ CycRedKerpol := function(sigma, delta_type, prec);
   candsInCC := [Evaluate(L!cand, v : Precision := prec) : cand in cands];
   candsDif := [AbsoluteValue(compGener - CCcand) : CCcand in candsInCC];
   minCandDiff, index := Minimum(candsDif);
-
   Px := cands[index];
-  //print Px;
 
   FL<x,y> := FunctionField(L,2);
   D := [* *];
@@ -1160,18 +1184,15 @@ CycRedKerpol := function(sigma, delta_type, prec);
 
   //Construct the nth X-coordinate maps
   preXmaps := [* *];
-  //print N;
   for n in [1..Floor(N/2)] do
     Append(~preXmaps, Px - D[n]*D[n+2]/D[n+1]^2);
   end for;
-  //print preXmaps;
+
   Xmaps := [* *];
   for map in preXmaps do
     Append(~Xmaps, subysquar(map, swap));
   end for;
   Xs := [Evaluate(f, [Px,1]): f in Xmaps];
-  //print Xmaps;
-  //print Xs;
 
   // Step 6 in Algorithm 3.2.5
 
@@ -1180,8 +1201,6 @@ CycRedKerpol := function(sigma, delta_type, prec);
   else
     kerpol := 1;
   end if;
-
-  //print kerpol;
 
   if g ge 2 then
     multg := MultiplicationByMMap(E,g);
@@ -1192,8 +1211,6 @@ CycRedKerpol := function(sigma, delta_type, prec);
     kerpol := RL!((divg*partialKerpol));
   end if;
 
-  //print kerpol;
-
   // Simplifying kerpol if possible
 
   if Type(kerpol) ne RngIntElt then
@@ -1203,19 +1220,38 @@ CycRedKerpol := function(sigma, delta_type, prec);
       K0:= sub<L|Coefficients(kerpol)>;
     end if;
     kerpol0 := Polynomial(ChangeUniverse(Eltseq(kerpol), K0));
-    if K0 eq Rationals() then
+    
+    C1 := NumberField(Polynomial([1,1,1]));
+    C2 := NumberField(Polynomial([1,0,1]));
+    if K0 eq Rationals() or IsIsomorphic(K0, C1) or IsIsomorphic(K0, C2) then
       K0op, m0op := OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
+      kerpol0opCoeffs := [m0op(c) : c in Coefficients(kerpol0)];
     else
       f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
       K0op := NumberField(f0);
+      v := InfinitePlaces(K0)[1];
+      u := InfinitePlaces(K0op)[1];
+      RK0op := PolynomialRing(K0op);
+      kerpol0opCoeffs := [];
       m0op := hom<K0 -> K0op | K0op!K01seq>;
+      for elt in Coefficients(kerpol0) do
+        eltInCC := Evaluate(elt, v : Precision := prec);
+        mappedElt := m0op(elt);
+        algConjs := [r[1]:r in Roots(RK0op!MinimalPolynomial(mappedElt))];
+        conjsInCC := [Evaluate(con, u : Precision := prec) : con in algConjs];
+        conjsDif := [AbsoluteValue(eltInCC - con) : con in conjsInCC];
+        minDiff, index := Minimum(conjsDif);
+        match := algConjs[index];
+        Append(~kerpol0opCoeffs, match);
+      end for;
     end if;
-    // K0op, m0op:=OptimizedRepresentation(K0 : Ramification := [2,3] cat PrimeDivisors(N));
-    kerpol0op := Polynomial([m0op(c) : c in Coefficients(kerpol0)]);
+
+    kerpol0op := Polynomial(kerpol0opCoeffs);
     kerpol := kerpol0op;
   else
     kerpol := kerpol;
   end if;
+
   return kerpol;
 end function;
 
@@ -1410,6 +1446,11 @@ end function;
 ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Cyc");
   // This function takes a transitive Euclidean permutation triple and constructs the corresponding Belyi map
   // and optionally allows users to choose which method is used to compute the kernel polynomial of the relevant isogeny
+  triple_type:=[Order(presigma[1]), Order(presigma[2]), Order(presigma[3])];
+  if not triple_type in [[3,3,3],[2,4,4],[2,3,6]] then
+    error "Permutation triple is not Euclidean.";
+  end if;
+
   sigma, vertnumber, size := PreProcessingConjugation(presigma, delta_type);
   R := GetR(sigma, delta_type);
 
@@ -1421,10 +1462,10 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Cyc");
     kerpol := SplittingKerpol(sigma, delta_type, prec);
   elif Al eq "Rev" then
     kerpol := RevTorsionKerpol(sigma, delta_type, prec);
-  else
+  else // Al eq "Cyc"
     kerpol := CycRedKerpol(sigma, delta_type, prec);
   end if;
-
+  
   phi, XTG:= FindNiceIsogenyXTGtoXTD(sigma, delta_type, prec, kerpol);
 
   if Type(phi) ne RngIntElt then
@@ -1438,11 +1479,12 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Cyc");
     comp := (Y + 1)/2;
   elif delta_type eq [2,4,4] then
     if vertnumber eq 1 then
-      comp := (X + 1)^2/(X-1)^2;
+      comp1 := (X + 1)^2/(X-1)^2;
+      comp := 1 - comp1;
     elif vertnumber eq 2 then
-      comp := X^2;
+      comp := (X^2-1)/X^2;
     else
-      comp := X^2;
+      comp := 1-X^2;
     end if;
   else
     if vertnumber eq 1 then       
@@ -1551,19 +1593,6 @@ ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Cyc");
   end if;
 
   return X, out;
-end function;
-
-ComputeFacts := function(sigma, delta_type, prec : Al := "Torsion");
-  // This function computes the Euclidean Belyi map corresponding to sigma then returns
-  // factorizations of the numerator, denominator, and difference of the rational Belyi map
-  curve, phi := ComputeEucBelyiMap(sigma, delta_type, prec : Al := Al);
-  num:= Numerator(phi);
-  den:= Denominator(phi);
-  dif := num-den;
-  numfac:= Factorization(num);
-  denfac:= Factorization(den);
-  diffac:= Factorization(dif);
-  return [numfac, denfac, diffac];
 end function;
 
 
