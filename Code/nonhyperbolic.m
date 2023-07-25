@@ -386,7 +386,7 @@ end intrinsic;
 
 import "euclidean-belyi-helper.m" : ComputeEucBelyiMap;
 
-intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt] : Al := "Cyc") -> FldFunFracSchElt
+intrinsic EuclideanBelyiMap(sigma::SeqEnum[GrpPermElt] : Al := "Splitting") -> FldFunFracSchElt
   {Computes the Belyi map attached to Euclidean permutation triple sigma;
    options for Al are "Torsion", "Hybrid", "Splitting"}
 
