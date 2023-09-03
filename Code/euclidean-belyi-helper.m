@@ -2,6 +2,7 @@
   // this function takes as input phi, a polynomial in x and y,
   // which is in fact a rational function in x and y^2,
   // and returns as output what you get by substituting ysquarsub in for y^2
+
   mons := Monomials(phi);
   cfs := Coefficients(phi);
   phisub := Parent(phi)!0;
@@ -18,6 +19,7 @@ end function;
 subysquar := function(phi, ysquarsub);
   // this function takes as input phi, a *rational function* in x and y,
   // and plugs it into the poly version by numerator and denominator
+
   num := subysquar_poly(Numerator(phi), ysquarsub);
   den := subysquar_poly(Denominator(phi), ysquarsub);
   return num/den;
@@ -36,6 +38,7 @@ end function;
 GetR := function(sigma, delta_type);
   // This function determines the rotation index r
   // which is the index of T(Gamma) in Gamma
+
   struc_a := CycleStructure(sigma[1]);
   struc_b := CycleStructure(sigma[2]);
   struc_c := CycleStructure(sigma[3]);
@@ -50,6 +53,7 @@ end function;
 DetermineVertOfMaxRotation:= function(sigma, delta_type);
   // This function determines whether a,b, or c is the vertex of maximal rotation
   // i.e. the vertex we rotate around to generate R(Gamma)
+
   struc_a := CycleStructure(sigma[1]);
   struc_b := CycleStructure(sigma[2]);
   struc_c := CycleStructure(sigma[3]);
@@ -74,6 +78,7 @@ PreProcessingConjugation:= function(sigma, delta_type);
   // and so that c is the vertex of maximal rotation when possible
   // If the triple is of the cba = ID variety, it also applies inverses to make
   // it of the abc = ID variety that is standard for this algorithm
+
   P:= Parent(sigma[1]);
   abcIsID := (sigma[1]*sigma[2]*sigma[3] eq P!(1));
   if not abcIsID then
@@ -111,6 +116,7 @@ end function;
 GetV:=function(sigma, delta_type);
   // This function finds a spanning set for the translation group T(Gamma)
   // Coordinates are given relative to the standard basis for T(Delta)
+
   sigma_a := sigma[1];
   sigma_b := sigma[2];
   sigma_c := sigma[3];
@@ -163,6 +169,7 @@ end function;
 
 GetN := function(presigma, delta_type);
   // This function calculates the index of T(Gamma) in T(Delta)
+
   sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
   P := Parent(sigma[1]);
   abcIsID := (sigma[1]*sigma[2]*sigma[3] eq P!(1));
@@ -174,6 +181,7 @@ end function;
 Getg := function(presigma, delta_type);
   // This function calculates the gcd of n_1 and m_2
   // which we later factor in the cyclic reduction kerpol method
+
   sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
   M := Matrix(GetBasis(sigma, delta_type));
   g := Gcd(M[1,1],M[2,2]);
@@ -191,17 +199,14 @@ end function;
 MapCoefficientsToBetterField := function(coeffs, K, prec);
   // This function takes a list of elements in a number field K,
   // uses Polredabs to give a simplified presentation Kop of K if possible,
-  // then maps the given elements in K to Kop, using complex
-  // embeddings to keep track of the "right" element. 
+  // then maps the given elements in K to Kop. 
   // Returns the mapped elements and Kop.
 
-  f, K1seq := Polredabs(MinimalPolynomial(K.1));
-  Kop := NumberField(f);
+  Kop, mop := Polredabs(K);
   v := InfinitePlaces(K)[1];
   u := InfinitePlaces(Kop)[1];
   RKop := PolynomialRing(Kop);
   coeffsOp := [];
-  mop := hom<K -> Kop | Kop!K1seq>;
   for elt in coeffs do
     eltInCC := Evaluate(elt, v : Precision := prec);
     mappedElt := mop(elt);
@@ -215,11 +220,9 @@ MapCoefficientsToBetterField := function(coeffs, K, prec);
   return coeffsOp, Kop;
 end function;
 
-KerpolSimplification := function(kerpol, prec: embCheck := false);
+KerpolSimplification := function(kerpol, prec);
   // This function takes a kernel polynomial and uses Polredabs
-  // to simplify if possible. User can run an additional embedding check
-  // to ensure the simplification respects complex embedding 
-  // by setting the parameter EmbCheck to true.
+  // to simplify if possible. 
 
   if Type(kerpol) ne RngIntElt then
     K := BaseRing(Parent(kerpol));
@@ -234,14 +237,8 @@ KerpolSimplification := function(kerpol, prec: embCheck := false);
     if K0 eq Rationals() then
       kerpol0opCoeffs := Coefficients(kerpol0);
     else
-      if embCheck eq true then
-        kerpol0opCoeffs, K0op := MapCoefficientsToBetterField(Coefficients(kerpol0), K0, prec);
-      else
-        f0, K01seq := Polredabs(MinimalPolynomial(K0.1));
-        K0op := NumberField(f0);
-        m0op := hom<K0 -> K0op | K0op!K01seq>;
-        kerpol0opCoeffs := [m0op(c) : c in Coefficients(kerpol0)];
-      end if;
+      K0op, m0op := Polredabs(K0);
+      kerpol0opCoeffs := [m0op(c) : c in Coefficients(kerpol0)];
     end if;
 
     kerpol0op := Polynomial(kerpol0opCoeffs);
@@ -258,8 +255,8 @@ PickKernelWithDistinctXs := function(presigma, delta_type);
   // This function returns points in the kernel of the map from C mod T(Delta) to C mod T(Gamma)
   // whose images on E(Delta) have distinct x-coordinates
   // Coordinates are fractions relative to periods of E(Delta)
-  sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
 
+  sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
   basis, conv:= GetBasis(sigma, delta_type);
   n1 := basis[1][1];
   m2 := basis[2][2];
@@ -284,6 +281,7 @@ end function;
 GetDistinctXs := function(presigma, delta_type, prec);
   // This function determines the distinct x-coordinates
   // of points in the kernel of the isogeny from E(Delta) to E(Gamma)
+
   if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
     E := EllipticCurve([0,1]);
   else
@@ -298,6 +296,7 @@ end function;
 FindComplexRoots := function(presigma, delta_type, prec);
   // This function gets the roots of the kernel polynomial determining the isogeny psi
   // as complex numbers up to a given precision
+
   if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
     E := EllipticCurve([0,1]);
   else
@@ -310,6 +309,7 @@ end function;
 ChooseDivisionPolyFactors := function(presigma, delta_type, prec);
   // This function factors the Nth division polynomial and
   // selects factors that contain the roots of our kernel polynomial
+
   comproots:= FindComplexRoots(presigma, delta_type, prec);
   if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
     E := EllipticCurve([0,1]);
@@ -347,8 +347,8 @@ end function;
 WPickKernelWithDistinctXs := function(presigma, delta_type,g);
   // This function returns points in the kernel of the map from C mod T(Delta) to C mod T(Gamma)
   // whose images on E(Delta) have distinct x-coordinates
-  sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
 
+  sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
   basis, conv:= GetBasis(sigma, delta_type);
   n1 := basis[1][1]/g;
   m2 := basis[2][2]/g;
@@ -374,6 +374,7 @@ end function;
 WGetDistinctXs := function(presigma, delta_type, prec, g);
   // This function determines the distinct x-coordinates
   // of points in the kernel of the isogeny from E(Delta) to E(Gamma)
+
   if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
     E := EllipticCurve([0,1]);
   else
@@ -413,10 +414,11 @@ end function;
 //
 //================================================================
 
-SplittingKerpol := function(sigma, delta_type, prec: embCheck := false);
+SplittingKerpol := function(sigma, delta_type, prec);
   // This function computes our kernel polynomial by selecting the factors of the Nth divvision
   // polynomial over E that contain the roots we need then splitting those factors in a common field
   // constructed with extensions and iteratively taking compositums
+
   pols := ChooseDivisionPolyFactors(sigma, delta_type, prec);
   comproots:= FindComplexRoots(sigma, delta_type, prec);
   N:= GetN(sigma, delta_type);
@@ -426,7 +428,6 @@ SplittingKerpol := function(sigma, delta_type, prec: embCheck := false);
 
   // Iteratively extend QQ until it contains all the roots we need and collect roots
   
-
   for g in pols do
     Kg, Rg := SplittingField(g);
     Append(~spliFis, Kg);
@@ -466,7 +467,7 @@ SplittingKerpol := function(sigma, delta_type, prec: embCheck := false);
 
   // Simplifying kerpol if possible
 
-  kerpol := KerpolSimplification(kerpol, prec: embCheck := embCheck);
+  kerpol := KerpolSimplification(kerpol, prec);
   return kerpol;
 end function;
 
@@ -476,13 +477,12 @@ end function;
 //
 //===============================================================
 
+CycRedKerpol := function(sigma, delta_type, prec);
   // This function computes the kernel polynomial by finding its
   // roots algebraically as x-coordinates of torsion points on EDelta.
   // This version revises the "torsion" approach by reducing to a case
   // where the kernel is cyclic then composing with a multiplication map
 
-
-CycRedKerpol := function(sigma, delta_type, prec: embCheck := false);
   N := Integers()!GetN(sigma, delta_type);
   g := Getg(sigma, delta_type);
   b, conv := GetBasis(sigma, delta_type);
@@ -609,13 +609,13 @@ CycRedKerpol := function(sigma, delta_type, prec: embCheck := false);
   if rep ge 5 then
     for n in [5..rep] do
       if IsOdd(n) then
-	  m := ((n-1)/2);
-	  m := Integers()!m;
-	  Append(~D, D[m+3]*D[m+1]^3-D[m]*D[m+2]^3);
+	m := ((n-1)/2);
+	m := Integers()!m;
+	Append(~D, D[m+3]*D[m+1]^3-D[m]*D[m+2]^3);
       else
-	  m:= n/2;
-	  m := Integers()!m;
-	  Append(~D, (D[m+1]/(2*y))*(D[m+3]*D[m]^2-D[m-1]*D[m+2]^2));
+	m:= n/2;
+	m := Integers()!m;
+	Append(~D, (D[m+1]/(2*y))*(D[m+3]*D[m]^2-D[m-1]*D[m+2]^2));
       end if;
     end for;
   end if;
@@ -651,7 +651,7 @@ CycRedKerpol := function(sigma, delta_type, prec: embCheck := false);
 
   // Simplifying kerpol if possible
 
-  kerpol := KerpolSimplification(kerpol, prec: embCheck := embCheck);
+  kerpol := KerpolSimplification(kerpol, prec);
   return kerpol;
 end function;
 
@@ -670,7 +670,7 @@ end function;
 //
 //================================================================
 
-TorsionKerpol := function(sigma, delta_type, prec: embCheck := false);
+TorsionKerpol := function(sigma, delta_type, prec);
   // This function computes the kernel polynomial by finding its
   // roots algebraically as x-coordinates of torsion points on EDelta
 
@@ -810,7 +810,7 @@ TorsionKerpol := function(sigma, delta_type, prec: embCheck := false);
 
   // Simplifying kerpol if possible
 
-  kerpol := KerpolSimplification(kerpol, prec: embCheck := embCheck);
+  kerpol := KerpolSimplification(kerpol, prec);
   return kerpol;
 end function;
 
@@ -821,9 +821,10 @@ end function;
 //
 //===============================================================
 
-RevTorsionKerpol := function(sigma, delta_type, prec: embCheck := false);
+RevTorsionKerpol := function(sigma, delta_type, prec);
   // This function computes the kernel polynomial by finding its
   // roots algebraically as x-coordinates of torsion points on EDelta
+
   // Setup and step 1 in Algorithm 3.2.2
 
   N := GetN(sigma, delta_type);
@@ -882,7 +883,7 @@ RevTorsionKerpol := function(sigma, delta_type, prec: embCheck := false);
   L := ext<K|gN>;
   RL<x> := PolynomialRing(L);
 
-  // Finding the x-coordinate for a generator of E[N] as a Z[j] module
+  //Finding the x-coordinate for a generator of E[N] as a Z[j] module
 
   gN := RL!gN;
   if L eq K then
@@ -999,7 +1000,7 @@ RevTorsionKerpol := function(sigma, delta_type, prec: embCheck := false);
 
   orbit := [];
 
-  //Step 4 in algorithm 3.2.2
+  //Step 4 in Algorithm 3.2.2
 
   for pair in coors do
     a := pair[1];
@@ -1071,7 +1072,7 @@ RevTorsionKerpol := function(sigma, delta_type, prec: embCheck := false);
 
   // Simplifying kerpol if possible
 
-  kerpol := KerpolSimplification(kerpol, prec: embCheck := embCheck);
+  kerpol := KerpolSimplification(kerpol, prec);
   return kerpol;
 end function;
 
@@ -1081,10 +1082,11 @@ end function;
 //
 //================================================================
 
-HybridKerpol := function(sigma, delta_type, prec: embCheck := false);
+HybridKerpol := function(sigma, delta_type, prec);
   // This function computes the kernel polynomial by first selecting the factors of 
   // the Nth division polynomial over E that contain the roots of our kernel polynomial
   // then constructing a field where those factors split and finding the roots as algebraic numbers
+
   facs := ChooseDivisionPolyFactors(sigma, delta_type, prec);
   N := GetN(sigma, delta_type);
   if N eq 1 then
@@ -1139,6 +1141,7 @@ HybridKerpol := function(sigma, delta_type, prec: embCheck := false);
     allRootMults := [x : x in y, y in rootMults];
     algRootCandidates := [pair[1]: pair in allRootMults];
   end if;
+
   // Matching roots with our complex roots
 
   compRoots := FindComplexRoots(sigma, delta_type, prec);
@@ -1172,7 +1175,7 @@ HybridKerpol := function(sigma, delta_type, prec: embCheck := false);
 
   // Simplifying kerpol if possible
 
-  kerpol := KerpolSimplification(kerpol, prec: embCheck := embCheck);
+  kerpol := KerpolSimplification(kerpol, prec);
   return kerpol;
 end function;
 
@@ -1190,6 +1193,7 @@ end function;
 FindIsogenyXTDtoXTGFromKerPol := function(presigma, delta_type, prec, kerpol)
   // Given a kernel polynomial, this function calculates the corresponding
   // isogeny from E(Delta) to E(Gamma)
+
   sigma, vertnumber, r := PreProcessingConjugation(presigma, delta_type);
   if delta_type eq [3,3,3] or delta_type eq [2,3,6] then
     E := EllipticCurve([0,1]);
@@ -1207,6 +1211,7 @@ end function;
 
 FindIsogenyXTGtoXTD := function(presigma, delta_type, prec, kerpol);
   // This function determines the isogeny from E(Gamma) to E(Delta)
+
   a,b := FindIsogenyXTDtoXTGFromKerPol(presigma, delta_type, prec, kerpol);
   if Type(b) ne RngIntElt then
     map := DualIsogeny(b);
@@ -1218,6 +1223,7 @@ end function;
 
 FindNiceIsogenyXTGtoXTD := function(presigma, delta_type, prec, kerpol);
   // This function returns the isogeny from E(Gamma) to E(Delta) in a simplified format
+
   psi, XTGeq := FindIsogenyXTGtoXTD(presigma, delta_type, prec, kerpol);
   if Type(psi) eq RngIntElt then
     psinice := 1;
@@ -1248,9 +1254,10 @@ end function;
 //================================================================
 
 substituteforxcube_poly := function(phi, xcubesub);
-  // this function takes as input phi, a polynomial in x and y,
+  // This function takes as input phi, a polynomial in x and y,
   // which is in fact a rational function in x^3 and y,
   // and returns as output what you get by substituting xcubesub in for x^3
+
   mons := Monomials(phi);
   cfs := Coefficients(phi);
   phisub := Parent(phi)!0;
@@ -1265,15 +1272,17 @@ substituteforxcube_poly := function(phi, xcubesub);
 end function;
 
 substituteforxcube := function(phi, xcubesub);
-  // this function takes as input phi, a *rational function* in x and y,
+  // This function takes as input phi, a *rational function* in x and y,
   // and plugs it into the poly version by numerator and denominator
+
   return substituteforxcube_poly(Numerator(phi), xcubesub)/substituteforxcube_poly(Denominator(phi), xcubesub);
 end function;
 
 substituteforxsquar_poly := function(phi, xsquarsub);
-  // this function takes as input phi, a polynomial in x and y,
+  // This function takes as input phi, a polynomial in x and y,
   // which is in fact a rational function in x^2 and y,
   // and returns as output what you get by substituting xsquarsub in for x^2
+
   mons := Monomials(phi);
   cfs := Coefficients(phi);
   phisub := Parent(phi)!0;
@@ -1287,15 +1296,17 @@ substituteforxsquar_poly := function(phi, xsquarsub);
 end function;
 
 substituteforxsquar := function(phi, xsquarsub);
-  // this function takes as input phi, a *rational function* in x and y,
+  // This function takes as input phi, a *rational function* in x and y,
   // and plugs it into the poly version by numerator and denominator
+
   return substituteforxsquar_poly(Numerator(phi), xsquarsub)/substituteforxsquar_poly(Denominator(phi), xsquarsub);
 end function;
 
 substituteforysquar_poly := function(phi, ysquarsub);
-  // this function takes as input phi, a polynomial in x and y,
+  // This function takes as input phi, a polynomial in x and y,
   // which is in fact a rational function in x and y^2,
   // and returns as output what you get by substituting ysquarsub in for y^2
+
   mons := Monomials(phi);
   cfs := Coefficients(phi);
   phisub := Parent(phi)!0;
@@ -1310,17 +1321,19 @@ substituteforysquar_poly := function(phi, ysquarsub);
 end function;
 
 substituteforysquar := function(phi, ysquarsub);
-  // this function takes as input phi, a *rational function* in x and y,
+  // This function takes as input phi, a *rational function* in x and y,
   // and plugs it into the poly version by numerator and denominator
+
   num := substituteforysquar_poly(Numerator(phi), ysquarsub);
   den := substituteforysquar_poly(Denominator(phi), ysquarsub);
   return num/den;
 end function;
 
 substitutefory_poly := function(phi, ysub);
-  // this function takes as input phi, a polynomial in x and y,
+  // This function takes as input phi, a polynomial in x and y,
   // which is in fact a rational function in x and y,
   // and returns as output what you get by substituting ysub in for y
+
   mons := Monomials(phi);
   cfs := Coefficients(phi);
   phisub := Parent(phi)!0;
@@ -1335,15 +1348,17 @@ substitutefory_poly := function(phi, ysub);
 end function;
 
 substitutefory := function(phi, ysub);
-  // this function takes as input phi, a *rational function* in x and y,
+  // This function takes as input phi, a *rational function* in x and y,
   // and plugs it into the poly version by numerator and denominator
+
   return substitutefory_poly(Numerator(phi), ysub)/substitutefory_poly(Denominator(phi), ysub);
 end function;
 
 substituteforyfour_poly := function(phi, yfoursub);
-  // this function takes as input phi, a polynomial in x and y,
+  // This function takes as input phi, a polynomial in x and y,
   // which is in fact a rational function in x and y^4,
   // and returns as output what you get by substituting yfoursub in for y^4
+
   mons := Monomials(phi);
   cfs := Coefficients(phi);
   phisub := Parent(phi)!0;
@@ -1357,15 +1372,17 @@ substituteforyfour_poly := function(phi, yfoursub);
 end function;
 
 substituteforyfour := function(phi, yfoursub);
-  // this function takes as input phi, a *rational function* in x and y,
+  // This function takes as input phi, a *rational function* in x and y,
   // and plugs it into the poly version by numerator and denominator
+
   return substituteforyfour_poly(Numerator(phi), yfoursub)/substituteforyfour_poly(Denominator(phi), yfoursub);
 end function;
 
 
-EucBelyiMapAlgorithm := function(presigma, delta_type, prec : Al := "Splitting", embCheck := false);
+EucBelyiMapAlgorithm := function(presigma, delta_type, prec : Al := "Splitting", defaultRoot := true);
   // This function takes a transitive Euclidean permutation triple and constructs the corresponding Belyi map
   // and optionally allows users to choose which method is used to compute the kernel polynomial of the relevant isogeny
+
   triple_type:=[Order(presigma[1]), Order(presigma[2]), Order(presigma[3])];
   if not Set(triple_type) in [{3,3,3},{2,4,4},{2,3,6}] then
     error "Permutation triple is not Euclidean.";
@@ -1375,15 +1392,15 @@ EucBelyiMapAlgorithm := function(presigma, delta_type, prec : Al := "Splitting",
   R := GetR(sigma, delta_type);
 
   if Al eq "Torsion" then
-    kerpol := TorsionKerpol(sigma, delta_type, prec: embCheck := embCheck );
+    kerpol := TorsionKerpol(sigma, delta_type, prec);
   elif Al eq "Hybrid" then
-    kerpol := HybridKerpol(sigma, delta_type, prec: embCheck := embCheck);
+    kerpol := HybridKerpol(sigma, delta_type, prec);
   elif Al eq "Splitting" then 
-    kerpol := SplittingKerpol(sigma, delta_type, prec: embCheck := embCheck);
+    kerpol := SplittingKerpol(sigma, delta_type, prec);
   elif Al eq "Rev" then
-    kerpol := RevTorsionKerpol(sigma, delta_type, prec: embCheck := embCheck);
+    kerpol := RevTorsionKerpol(sigma, delta_type, prec);
   else // Al eq "Cyc"
-    kerpol := CycRedKerpol(sigma, delta_type, prec: embCheck := embCheck);
+    kerpol := CycRedKerpol(sigma, delta_type, prec);
   end if;
 
   phi, XTG:= FindNiceIsogenyXTGtoXTD(sigma, delta_type, prec, kerpol);
@@ -1422,11 +1439,19 @@ EucBelyiMapAlgorithm := function(presigma, delta_type, prec : Al := "Splitting",
           if #rtsom ge 1 then
             K := BaseField(Parent(X));
 		v := InfinitePlaces(K)[1];
-		if Im(Evaluate(rtsom[1][1],v)) ge 0 then
-            	alp := rtsom[1][1];
-		else
-                   alp := rtsom[2][1];
-		end if;
+                if defaultRoot then
+		  if Im(Evaluate(rtsom[1][1],v)) ge 0 then
+            	    alp := rtsom[1][1];
+		  else
+                    alp := rtsom[2][1];
+		  end if;
+                else
+		  if Im(Evaluate(rtsom[1][1],v)) ge 0 then
+            	    alp := rtsom[2][1];
+		  else
+                    alp := rtsom[1][1];
+		  end if;
+                end if;
           else
             K := ext<BaseField(Parent(X)) | Polynomial([1,-1,1])>;
             alp := K.1;
@@ -1547,16 +1572,12 @@ EucBelyiMapAlgorithm := function(presigma, delta_type, prec : Al := "Splitting",
   return X, out;
 end function;
 
-ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Splitting", embCheck := false);
-  // Calls the main algorithm to compute X and phi from sigma. Attempts the faster method first
-  // without the embedding check by default, but automatically retires with the embedding check in place
-  // in case of a failed sanity check. Optional parameter embCheck allows user to run with 
-  // the embedding check in place when set to true
+ComputeEucBelyiMap := function(presigma, delta_type, prec : Al := "Splitting", defaultRoot := true);
+  // Calls the main algorithm to compute X and phi from sigma.
 
-  X,phi := EucBelyiMapAlgorithm(presigma, delta_type, prec : Al := Al, embCheck := embCheck);
+  X,phi := EucBelyiMapAlgorithm(presigma, delta_type, prec : Al := Al, defaultRoot := defaultRoot);
   if not SanCheck(presigma,X,phi) then
-    print "Sanity check failed without embedding check. Recomputing with embedding check.";
-    X,phi := EucBelyiMapAlgorithm(presigma, delta_type, prec : Al := Al, embCheck := true);
+    X,phi := EucBelyiMapAlgorithm(presigma, delta_type, prec : Al := Al, defaultRoot := false);
   end if;
   if not SanCheck(presigma,X,phi) then
     error "Error: fails sanity check. This should not happen.";
