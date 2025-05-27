@@ -103,6 +103,10 @@ declare attributes GrpPSL2Tri:  // = Gamma, a Fuchsian group
   TriangleExactBelyiMapLeadingCoefficient,
   TriangleExactBelyiMapNumeratorCoefficients,
   TriangleExactBelyiMapDenominatorCoefficients,
+  TriangleCurveValuations,
+  TriangleBelyiMapNumeratorValuations,
+  TriangleBelyiMapDenominatorValuations,
+
   TriangleKMinPoly,
                     // min poly for number field
   TriangleRiemannRochParameters, // [s,t] s and t: numerator in L(too), denominator in L((s+t)oo)

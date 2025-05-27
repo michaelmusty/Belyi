@@ -368,9 +368,12 @@ intrinsic TriangleHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2
   Gamma`TriangleNewtonCoordinateSeries := [x_CC, y_CC];
   // write numerical attributes
   Gamma`TriangleNumericalCurveCoefficients := curve_coeffs;
+  Gamma`TriangleCurveValuations:= curve_vals;
   Gamma`TriangleNumericalBelyiMapLeadingCoefficient := lc;
   Gamma`TriangleNumericalBelyiMapNumeratorCoefficients := num_coeffs;
+  Gamma`TriangleBelyiMapNumeratorValuations := num_vals;
   Gamma`TriangleNumericalBelyiMapDenominatorCoefficients := denom_coeffs;
+  Gamma`TriangleBelyiMapDenominatorValuations := denom_vals;
   Gamma`TriangleRescalingFactor := lambda;
   return Gamma, curve_coeffs, lc, num_coeffs, denom_coeffs, curve_vals, num_vals, denom_vals;
 end intrinsic;
