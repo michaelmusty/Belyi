@@ -23,7 +23,10 @@ intrinsic PowerSeriesBasis(Gamma::GrpPSL2Tri, k::RngIntElt :
  N is the number of terms in the power series basis;
  dimension is of the subspace computed ("top terms");
  Federalize uses multiple centers;
- Al is either "Arnoldi" (uses Arnoldi iteration) or
+ Al is either "Arnoldi" (uses Arnoldi iteration),
+ "CArnoldi" (Arnoldi iteration in the external C solver powser_arnoldi,
+ using the Vandermonde/DFT structure of the matrices; set the binary path
+ in the environment variable POWSER_ARNOLDI_BIN or have it in PATH), or
  "Full" (computes the full matrix and the SVD).}
 
   require k gt 0 and k mod 2 eq 0 : "k >= 2 must be even";
@@ -255,7 +258,101 @@ intrinsic PowerSeriesBasis(Gamma::GrpPSL2Tri, k::RngIntElt :
 
   // ===========================================
   // Numerical eigenvalue might be better?  Should work on optimizing this.
-  if Al eq "Arnoldi" then // use SVD on the Arnoldi subspace
+  if Al eq "CArnoldi" then // Arnoldi in the external C solver (FLINT/Arb)
+    // The operator A = Wp*P*J/Q is applied in structured form:
+    //   Wp side = polynomial evaluation at the reduced points (Horner, threaded)
+    //   J side  = pointwise weights + a length-Q DFT (the circle points are
+    //             exactly rho * (Q-th roots of unity))
+    // The solver mirrors the Arnoldi + numerical-kernel escape logic below and
+    // self-validates each returned vector x by checking |A x - x|.
+    cbin := GetEnv("POWSER_ARNOLDI_BIN");
+    if cbin eq "" then
+      cbin := "powser_arnoldi";
+    end if;
+    infile := Sprintf("/tmp/powser_in_%o.txt", Getpid());
+    outfile := Sprintf("/tmp/powser_out_%o.m", Getpid());
+
+    epsdigs := prec - 2*Floor(Log(prec));  // eps_thresh = 10^-epsdigs, as above
+    cmaxiter := 50 + 3*prec;
+    shifts := [#skipcoeffs] cat [0 : i in [2..nv]];
+    Ptots := [wpinds[i+1]-wpinds[i] : i in [1..nv]];
+
+    vprintf Shimura : "Writing C solver input %o... ", infile;
+    vtime Shimura:
+    if true then
+      F := Open(infile, "w");
+      Puts(F, Sprintf("%o %o %o %o %o %o %o", prec, epsdigs, cmaxiter, dim, nv, Q, 1));
+      for i := 1 to nv do
+        Puts(F, Sprintf("%o %o %o %o", NNs[i], es[i], (es[i]*shifts[i]) mod Q, Ptots[i]));
+      end for;
+      // evaluation points and Vandermonde prefactors, sorted by center
+      for i := 1 to nv do
+        for wp in wp_ms_sorted[wpinds[i]..wpinds[i+1]-1] do
+          xpt := wp^es[i];
+          vnd := wp^ss[i]*(1-wp*rho)^k*xpt^shifts[i];
+          Puts(F, Sprintf("%o %o %o %o", Real(xpt), Imaginary(xpt), Real(vnd), Imaginary(vnd)));
+        end for;
+      end for;
+      // J-side weights; C slot j = 0..Q-1 corresponds to zeta_Q^j, i.e. m = Q for j = 0
+      for i := 1 to nv do
+        jautC := ChangeUniverse(jAut_z_ms[(i-1)*Q+1..i*Q], CC);
+        for m in [1..Q] do
+          jautC[m] /:= (1-w_ms0[m]*rho)^k*w_ms0[m]^ss[i];
+        end for;
+        for j := 0 to Q-1 do
+          m := j eq 0 select Q else j;
+          Puts(F, Sprintf("%o %o", Real(jautC[m]), Imaginary(jautC[m])));
+        end for;
+      end for;
+      // permutation: J-input slot <- position in concatenated Wp outputs
+      if Federalize then
+        permfull := permutseq;
+      else
+        permfull := [1..nv*Q];
+      end if;
+      for i := 1 to nv do
+        for j := 0 to Q-1 do
+          m := j eq 0 select Q else j;
+          Puts(F, Sprintf("%o", permfull[(i-1)*Q+m]));
+        end for;
+      end for;
+      // start vectors, one per basis element, as in the Arnoldi branch below
+      for dim_cnt := 1 to dim do
+        q1 := [CC | rho^(ss[1]+n*es[1]) : n in [0..((N+1) div es[1])-1] | n notin skipcoeffs];
+        for jdim := 1 to dim do
+          if jdim ne dim_cnt then
+            q1[jdim] := 0;
+          end if;
+        end for;
+        if nv gt 1 then
+          qfull := q1 cat &cat[[CC | rho^(ss[i]+n*es[i]) : n in [0..NNs[i]-1]] : i in [2..nv]];
+        else
+          qfull := q1;
+        end if;
+        for z in qfull do
+          Puts(F, Sprintf("%o %o", Real(z), Imaginary(z)));
+        end for;
+      end for;
+      delete F;
+    end if;
+
+    vprintf Shimura : "Running external solver %o... ", cbin;
+    vtime Shimura:
+    retc := System(Sprintf("%o %o %o", cbin, infile, outfile));
+    require retc eq 0 :
+      Sprintf("external solver %o failed (status %o); build Cext/powser_arnoldi.c "
+              cat "and/or set POWSER_ARNOLDI_BIN, or rerun with Al := \"Arnoldi\"", cbin, retc);
+
+    vprintf Shimura : "Reading C solver output... ";
+    vtime Shimura:
+    dat := eval Read(outfile);
+    xout := [ Vector(CC, [CC | z : z in v]) : v in dat[1] ];
+    minsing := Max([RealField(CC)!m : m in dat[2]]);
+    vprintf Shimura : "C solver: minsing = %o, residuals |Ax-x|/|x| = %o\n",
+        RealField(6)!minsing, [RealField(6)!r : r in dat[3]];
+    assert #xout eq dim;
+
+  elif Al eq "Arnoldi" then // use SVD on the Arnoldi subspace
 
     xout := [];
     for dim_cnt := 1 to dim do
