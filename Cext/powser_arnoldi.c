@@ -63,6 +63,13 @@
 #include <flint/acb_mat.h>
 #include <flint/acb_dft.h>
 
+/* FLINT 3.1 renamed flint_randinit -> flint_rand_init; map the new names
+   onto the old ones when building against FLINT 3.0 */
+#if __FLINT_RELEASE < 30100
+#define flint_rand_init flint_randinit
+#define flint_rand_clear flint_randclear
+#endif
+
 /* ------------------------------------------------------------------ */
 /* problem data                                                        */
 /* ------------------------------------------------------------------ */
@@ -955,7 +962,7 @@ static int selftest(void)
     acb_mat_t Vm, Vinv, D, T1;
     int ok = 1;
 
-    flint_randinit(state);
+    flint_rand_init(state);
     memset(&pb, 0, sizeof pb);
     pb.prec = prec;
     pb.digs = 70;
@@ -1118,7 +1125,7 @@ static int selftest(void)
 
     acb_mat_clear(dc.A); acb_mat_clear(Vm); acb_mat_clear(Vinv);
     acb_mat_clear(D); acb_mat_clear(T1);
-    flint_randclear(state);
+    flint_rand_clear(state);
     printf(ok ? "SELFTEST PASSED\n" : "SELFTEST FAILED\n");
     return ok ? 0 : 1;
 }
