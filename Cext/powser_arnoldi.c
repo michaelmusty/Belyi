@@ -224,8 +224,17 @@ static void matvec_structured(acb_ptr w, acb_srcptr v, matvec_ws_t *ws)
 
 /* ------------------------------------------------------------------ */
 /* inner products (bilinear like Magma's InnerProduct, or Hermitian)    */
+/* Callers supply bc = conj(b) precomputed for the Hermitian case so    */
+/* that the fast acb_dot kernel is used either way.                     */
 /* ------------------------------------------------------------------ */
 
+static void vec_dot2(acb_t res, acb_srcptr a, acb_srcptr b_or_bc, slong n,
+                     slong prec)
+{
+    acb_dot(res, NULL, 0, a, 1, b_or_bc, 1, n, prec);
+}
+
+/* legacy interface used by residual-free callers (selftest) */
 static void vec_dot(acb_t res, acb_srcptr a, acb_srcptr b, slong n,
                     int hermitian, slong prec)
 {
@@ -450,9 +459,112 @@ static void jacobi_svd(arb_ptr s, acb_mat_t W, const acb_mat_t M, slong prec)
 }
 
 /*
+ * fast numerical left-kernel detector: inverse iteration on B = M^T.
+ * Finds the smallest singular value of M and its left-singular vector
+ * (y with y M ~ 0) via a few rounds of  solve B^H w = v; solve B v = w,
+ * which applies (B^H B)^{-1}.  Costs two LU factorizations, O(n^3) with a
+ * tiny constant, vs O(sweeps * n^3) dots for the Jacobi SVD.  All in
+ * midpoint (floating-point) arithmetic; the caller's final residual check
+ * provides the rigor.  Returns 1 on success, 0 if the LU fails (then the
+ * caller falls back to the Jacobi path).
+ */
+static int left_kernel_inverse_iter(acb_mat_t ker, arb_t minsing,
+                                    const acb_mat_t M, const arb_t eps,
+                                    slong prec, slong *count)
+{
+    slong n = acb_mat_nrows(M), i, j, it;
+    acb_mat_t B, Bh, LU, LUh, v, w;
+    slong *P, *Ph;
+    arb_t nv, tmp;
+    acb_t z;
+    int ok = 1;
+
+    acb_mat_init(B, n, n);
+    acb_mat_init(Bh, n, n);
+    acb_mat_init(LU, n, n);
+    acb_mat_init(LUh, n, n);
+    acb_mat_init(v, n, 1);
+    acb_mat_init(w, n, 1);
+    P = flint_malloc(sizeof(slong) * n);
+    Ph = flint_malloc(sizeof(slong) * n);
+    arb_init(nv); arb_init(tmp);
+    acb_init(z);
+
+    /* B = M^T (no conjugate), Bh = B^H = conj(M) */
+    for (i = 0; i < n; i++)
+        for (j = 0; j < n; j++)
+        {
+            acb_set(acb_mat_entry(B, i, j), acb_mat_entry(M, j, i));
+            acb_get_mid(acb_mat_entry(B, i, j), acb_mat_entry(B, i, j));
+            acb_conj(acb_mat_entry(Bh, i, j), acb_mat_entry(M, i, j));
+            acb_get_mid(acb_mat_entry(Bh, i, j), acb_mat_entry(Bh, i, j));
+        }
+
+    if (!acb_mat_approx_lu(P, LU, B, prec) ||
+        !acb_mat_approx_lu(Ph, LUh, Bh, prec))
+    {
+        ok = 0;   /* exactly singular midpoint: fall back to Jacobi */
+        goto cleanup;
+    }
+
+    /* fixed deterministic start vector */
+    for (i = 0; i < n; i++)
+        acb_set_d_d(acb_mat_entry(v, i, 0),
+                    1.0 / (double)(i + 2), 1.0 / (double)(2 * i + 3));
+
+    for (it = 0; it < 4; it++)
+    {
+        acb_mat_approx_solve_lu_precomp(w, Ph, LUh, v, prec);
+        acb_mat_approx_solve_lu_precomp(v, P, LU, w, prec);
+        /* normalize */
+        arb_zero(nv);
+        for (i = 0; i < n; i++)
+        {
+            acb_abs(tmp, acb_mat_entry(v, i, 0), prec);
+            arb_sqr(tmp, tmp, prec);
+            arb_add(nv, nv, tmp, prec);
+        }
+        arb_sqrtpos(nv, nv, prec);
+        if (!arb_is_finite(nv) || arb_is_zero(nv)) { ok = 0; goto cleanup; }
+        for (i = 0; i < n; i++)
+        {
+            acb_div_arb(acb_mat_entry(v, i, 0), acb_mat_entry(v, i, 0), nv, prec);
+            acb_get_mid(acb_mat_entry(v, i, 0), acb_mat_entry(v, i, 0));
+        }
+    }
+
+    /* sigma_min ~ |B v|_2 with |v| = 1 */
+    arb_zero(nv);
+    for (i = 0; i < n; i++)
+    {
+        acb_zero(z);
+        for (j = 0; j < n; j++)
+            acb_addmul(z, acb_mat_entry(B, i, j), acb_mat_entry(v, j, 0), prec);
+        acb_abs(tmp, z, prec);
+        arb_sqr(tmp, tmp, prec);
+        arb_add(nv, nv, tmp, prec);
+    }
+    arb_sqrtpos(minsing, nv, prec);
+    arb_get_mid_arb(minsing, minsing);
+
+    *count = arb_lt(minsing, eps) ? 1 : 0;
+    if (*count)
+        for (i = 0; i < n; i++)
+            acb_set(acb_mat_entry(ker, 0, i), acb_mat_entry(v, i, 0));
+
+cleanup:
+    acb_mat_clear(B); acb_mat_clear(Bh);
+    acb_mat_clear(LU); acb_mat_clear(LUh);
+    acb_mat_clear(v); acb_mat_clear(w);
+    flint_free(P); flint_free(Ph);
+    arb_clear(nv); arb_clear(tmp);
+    acb_clear(z);
+    return ok;
+}
+
+/*
  * numerical LEFT kernel of square matrix M (n x n): vectors y with y M ~ 0.
- * Runs Jacobi SVD on M^T (transpose, no conjugate): M^T = B; columns w of W
- * with tiny singular value satisfy M^T w ~ 0, i.e. w^T M ~ 0, so y = w^T.
+ * Fast path: inverse iteration (above).  Fallback: Jacobi SVD on M^T.
  * Returns number of kernel vectors found (singular value < eps), stores
  * them as rows of ker (allocated n x n; first `count` rows valid), and the
  * minimum singular value in minsing.
@@ -463,6 +575,14 @@ static slong numerical_left_kernel(acb_mat_t ker, arb_t minsing,
     slong n = acb_mat_nrows(M), i, j, count = 0;
     acb_mat_t Mt, W;
     arb_ptr s;
+
+    if (!getenv("POWSER_FORCE_JACOBI"))
+    {
+        slong cnt = 0;
+        if (left_kernel_inverse_iter(ker, minsing, M, eps, prec, &cnt))
+            return cnt;
+        /* LU failed (exactly singular midpoint) -> Jacobi fallback below */
+    }
     acb_mat_init(Mt, n, n);
     acb_mat_init(W, n, n);
     s = _arb_vec_init(n);
@@ -523,6 +643,13 @@ typedef void (*matvec_fn)(acb_ptr, acb_srcptr, void *);
  *   - from i >= 10, left kernel of (H0 - 1), H0 = square (i-1)x(i-1)
  *   - escape when kernel found, minsing < eps, |y_last| > err_arn
  */
+static double wall_now(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + 1e-9 * ts.tv_nsec;
+}
+
 static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
                        matvec_fn mv, void *mvctx, problem_t *pb,
                        arb_t minsing_out, int verbose)
@@ -530,7 +657,12 @@ static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
     slong prec = pb->prec;
     slong maxi = pb->maxiter;
     int hermit = pb->hermitian;
+    slong kcheck = 4;    /* run the (expensive) kernel check every kcheck
+                            iterations until minsing gets near eps */
+    int near = 0;
+    double t_mv = 0, t_mgs = 0, t_svd = 0, t0;
     acb_ptr *q;          /* Krylov vectors */
+    acb_ptr *qc;         /* conjugated Krylov vectors (hermitian case) */
     acb_mat_t H;         /* Hessenberg, maxi x maxi (h[i][j] 0-based) */
     acb_t dot, nrm;
     arb_t minsing, err_arn, ylast, tmp;
@@ -546,7 +678,13 @@ static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
     arb_init(best_minsing);
     arb_pos_inf(best_minsing);
 
+    if (getenv("POWSER_KCHECK"))
+        kcheck = atol(getenv("POWSER_KCHECK"));
+    if (kcheck < 1) kcheck = 1;
+
     q = flint_malloc(sizeof(acb_ptr) * (maxi + 2));
+    qc = flint_malloc(sizeof(acb_ptr) * (maxi + 2));
+    memset(qc, 0, sizeof(acb_ptr) * (maxi + 2));
     acb_mat_init(H, maxi + 1, maxi + 1);
     acb_mat_zero(H);
     acb_init(dot); acb_init(nrm);
@@ -560,6 +698,12 @@ static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
     acb_sqrt(nrm, dot, prec);
     for (t = 0; t < V; t++)
         acb_div(q[0] + t, q[0] + t, nrm, prec);
+    if (hermit)
+    {
+        qc[0] = _acb_vec_init(V);
+        for (t = 0; t < V; t++)
+            acb_conj(qc[0] + t, q[0] + t);
+    }
 
     arb_zero(err_arn);
     arb_pos_inf(minsing);
@@ -570,21 +714,23 @@ static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
             arb_set(err_arn, ylast);
 
         q[i] = _acb_vec_init(V);
+        t0 = wall_now();
         mv(q[i], q[i - 1], mvctx);
+        t_mv += wall_now() - t0;
 
         /* modified Gram-Schmidt.  All quantities are reduced to midpoints:
            this stage is floating-point (as in Magma), and near breakdown
            ball radii would otherwise blow up and poison H with NaNs.
            Rigor is restored by the final residual check on the output. */
+        t0 = wall_now();
         for (t = 0; t < V; t++)
             acb_get_mid(q[i] + t, q[i] + t);
         for (j = 0; j < i; j++)
         {
-            vec_dot(dot, q[i], q[j], V, hermit, prec);
+            vec_dot2(dot, q[i], hermit ? qc[j] : q[j], V, prec);
             acb_get_mid(dot, dot);
             acb_set(acb_mat_entry(H, i - 1, j), dot);
-            for (t = 0; t < V; t++)
-                acb_submul(q[i] + t, dot, q[j] + t, prec);
+            _acb_vec_scalar_submul(q[i], q[j], V, dot, prec);
         }
         vec_dot(dot, q[i], q[i], V, hermit, prec);
         acb_sqrt(nrm, dot, prec);
@@ -596,6 +742,7 @@ static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
                 flint_printf("iter %wd: Arnoldi breakdown (zero residual)\n", i + 1);
             _acb_vec_clear(q[i], V);
             q[i] = NULL;
+            t_mgs += wall_now() - t0;
             break;
         }
         for (t = 0; t < V; t++)
@@ -603,14 +750,26 @@ static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
             acb_div(q[i] + t, q[i] + t, nrm, prec);
             acb_get_mid(q[i] + t, q[i] + t);
         }
-
-        if (i + 1 < 10)
+        if (hermit)
         {
-            yFound = 0;
+            qc[i] = _acb_vec_init(V);
+            for (t = 0; t < V; t++)
+                acb_conj(qc[i] + t, q[i] + t);
+        }
+        t_mgs += wall_now() - t0;
+
+        /* the kernel check is O(i^3) at high precision: amortize it by
+           checking only every kcheck iterations until minsing nears eps
+           (a few extra cheap matvec iterations beat an SVD every step) */
+        if (i + 1 < 10 || (!near && (i + 1 - 10) % kcheck != 0 && i < maxi))
+        {
+            if (i + 1 < 10)
+                yFound = 0;
             continue;
         }
 
         /* H0 = first i rows and i columns of H, minus identity */
+        t0 = wall_now();
         {
             acb_mat_t H0;
             slong n0 = i;
@@ -641,6 +800,19 @@ static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
             }
             kcount = numerical_left_kernel(ker, minsing, H0, pb->eps, prec);
             acb_mat_clear(H0);
+            t_svd += wall_now() - t0;
+
+            /* once minsing is within ~12 digits of eps, check every iter
+               so the escape point matches the every-iteration semantics */
+            {
+                arb_t eps_near;
+                arb_init(eps_near);
+                arb_mul_2exp_si(eps_near, pb->eps, 40);
+                arb_mul_ui(eps_near, eps_near, 1000000000UL, prec);
+                if (arb_lt(minsing, eps_near))
+                    near = 1;
+                arb_clear(eps_near);
+            }
 
             if (verbose)
             {
@@ -707,9 +879,16 @@ static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
 
     arb_set(minsing_out, minsing);
 
+    if (verbose)
+        flint_printf("timings: matvec %.2f s, gram-schmidt %.2f s, svd %.2f s\n",
+                     t_mv, t_mgs, t_svd);
+
     for (j = 0; j < i && j <= maxi + 1; j++)
         if (q[j]) _acb_vec_clear(q[j], V);
+    for (j = 0; j < i && j <= maxi + 1; j++)
+        if (qc[j]) _acb_vec_clear(qc[j], V);
     flint_free(q);
+    flint_free(qc);
     if (ysave) _acb_vec_clear(ysave, ysave_len);
     if (ybest) _acb_vec_clear(ybest, ybest_len);
     arb_clear(best_minsing);
@@ -839,6 +1018,19 @@ static void problem_read(problem_t *pb, const char *fname, slong nthreads)
     for (i = 0; i < pb->dim * pb->V; i++)
         read_acb(pb->start + i, f, pb->prec);
     fclose(f);
+
+    /* the whole computation is floating-point at prec bits (midpoints);
+       stripping the parse radii here keeps the final residual check's
+       ball tight so it reports the honest residual size */
+    for (i = 0; i < pb->P; i++)
+    {
+        acb_get_mid(pb->x + i, pb->x + i);
+        acb_get_mid(pb->vand + i, pb->vand + i);
+    }
+    for (i = 0; i < pb->nv * pb->Q; i++)
+        acb_get_mid(pb->g + i, pb->g + i);
+    for (i = 0; i < pb->dim * pb->V; i++)
+        acb_get_mid(pb->start + i, pb->start + i);
 }
 
 /* ------------------------------------------------------------------ */
