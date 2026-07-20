@@ -863,6 +863,49 @@ static int arnoldi_run(acb_ptr xout, acb_srcptr q0, slong V,
         }
     }
 
+    /* diagnostics: verify the Arnoldi relation A q_j = sum_i H[j][i] q_i
+       and basis orthogonality, both of which the reconstruction relies on */
+    if (getenv("POWSER_DIAG_RELATION"))
+    {
+        acb_ptr w = _acb_vec_init(V);
+        arb_t en, tmp;
+        acb_t dg;
+        arb_init(en); arb_init(tmp); acb_init(dg);
+        for (j = 0; j + 1 < i; j += (j < 8 ? 1 : 12))
+        {
+            slong jj, t2;
+            mv(w, q[j], mvctx);
+            for (jj = 0; jj <= j + 1; jj++)
+                for (t2 = 0; t2 < V; t2++)
+                    acb_submul(w + t2, acb_mat_entry(H, j, jj), q[jj] + t2, prec);
+            arb_zero(en);
+            {
+                slong argmax = 0;
+                arb_t mx, ab;
+                arb_init(mx); arb_init(ab); arb_zero(mx);
+                for (t2 = 0; t2 < V; t2++)
+                {
+                    acb_abs(ab, w + t2, prec);
+                    if (arb_gt(ab, mx)) { arb_set(mx, ab); argmax = t2; }
+                    arb_sqr(ab, ab, prec); arb_add(en, en, ab, prec);
+                }
+                arb_sqrtpos(en, en, prec);
+                flint_printf("relation error |A q_%wd - sum H q| = ", j);
+                arb_printd(en, 6);
+                flint_printf("  argmax entry %wd: ", argmax);
+                arb_printd(mx, 4);
+                arb_clear(mx); arb_clear(ab);
+            }
+            /* orthogonality vs q_0 and q_{j-1} */
+            vec_dot(dg, q[j], q[0], V, hermit, prec);
+            flint_printf("   <q_%wd,q_0> = ", j);
+            acb_printd(dg, 4);
+            flint_printf("\n");
+        }
+        _acb_vec_clear(w, V);
+        arb_clear(en); arb_clear(tmp); acb_clear(dg);
+    }
+
     /* fallback: breakdown or maxiter without a formal escape, but a kernel
        vector below eps was seen along the way -- use the best one */
     if (!found && ybest != NULL && arb_lt(best_minsing, pb->eps))
@@ -1064,6 +1107,29 @@ static void write_arb(FILE *f, const arb_t x, slong digs)
     flint_free(s);
 }
 
+/* Write x as a full-precision Magma literal using the 'p' suffix:
+   "0.<digits>E<exp>p<digs>".  Without the suffix, Magma evaluates real
+   literals at the DEFAULT real field precision (30 digits!) before
+   coercing into the target field, silently truncating the mantissa. */
+static void write_arb_exact(FILE *f, const arb_t x, slong digs)
+{
+    mpfr_t m;
+    mpfr_exp_t e10;
+    char *s, *digits;
+
+    if (arb_is_zero(x)) { fputs("0", f); return; }
+
+    mpfr_init2(m, arb_bits(x) + 8 > 64 ? arb_bits(x) + 8 : 64);
+    arf_get_mpfr(m, arb_midref(x), MPFR_RNDN);
+    s = mpfr_get_str(NULL, &e10, 10, (size_t) digs, m, MPFR_RNDN);
+    /* value = 0.<digits> * 10^e10, sign leading the digit string */
+    digits = s;
+    if (digits[0] == '-') { fputc('-', f); digits++; }
+    fprintf(f, "0.%sE%ldp%ld", digits, (long) e10, (long) digs);
+    mpfr_free_str(s);
+    mpfr_clear(m);
+}
+
 static void output_write(const char *fname, problem_t *pb, acb_ptr xouts,
                          arb_srcptr minsings, arb_srcptr resids)
 {
@@ -1078,9 +1144,9 @@ static void output_write(const char *fname, problem_t *pb, acb_ptr xouts,
         for (t = 0; t < pb->V; t++)
         {
             fprintf(f, "[");
-            write_arb(f, acb_realref(xouts + d * pb->V + t), pb->digs + 5);
+            write_arb_exact(f, acb_realref(xouts + d * pb->V + t), pb->digs + 7);
             fprintf(f, ", ");
-            write_arb(f, acb_imagref(xouts + d * pb->V + t), pb->digs + 5);
+            write_arb_exact(f, acb_imagref(xouts + d * pb->V + t), pb->digs + 7);
             fprintf(f, "]%s", t + 1 < pb->V ? ", " : "");
             if (t % 4 == 3) fputc('\n', f);
         }
