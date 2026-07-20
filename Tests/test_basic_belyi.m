@@ -7,13 +7,13 @@ sigma := [Sym(4) | (1,2,3,4), (1,3,4,2), (1,3,4)];
 X, phi := BelyiMap(sigma);
 assert BelyiMapSanityCheck(sigma, X, phi);
 
-// LMFDB 5T3-4.1_4.1_2.2.1-a: degree 5, genus 0, orbit size 2,
-// defined over the quadratic field Q(i)
-// (https://www.lmfdb.org/Belyi/5T3/4.1/4.1/2.2.1/a/)
-sigma2 := [Sym(5) | (1,4,5,2), (2,3,5,4), (1,4)(2,3)];
-X2, phi2 := BelyiMap(sigma2);
+// LMFDB 5T4-5_3.1.1_3.1.1-a: degree 5, genus 0, hyperbolic (orders (5,3,3)),
+// monodromy A5, orbit size 1, defined over Q
+// (https://www.lmfdb.org/Belyi/5T4/5/3.1.1/3.1.1/a/)
+sigma2 := [Sym(5) | (1,3,2,5,4), (1,2,3), (1,4,5)];
+X2, phi2 := BelyiMap(sigma2 : prec := 40);
 assert BelyiMapSanityCheck(sigma2, X2, phi2);
-assert Degree(BaseRing(X2)) eq 2;
+assert Degree(BaseRing(X2)) eq 1;   // defined over Q
 
 // LMFDB 6T1-6_6_3.3-a: degree 6, cyclic monodromy C6, genus 2,
 // orbit size 1, defined over Q, curve y^2 = x^6 - 2
