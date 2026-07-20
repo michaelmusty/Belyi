@@ -19,6 +19,14 @@ mac: powser_arnoldi.c
 	  -I$$(brew --prefix gmp)/include  -L$$(brew --prefix gmp)/lib \
 	  $(LIBS)
 
+# For servers without admin access: first run  sh build_deps.sh  to build
+# GMP/MPFR/FLINT into PREFIX, then this target static-links against them
+# (no LD_LIBRARY_PATH needed at runtime).
+PREFIX ?= $(HOME)/.local/powser
+server: powser_arnoldi.c
+	$(CC) $(CFLAGS) powser_arnoldi.c -o powser_arnoldi -I$(PREFIX)/include \
+	  $(PREFIX)/lib/libflint.a $(PREFIX)/lib/libmpfr.a $(PREFIX)/lib/libgmp.a -lm
+
 bench: powser_bench.c
 	$(CC) $(CFLAGS) powser_bench.c -o powser_bench $(LIBS)
 
@@ -28,4 +36,4 @@ test: powser_arnoldi
 clean:
 	rm -f powser_arnoldi powser_bench
 
-.PHONY: mac test clean
+.PHONY: mac test clean server
