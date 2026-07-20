@@ -57,6 +57,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <pthread.h>
+#include <mpfr.h>
 #include <flint/flint.h>
 #include <flint/acb.h>
 #include <flint/arb.h>
@@ -929,19 +930,35 @@ static slong read_slong(FILE *f)
     return atol(buf);
 }
 
+static mpfr_t parse_mpfr;
+static int parse_mpfr_ready = 0;
+
+/* fast decimal parse via mpfr_strtofr: arb_set_str's exact conversion
+   costs ~ms per 100-digit number, which dominated the whole solver run.
+   Radius is set to zero, which is exactly the midpoint semantics the
+   solver uses anyway. */
 static void read_arb(arb_t x, FILE *f, slong prec)
 {
     char buf[8192];
+    char *end;
     if (!read_token(f, buf, sizeof buf))
     {
         fprintf(stderr, "unexpected EOF\n");
         exit(1);
     }
-    if (arb_set_str(x, buf, prec) != 0)
+    if (!parse_mpfr_ready)
+    {
+        mpfr_init2(parse_mpfr, prec + 8);
+        parse_mpfr_ready = 1;
+    }
+    mpfr_strtofr(parse_mpfr, buf, &end, 10, MPFR_RNDN);
+    if (end == buf || *end != '\0')
     {
         fprintf(stderr, "bad number: %s\n", buf);
         exit(1);
     }
+    arf_set_mpfr(arb_midref(x), parse_mpfr);
+    mag_zero(arb_radref(x));
 }
 
 static void read_acb(acb_t z, FILE *f, slong prec)
@@ -1078,7 +1095,15 @@ static void output_write(const char *fname, problem_t *pb, acb_ptr xouts,
     fprintf(f, " ],\n[ RealField(20) | ");
     for (d = 0; d < pb->dim; d++)
     {
-        write_arb(f, resids + d, 15);
+        /* report a certified UPPER BOUND on the residual: its ball's
+           radius sits at rounding level, so printing only the certified
+           digits of the midpoint would show a useless "0" */
+        arb_t ub;
+        arb_init(ub);
+        arb_get_abs_ubound_arf(arb_midref(ub), resids + d, 64);
+        mag_zero(arb_radref(ub));
+        write_arb(f, ub, 15);
+        arb_clear(ub);
         fprintf(f, "%s", d + 1 < pb->dim ? ", " : "");
     }
     fprintf(f, " ]\n*]\n");
@@ -1349,7 +1374,11 @@ int main(int argc, char **argv)
         nthreads = flint_get_num_threads() > 1 ? flint_get_num_threads() : 4;
 
     memset(&pb, 0, sizeof pb);
-    problem_read(&pb, argv[1], nthreads);
+    {
+        double tr = wall_now();
+        problem_read(&pb, argv[1], nthreads);
+        flint_printf("input parsed in %.2f s\n", wall_now() - tr);
+    }
     matvec_ws_init(&ws, &pb);
 
     flint_printf("powser_arnoldi: V=%wd P=%wd nv=%wd Q=%wd dim=%wd digs=%wd "
@@ -1364,6 +1393,7 @@ int main(int argc, char **argv)
 
         for (d = 0; d < pb.dim; d++)
         {
+            double td = wall_now();
             int ok = arnoldi_run(xouts + d * pb.V, pb.start + d * pb.V, pb.V,
                                  mv_structured, &ws, &pb, minsings + d, 1);
             if (!ok)
@@ -1372,14 +1402,19 @@ int main(int argc, char **argv)
                              "within %wd iterations\n", d + 1, pb.maxiter);
                 allok = 0;
             }
+            flint_printf("dim %wd: arnoldi total %.2f s\n", d + 1, wall_now() - td);
+            td = wall_now();
             residual(resids + d, xouts + d * pb.V, &ws, pb.V, pb.prec);
             flint_printf("dim %wd: residual |Ax-x|/|x| = ", d + 1);
             arb_printd(resids + d, 6);
-            flint_printf("\n");
+            flint_printf("  (%.2f s)\n", wall_now() - td);
         }
 
-        output_write(argv[2], &pb, xouts, minsings, resids);
-        flint_printf("wrote %s\n", argv[2]);
+        {
+            double tw = wall_now();
+            output_write(argv[2], &pb, xouts, minsings, resids);
+            flint_printf("wrote %s (%.2f s)\n", argv[2], wall_now() - tw);
+        }
 
         _acb_vec_clear(xouts, pb.dim * pb.V);
         _arb_vec_clear(minsings, pb.dim);
