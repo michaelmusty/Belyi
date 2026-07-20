@@ -187,30 +187,34 @@ intrinsic PowerSeriesBasis(Gamma::GrpPSL2Tri, k::RngIntElt :
   NNs[1] -:= #skipcoeffs;
   vprintf Shimura : "dim = %o, fulldim = %o, so skipping coeffs %o\n", dim, fulldim, skipcoeffs;
 
-  Js := [* *];
-  vprintf Shimura : "Computing Js... ";
-  vtime Shimura:
-  for i := 1 to nv do
-    J := [];
-    jaut := ChangeUniverse(jAut_z_ms[(i-1)*Q+1..i*Q], CC);
-    for m in [1..Q] do
-      jaut[m] /:= (1-w_ms0[m]*rho)^k*w_ms0[m]^ss[i];
-    end for;
-
-    w_ms0i := [w_m^es[i] : w_m in w_ms0];
-
-    for n := 0 to ((N+1) div es[i])-1 do
-      if i ne 1 or n notin skipcoeffs then // if i ne 1 then no conditions
-        Append(~J, jaut);
-      end if;
+  // The external C solver (Al eq "CArnoldi") applies the operator in
+  // structured form and never uses the Js/Wps matrices; skip building them.
+  if Al ne "CArnoldi" then
+    Js := [* *];
+    vprintf Shimura : "Computing Js... ";
+    vtime Shimura:
+    for i := 1 to nv do
+      J := [];
+      jaut := ChangeUniverse(jAut_z_ms[(i-1)*Q+1..i*Q], CC);
       for m in [1..Q] do
-        jaut[m] /:= w_ms0i[m];
+        jaut[m] /:= (1-w_ms0[m]*rho)^k*w_ms0[m]^ss[i];
       end for;
+
+      w_ms0i := [w_m^es[i] : w_m in w_ms0];
+
+      for n := 0 to ((N+1) div es[i])-1 do
+        if i ne 1 or n notin skipcoeffs then // if i ne 1 then no conditions
+          Append(~J, jaut);
+        end if;
+        for m in [1..Q] do
+          jaut[m] /:= w_ms0i[m];
+        end for;
+      end for;
+      J := Matrix(J);
+      J := Transpose(J);
+      Append(~Js, J);
     end for;
-    J := Matrix(J);
-    J := Transpose(J);
-    Append(~Js, J);
-  end for;
+  end if;
 
   if Federalize then
     // sort
@@ -230,27 +234,29 @@ intrinsic PowerSeriesBasis(Gamma::GrpPSL2Tri, k::RngIntElt :
   end for;
   Append(~wpinds,#jinds+1);
 
-  Wps := [* *];
-  vprintf Shimura : "Computing Wps... ";
-  vtime Shimura:
-  for i := 1 to nv do
-    Wp := [];
-    wp_msi := wp_ms_sorted[wpinds[i]..wpinds[i+1]-1];
-    Qi := #wp_msi;
-    vandermonde := [CC | wp_msi[m]^ss[i]*(1-wp_msi[m]*rho)^k : m in [1..Qi]];
+  if Al ne "CArnoldi" then
+    Wps := [* *];
+    vprintf Shimura : "Computing Wps... ";
+    vtime Shimura:
+    for i := 1 to nv do
+      Wp := [];
+      wp_msi := wp_ms_sorted[wpinds[i]..wpinds[i+1]-1];
+      Qi := #wp_msi;
+      vandermonde := [CC | wp_msi[m]^ss[i]*(1-wp_msi[m]*rho)^k : m in [1..Qi]];
 
-    wp_msi := [wp_m^es[i] : wp_m in wp_msi];
-    for r := 0 to ((N+1) div es[i])-1 do
-      if i ne 1 or r notin skipcoeffs then
-        Append(~Wp, vandermonde);
-      end if;
-      for m := 1 to Qi do
-        vandermonde[m] *:= wp_msi[m];
+      wp_msi := [wp_m^es[i] : wp_m in wp_msi];
+      for r := 0 to ((N+1) div es[i])-1 do
+        if i ne 1 or r notin skipcoeffs then
+          Append(~Wp, vandermonde);
+        end if;
+        for m := 1 to Qi do
+          vandermonde[m] *:= wp_msi[m];
+        end for;
       end for;
+      Wp := Matrix(Wp);
+      Append(~Wps, Wp);
     end for;
-    Wp := Matrix(Wp);
-    Append(~Wps, Wp);
-  end for;
+  end if;
 
   //
   // Now solve
