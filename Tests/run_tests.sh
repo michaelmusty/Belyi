@@ -36,7 +36,10 @@ fi
 
 run_magma_test() {
     f=$1
-    out=$(magma -b "$f" 2>&1)
+    # stdin from /dev/null: if a test errors into an interactive or debugger
+    # prompt instead of quitting, it terminates on EOF rather than hanging
+    # the runner with its output swallowed by the capture
+    out=$(magma -b "$f" 2>&1 </dev/null)
     if echo "$out" | grep -q "ALL TESTS PASSED"; then
         echo "PASS: $f"
     elif echo "$out" | grep -q "^SKIP"; then
