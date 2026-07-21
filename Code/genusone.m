@@ -3,6 +3,7 @@
 // ================================================================================
 
 import "hyperelliptic.m" : ZeroifyCoeffsLaurent;
+import "powser_iter_arfed.m" : FDReduce;
 
 declare attributes GrpPSL2Tri:  
 
@@ -271,7 +272,62 @@ intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnu
     Sk1[j] := Sk1[j]*2*I*Im(centers[j]);
   end for;
   Sk1int := [Integral(f) : f in Sk1];
-  w_CC := Evaluate(Sk1int[1], ComplexValue(w)) - Evaluate(Sk1int[1], ComplexValue(DD!0)); // CC mod Lambda
+  // The previous implementation evaluated Sk1int[1] at w regardless of where
+  // w lies; for w far from the first center -- e.g. the fundamental domain
+  // vertices, which is exactly where the ramification points live -- the
+  // truncation error of an N-term expansion grows like (|w|/rho)^N and
+  // destroyed most of the working precision (ramification points came out
+  // with ~5 correct digits at prec 100).  Instead: FDReduce w into the chart
+  // of its nearest expansion center (a Gamma-translate, which shifts the
+  // integral by a period -- harmless mod Lambda) and integrate with that
+  // center's expansion, exactly as the period computation below already does
+  // chart by chart.  The integration constants K_j = int_{c_1}^{c_j} f dz are
+  // chained through pairwise chart-overlap midpoints, so that every series
+  // evaluation happens well inside a disc of convergence.
+  Delta := ContainingTriangleGroup(Gamma);
+  rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
+  eps := (RealField(CC)!10)^(-prec/2);
+  whichcoset := Gamma`TriangleWhichCoset;
+  UU := UpperHalfPlane();
+  nv := #Sk1;
+  czs := [UU!ComplexValue(Center(D)) : D in DDs];
+  locc := function(z, j)  // local coordinate (a complex number) of the UHP point z in chart j
+    return ComplexValue(PlaneToDisc(DDs[j], z));
+  end function;
+  // chain the integration constants K_j from center 1 by a greedy tree
+  K := [CC | 0 : j in [1..nv]];
+  done := [j eq 1 : j in [1..nv]];
+  for count in [2..nv] do
+    bestr := RealField(CC)!2;
+    besti := 0; bestj := 0;
+    bestm := DiscToPlane(UU, DD!0);
+    for j in [1..nv] do
+      if done[j] then continue; end if;
+      for i in [1..nv] do
+        if not done[i] then continue; end if;
+        m := DiscToPlane(UU, DDs[i]!(locc(czs[j], i)/2));  // midpoint of c_i, c_j in chart i
+        r := Max(Abs(locc(m, i)), Abs(locc(m, j)));
+        if r lt bestr then
+          bestr := r; besti := i; bestj := j; bestm := m;
+        end if;
+      end for;
+    end for;
+    error if bestr ge rho + eps,
+      "cannot chain expansion centers: best chart-overlap midpoint lies outside rho";
+    K[bestj] := K[besti]
+      + Evaluate(Sk1int[besti], locc(bestm, besti)) - Evaluate(Sk1int[besti], CC!0)
+      + Evaluate(Sk1int[bestj], CC!0) - Evaluate(Sk1int[bestj], locc(bestm, bestj));
+    done[bestj] := true;
+  end for;
+  // Abel-Jacobi value of a disc point via its nearest chart
+  ajval := function(v)
+    vp, _, _, jind := FDReduce(v, Gamma);
+    jj := whichcoset[jind];
+    vloc := locc(DiscToPlane(UU, vp), jj);
+    assert Abs(vloc) lt rho + eps;
+    return K[jj] + Evaluate(Sk1int[jj], vloc) - Evaluate(Sk1int[jj], CC!0);
+  end function;
+  w_CC := ajval(w) - ajval(DD!0); // CC mod Lambda
   return w_CC;
 end intrinsic;
 
@@ -317,7 +373,15 @@ intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEn
   assert Genus(Gamma) eq 1;
   prec := Precision(Parent(Sk[1][1]));
   w_CC := TriangleDiscToComplexPlane(w, Gamma, Sk);
-  if Abs(w_CC) lt 10^(-prec/2) then // TODO check that w_CC is not one of the other lattice points
+  // reduce mod Lambda to a smallest representative: the nearest-chart
+  // evaluation returns w_CC only up to a period, and the pole test must
+  // catch every lattice translate of 0 (this resolves the old TODO); the
+  // periods are chart-by-chart integrals, accurate to working precision
+  Lambda := Gamma`TrianglePeriodLattice;
+  M := Matrix([[Re(l), Im(l)] : l in Lambda]);
+  sol := Solution(M, Vector([Re(w_CC), Im(w_CC)]));
+  w_CC := w_CC - Round(sol[1])*Lambda[1] - Round(sol[2])*Lambda[2];
+  if Abs(w_CC) lt 10^(-prec/2) then
     error "w_CC is a pole of wp!";
   else
     w_E := TriangleComplexPlaneToEllipticCurve(w_CC, Gamma, x, y);
