@@ -38,8 +38,11 @@ RR := RealField(30);
 pivthresh := RR!10^(-prec+10);
 leaddeg := function(f)
   n := Degree(LeadingTerm(f));
+  nmax := AbsolutePrecision(f);
   while Abs(Coefficient(f, n)) lt pivthresh do
     n +:= 1;
+    error if n ge nmax,
+      "basis row is entirely below the pivot threshold";
   end while;
   return n;
 end function;
