@@ -44,11 +44,38 @@ declare attributes GrpPSL2Tri:
   TriangleNewtonNeedsExtra; // set when there is a need for extra variables for common zero;
 
 NeedsExtra := function(Gamma);
+  // The Belyi map phi = num/den needs an extra common zero of num and den
+  // exactly when den requires the full space L((s+t)*O) = L((d+1)*O), i.e.
+  // pole order d+1 > d: by Riemann-Roch this happens iff the sum of the
+  // fiber points is nonzero in the group law of E, and then num and den
+  // share exactly one extra zero (which Newton must track as a special
+  // point, with 2 extra variables and 3 extra equations).
+  // We read this off from the numerical stage: after trailing machine
+  // zeroes are stripped, #den_coeffs = s+t iff the extra zero is present.
+  // (The old condition `d gt Degree(Universe(sigma))` was identically
+  // false, so the special-point machinery never activated and the Newton
+  // system was underdetermined by 1 in common-factor cases.)
+  // Both branches occur with s < d in the LMFDB: 6T12-5.1_5.1_3.3-a needs
+  // the extra zero, while 6T7-4.2_4.2_3.3-a (which factors through the
+  // x-line, so its 0-fiber is 4*O + 2*(2-torsion) and sums to O) does not
+  // -- so the purely combinatorial criterion `s lt d` cannot replace this
+  // data-driven predicate; see Tests/test_genusone_extra_zero.m.
   if not assigned Gamma`TriangleNewtonNeedsExtra then
+    error if not assigned Gamma`TriangleNumericalBelyiMapDenominatorCoefficients,
+      "NeedsExtra requires the numerical Belyi map (run TriangleGenusOneNumericalBelyiMap first)";
     sigma := Gamma`TriangleSigma;
-	  d := Gamma`TriangleD;
-  	s := #CycleDecomposition(sigma[1])[1];
-    Gamma`TriangleNewtonNeedsExtra := d gt Degree(Universe(sigma)) and s lt d;
+    d := Gamma`TriangleD;
+    s := #CycleDecomposition(sigma[1])[1];
+    t := d - s + 1;
+    den_coeffs := Gamma`TriangleNumericalBelyiMapDenominatorCoefficients;
+    num_coeffs := Gamma`TriangleNumericalBelyiMapNumeratorCoefficients;
+    needs := #den_coeffs eq s + t;
+    // consistency: the numerator must use its full space L(t*O) iff den does
+    assert (#num_coeffs eq t) eq needs;
+    // extra zero is impossible when sigma_0 is a d-cycle (Remark 5.2.10 of
+    // MSSV: 0 totally ramified => s = d, t = 1, den in L(d*O), no slack)
+    assert (not needs) or (s lt d);
+    Gamma`TriangleNewtonNeedsExtra := needs;
   end if;
   return Gamma`TriangleNewtonNeedsExtra;
 end function;

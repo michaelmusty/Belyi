@@ -43,6 +43,7 @@ run_magma_test() {
 
 run_magma_test Tests/test_basic_belyi.m
 run_magma_test Tests/test_carnoldi_belyi.m
+run_magma_test Tests/test_genusone_extra_zero.m
 if [ -n "$RUNSLOW" ]; then
     run_magma_test Tests/test_powser_consistency.m
 else
