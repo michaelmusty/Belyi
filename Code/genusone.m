@@ -287,7 +287,6 @@ intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnu
   Delta := ContainingTriangleGroup(Gamma);
   rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
   eps := (RealField(CC)!10)^(-prec/2);
-  whichcoset := Gamma`TriangleWhichCoset;
   UU := UpperHalfPlane();
   nv := #Sk1;
   czs := [UU!ComplexValue(Center(D)) : D in DDs];
@@ -319,13 +318,26 @@ intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnu
       + Evaluate(Sk1int[bestj], CC!0) - Evaluate(Sk1int[bestj], locc(bestm, bestj));
     done[bestj] := true;
   end for;
-  // Abel-Jacobi value of a disc point via its nearest chart
+  // Abel-Jacobi value of a disc point via its nearest chart.  (Do NOT trust
+  // whichcoset to name the nearest chart: it is built for the reduction
+  // machinery's own inputs, and e.g. for interior points like the base point
+  // DD!0 the assigned chart can lie farther than rho.  Any chart with a
+  // small local coordinate is equally correct once the constants K_j are in
+  // place, so choose by explicit minimization.)
   ajval := function(v)
-    vp, _, _, jind := FDReduce(v, Gamma);
-    jj := whichcoset[jind];
-    vloc := locc(DiscToPlane(UU, vp), jj);
-    assert Abs(vloc) lt rho + eps;
-    return K[jj] + Evaluate(Sk1int[jj], vloc) - Evaluate(Sk1int[jj], CC!0);
+    vp := FDReduce(v, Gamma);  // Gamma-translate into the FD: shifts the integral by a period
+    z := DiscToPlane(UU, vp);
+    jj := 1;
+    best := Abs(locc(z, 1));
+    for j in [2..nv] do
+      r := Abs(locc(z, j));
+      if r lt best then
+        best := r; jj := j;
+      end if;
+    end for;
+    error if best ge rho + eps,
+      "point is not covered by any expansion chart: nearest local coordinate has absolute value", best, "vs rho =", rho;
+    return K[jj] + Evaluate(Sk1int[jj], locc(z, jj)) - Evaluate(Sk1int[jj], CC!0);
   end function;
   w_CC := ajval(w) - ajval(DD!0); // CC mod Lambda
   return w_CC;
