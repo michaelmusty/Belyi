@@ -30,7 +30,7 @@ end intrinsic;
 */
 
 // NewtonGaloisOrbits
-intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2Tri
+intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewton := 1000, bound := 0, PowserAl := "Arnoldi") -> GrpPSL2Tri
   {}
   SetVerbose("BelyiNewton", true); // temporarily don't print Shimura so we can see what's happening
   // SetVerbose("Shimura", false);
@@ -40,7 +40,7 @@ intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewt
     // numerical data
       vprintf BelyiNewton : "Computing numerical data...";
       t0 := Cputime();
-      Gamma := NewtonGetNumericalData(Gamma : prec := precstart);
+      Gamma := NewtonGetNumericalData(Gamma : prec := precstart, PowserAl := PowserAl);
       t1 := Cputime();
       vprintf BelyiNewton : "done. That took %o seconds.\n", t1-t0;
     // ramification points
@@ -96,7 +96,7 @@ intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewt
     return Gammas;
 end intrinsic;
 
-intrinsic NewtonGenusOne(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2Tri
+intrinsic NewtonGenusOne(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000, bound := 0, PowserAl := "Arnoldi") -> GrpPSL2Tri
   {Less Naive wrapper...}
   SetVerbose("BelyiNewton", true); // temporarily don't print Shimura so we can see what's happening
   // SetVerbose("Shimura", false);
@@ -104,7 +104,7 @@ intrinsic NewtonGenusOne(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000
   // numerical data
     vprintf BelyiNewton : "Computing numerical data...";
     t0 := Cputime();
-    Gamma := NewtonGetNumericalData(Gamma : prec := precstart);
+    Gamma := NewtonGetNumericalData(Gamma : prec := precstart, PowserAl := PowserAl);
     t1 := Cputime();
     vprintf BelyiNewton : "done. That took %o seconds.\n", t1-t0;
   // ramification points
@@ -157,13 +157,13 @@ intrinsic NewtonGenusOne(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000
     return Gamma;
 end intrinsic;
 
-intrinsic NewtonGetNumericalData(Gamma::GrpPSL2Tri : prec := 40) -> GrpPSL2Tri
+intrinsic NewtonGetNumericalData(Gamma::GrpPSL2Tri : prec := 40, PowserAl := "Arnoldi") -> GrpPSL2Tri
   {Computes numerical data necessary for Newton, writes it to Gamma and returns Gamma.}
   _:= UnitDisc(Gamma : Precision := prec);
   // this is what takes time
   ass_bool := assigned Gamma`TriangleNewtonSk and assigned Gamma`TriangleNewtonFD and assigned Gamma`TriangleUnitDisc;
   if not (ass_bool and (Gamma`TriangleUnitDisc)`prec ge prec) then
-    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := true);
+    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := true, Al := PowserAl);
   else
     Sk := Gamma`TriangleNewtonSk;
   end if;
