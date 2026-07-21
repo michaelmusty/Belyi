@@ -260,9 +260,11 @@ end intrinsic;
 
 intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum) -> Any
   {Given an element w of the hyperbolic disc, outputs the corresponding point in the complex plane (mod the lattice Lambda).}
-  
+
   assert Genus(Gamma) eq 1;
-  prec := Precision(Parent(Sk[1][1]));
+  // NB: Precision(Parent(Sk[1][1])) is the power series ring precision (the
+  // number of terms), NOT the coefficient precision; use the base ring's
+  prec := Precision(BaseRing(Parent(Sk[1][1])));
   Sk1 := Sk[1];
   CC<I> := BaseRing(Parent(Sk[1][1]));
   DDs := Gamma`TriangleDDs;
@@ -383,7 +385,7 @@ intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEn
   {Given an element w of the hyperbolic disc, outputs the corresponding point on the elliptic curve associated to Gamma.}
 
   assert Genus(Gamma) eq 1;
-  prec := Precision(Parent(Sk[1][1]));
+  prec := Precision(BaseRing(Parent(Sk[1][1])));  // coefficient precision, not series length
   w_CC := TriangleDiscToComplexPlane(w, Gamma, Sk);
   // reduce mod Lambda to a smallest representative: the nearest-chart
   // evaluation returns w_CC only up to a period, and the pole test must
