@@ -1,0 +1,23 @@
+name: C solver
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  build-and-selftest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FLINT
+        run: sudo apt-get update && sudo apt-get install -y libflint-dev libmpfr-dev libgmp-dev
+      - name: Build
+        run: make -C Cext CC=${{ matrix.cc }}
+      - name: Selftest
+        run: ./Cext/powser_arnoldi --selftest | tee /dev/stderr | grep -q "SELFTEST PASSED"
+      - name: Benchmark build
+        run: make -C Cext bench CC=${{ matrix.cc }}
