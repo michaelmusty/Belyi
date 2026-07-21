@@ -275,8 +275,21 @@ intrinsic PowerSeriesBasis(Gamma::GrpPSL2Tri, k::RngIntElt :
     if cbin eq "" then
       cbin := "powser_arnoldi";
     end if;
-    infile := Sprintf("/tmp/powser_in_%o.txt", Getpid());
-    outfile := Sprintf("/tmp/powser_out_%o.m", Getpid());
+    // Handoff files: respect TMPDIR (set it to a private directory on shared
+    // machines) and add a random component to the names.  Predictable names
+    // in a world-writable directory would let another local user race us --
+    // and since the output is consumed by eval Read below, win arbitrary
+    // Magma-level code execution in this session.  The random tag reduces
+    // that exposure (Magma has no exclusive-create primitive to eliminate
+    // it); both files are deleted after a successful read, and kept on
+    // failure for debugging.
+    tmpdir := GetEnv("TMPDIR");
+    if tmpdir eq "" then
+      tmpdir := "/tmp";
+    end if;
+    tag := Sprintf("%o_%o_%o", Getpid(), Round(1000*Realtime()) mod 10^9, Random(10^15));
+    infile := Sprintf("%o/powser_in_%o.txt", tmpdir, tag);
+    outfile := Sprintf("%o/powser_out_%o.m", tmpdir, tag);
 
     epsdigs := prec - 2*Floor(Log(prec));  // eps_thresh = 10^-epsdigs, as above
     cmaxiter := 50 + 3*prec;
@@ -344,7 +357,7 @@ intrinsic PowerSeriesBasis(Gamma::GrpPSL2Tri, k::RngIntElt :
 
     vprintf Shimura : "Running external solver %o... ", cbin;
     vtime Shimura:
-    retc := System(Sprintf("%o %o %o", cbin, infile, outfile));
+    retc := System(Sprintf("\"%o\" \"%o\" \"%o\"", cbin, infile, outfile));
     require retc eq 0 :
       Sprintf("external solver %o failed (status %o); build Cext/powser_arnoldi.c "
               cat "and/or set POWSER_ARNOLDI_BIN, or rerun with Al := \"Arnoldi\"", cbin, retc);
@@ -352,10 +365,20 @@ intrinsic PowerSeriesBasis(Gamma::GrpPSL2Tri, k::RngIntElt :
     vprintf Shimura : "Reading C solver output... ";
     vtime Shimura:
     dat := eval Read(outfile);
+    System(Sprintf("rm -f \"%o\" \"%o\"", infile, outfile));
     xout := [ Vector(CC, [CC | z : z in v]) : v in dat[1] ];
     minsing := Max([RealField(CC)!m : m in dat[2]]);
+    resids := [RealField(CC)!r : r in dat[3]];
     vprintf Shimura : "C solver: minsing = %o, residuals |Ax-x|/|x| = %o\n",
-        RealField(6)!minsing, [RealField(6)!r : r in dat[3]];
+        RealField(6)!minsing, [RealField(6)!r : r in resids];
+    // dat[3] holds the midpoint residual of each returned vector (the
+    // certified ball bound is printed by the solver but is radius-dominated
+    // and much larger); require the honest residual near working accuracy
+    // rather than only displaying it
+    require Max(resids) lt 10^(-epsdigs+4) :
+      Sprintf("external solver residual %o exceeds threshold %o; "
+              cat "rerun with Al := \"Arnoldi\" or higher precision",
+              RealField(6)!Max(resids), RealField(6)!(RealField(CC)!10^(-epsdigs+4)));
     assert #xout eq dim;
 
   elif Al eq "Arnoldi" then // use SVD on the Arnoldi subspace

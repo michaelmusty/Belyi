@@ -64,9 +64,10 @@
 #include <flint/acb_mat.h>
 #include <flint/acb_dft.h>
 
-/* FLINT 3.1 renamed flint_randinit -> flint_rand_init; map the new names
-   onto the old ones when building against FLINT 3.0 */
-#if __FLINT_RELEASE < 30100
+/* FLINT 3.2 renamed flint_randinit -> flint_rand_init; map the new names
+   onto the old ones when building against FLINT < 3.2 (e.g. the 3.1.2
+   pinned by build_deps.sh) */
+#if __FLINT_RELEASE < 30200
 #define flint_rand_init flint_randinit
 #define flint_rand_clear flint_randclear
 #endif
@@ -1161,9 +1162,9 @@ static void output_write(const char *fname, problem_t *pb, acb_ptr xouts,
     fprintf(f, " ],\n[ RealField(20) | ");
     for (d = 0; d < pb->dim; d++)
     {
-        /* report a certified UPPER BOUND on the residual: its ball's
-           radius sits at rounding level, so printing only the certified
-           digits of the midpoint would show a useless "0" */
+        /* resids now holds the midpoint residual estimates (radius-free);
+           taking an upper bound of a radius-free ball is the identity, and
+           keeps this robust if a radius ever sneaks back in */
         arb_t ub;
         arb_init(ub);
         arb_get_abs_ubound_arf(arb_midref(ub), resids + d, 64);
@@ -1185,30 +1186,50 @@ static void mv_structured(acb_ptr w, acb_srcptr v, void *ctx)
     matvec_structured(w, v, (matvec_ws_t *) ctx);
 }
 
-/* residual |A x - x|_2 / |x|_2 */
-static void residual(arb_t res, acb_srcptr x, matvec_ws_t *ws, slong V, slong prec)
+/* residual |A x - x|_2 / |x|_2, two ways:
+ *   res_mid -- computed from the MIDPOINTS of A x - x: the honest size of
+ *              the residual (the inputs are exact after parse-radius
+ *              stripping, so midpoint rounding noise is ~2^-prec);
+ *   res_ub  -- a certified upper bound from full ball arithmetic.  The
+ *              interval radii of the O(N Q) matvec dominate this bound, so
+ *              it is much larger than the actual residual (its ball
+ *              typically straddles 0, giving radius ~ midpoint); it is
+ *              reported separately and should not be mistaken for the
+ *              residual itself. */
+static void residual(arb_t res_mid, arb_t res_ub, acb_srcptr x, matvec_ws_t *ws, slong V, slong prec)
 {
     acb_ptr Ax = _acb_vec_init(V);
+    acb_t dm;
     arb_t nx, tmp;
     slong t;
-    arb_init(nx); arb_init(tmp);
+    arb_init(nx); arb_init(tmp); acb_init(dm);
     matvec_structured(Ax, x, ws);
-    arb_zero(res); arb_zero(nx);
+    arb_zero(res_ub); arb_zero(nx);
     for (t = 0; t < V; t++)
     {
         acb_sub(Ax + t, Ax + t, x + t, prec);
         acb_abs(tmp, Ax + t, prec);
         arb_sqr(tmp, tmp, prec);
-        arb_add(res, res, tmp, prec);
+        arb_add(res_ub, res_ub, tmp, prec);
         acb_abs(tmp, x + t, prec);
         arb_sqr(tmp, tmp, prec);
         arb_add(nx, nx, tmp, prec);
     }
-    arb_sqrtpos(res, res, prec);
+    arb_sqrtpos(res_ub, res_ub, prec);
     arb_sqrtpos(nx, nx, prec);
-    arb_div(res, res, nx, prec);
+    arb_div(res_ub, res_ub, nx, prec);
+    arb_zero(res_mid);
+    for (t = 0; t < V; t++)
+    {
+        acb_get_mid(dm, Ax + t);   /* Ax now holds A x - x */
+        acb_abs(tmp, dm, prec);
+        arb_sqr(tmp, tmp, prec);
+        arb_add(res_mid, res_mid, tmp, prec);
+    }
+    arb_sqrtpos(res_mid, res_mid, prec);
+    arb_div(res_mid, res_mid, nx, prec);   /* x is midpoint-exact: nx has negligible radius */
     _acb_vec_clear(Ax, V);
-    arb_clear(nx); arb_clear(tmp);
+    arb_clear(nx); arb_clear(tmp); acb_clear(dm);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1455,7 +1476,9 @@ int main(int argc, char **argv)
         acb_ptr xouts = _acb_vec_init(pb.dim * pb.V);
         arb_ptr minsings = _arb_vec_init(pb.dim);
         arb_ptr resids = _arb_vec_init(pb.dim);
+        arb_t resub;
         int allok = 1;
+        arb_init(resub);
 
         for (d = 0; d < pb.dim; d++)
         {
@@ -1470,11 +1493,14 @@ int main(int argc, char **argv)
             }
             flint_printf("dim %wd: arnoldi total %.2f s\n", d + 1, wall_now() - td);
             td = wall_now();
-            residual(resids + d, xouts + d * pb.V, &ws, pb.V, pb.prec);
+            residual(resids + d, resub, xouts + d * pb.V, &ws, pb.V, pb.prec);
             flint_printf("dim %wd: residual |Ax-x|/|x| = ", d + 1);
             arb_printd(resids + d, 6);
-            flint_printf("  (%.2f s)\n", wall_now() - td);
+            flint_printf("  (certified <= ");
+            arb_printd(resub, 6);
+            flint_printf(")  (%.2f s)\n", wall_now() - td);
         }
+        arb_clear(resub);
 
         {
             double tw = wall_now();

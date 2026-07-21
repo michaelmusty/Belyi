@@ -28,11 +28,24 @@ eps_thresh := RealField(30)!10^(-prec + 2*Floor(Log(prec)));
 assert ms1 lt eps_thresh;
 assert ms2 lt eps_thresh;
 
-// exact echelon pivot structure: same leading exponents, unit pivots
+// exact echelon pivot structure: same leading exponents, unit pivots.
+// NB do not use LeadingTerm on the raw series: echelonization cancels
+// entries above the pivot only up to ~10^(-prec)-level remnants, and
+// whether such a remnant survives before the pivot is rounding luck
+// (observed: an |c| ~ 1e-101 remnant at n = 1 ahead of a pivot at n = 4).
+// Find the pivot as the first coefficient above a threshold instead.
 RR := RealField(30);
+pivthresh := RR!10^(-prec+10);
+leaddeg := function(f)
+  n := Degree(LeadingTerm(f));
+  while Abs(Coefficient(f, n)) lt pivthresh do
+    n +:= 1;
+  end while;
+  return n;
+end function;
 for i in [1..#Sk1] do
-  s1 := Degree(LeadingTerm(Sk1[i][1]));
-  s2 := Degree(LeadingTerm(Sk2[i][1]));
+  s1 := leaddeg(Sk1[i][1]);
+  s2 := leaddeg(Sk2[i][1]);
   assert s1 eq s2;
   assert Abs(Coefficient(Sk1[i][1], s1) - 1) lt RR!1e-90;
   assert Abs(Coefficient(Sk2[i][1], s2) - 1) lt RR!1e-90;

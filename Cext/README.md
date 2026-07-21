@@ -15,8 +15,13 @@ exploits structure that the dense matvec cannot:
 * The numerical kernel of `H - 1` is computed by a high-precision one-sided
   Jacobi SVD on the small Hessenberg matrix, mirroring the escape logic of
   the Magma code.
-* Every returned vector `x` is validated: the solver reports the residual
-  `|Ax - x|/|x|`, which should be below ~10^-(prec - few digits).
+* Every returned vector `x` is validated: the solver computes the residual
+  `|Ax - x|/|x|` from the midpoints of the final ball matvec (the honest
+  size, typically ~10^-(prec - few digits); the Magma glue requires it
+  below 10^-(epsdigs - 4)), and separately prints a certified ball
+  upper bound -- which is dominated by the interval radii of the O(N·Q)
+  matvec and is therefore much larger (~1e-54 at prec 100); do not mistake
+  the certified bound for the residual itself.
 
 Observed on a 2-core cloud sandbox at the degree-7 / prec-100 example size:
 ~0.16 s per Arnoldi iteration vs ~2.3 s in Magma (single Apple/Intel core),

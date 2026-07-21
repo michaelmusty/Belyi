@@ -10,6 +10,13 @@ BIN=${POWSER_ARNOLDI_BIN:-Cext/powser_arnoldi}
 if [ ! -x "$BIN" ] && command -v make >/dev/null 2>&1; then
     (cd Cext && make powser_arnoldi >/dev/null 2>&1 || make mac >/dev/null 2>&1)
 fi
+# export an absolute path so the Magma tests (which read POWSER_ARNOLDI_BIN
+# via GetEnv) actually use the binary we just built, instead of silently
+# SKIPping when nothing named powser_arnoldi is on PATH
+if [ -x "$BIN" ]; then
+    POWSER_ARNOLDI_BIN="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
+    export POWSER_ARNOLDI_BIN
+fi
 if [ -x "$BIN" ]; then
     if "$BIN" --selftest 2>&1 | grep -q "SELFTEST PASSED"; then
         echo "PASS: C solver selftest"

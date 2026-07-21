@@ -25,12 +25,16 @@ cd "$PREFIX/src"
 
 fetch() {
     f=$(basename "$1")
+    # download to a temp name and move into place only on success, so an
+    # interrupted transfer never leaves a partial file that a rerun would
+    # mistake for a complete download (set -e + existence check)
     if [ ! -f "$f" ]; then
         if command -v curl >/dev/null 2>&1; then
-            curl -L -O "$1"
+            curl -L --fail --retry 8 --retry-delay 5 -C - -o "$f.part" "$1"
         else
-            wget "$1"
+            wget -c -O "$f.part" "$1"
         fi
+        mv "$f.part" "$f"
     fi
 }
 

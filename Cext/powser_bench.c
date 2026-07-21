@@ -31,6 +31,13 @@
 #include <omp.h>
 #endif
 
+/* FLINT 3.2 renamed flint_randinit -> flint_rand_init; use the new names
+   and map them back when building against FLINT < 3.2 */
+#if __FLINT_RELEASE < 30200
+#define flint_rand_init flint_randinit
+#define flint_rand_clear flint_randclear
+#endif
+
 static double now_wall(void)
 {
 #ifdef _OPENMP
@@ -73,7 +80,7 @@ int main(int argc, char **argv)
                  N, Q, nv, prec, digs, nthreads);
 
     flint_rand_t state;
-    flint_randinit(state);
+    flint_rand_init(state);
 
     /* ---- synthetic data: reduced points wp_m in |w|<0.9, weights jaut_m on unit circle ---- */
     acb_ptr wp   = _acb_vec_init(Q);
@@ -233,6 +240,6 @@ int main(int argc, char **argv)
     acb_clear(dot);
     acb_mat_clear(Wp); acb_mat_clear(Jm);
     acb_mat_clear(qrow); acb_mat_clear(urow); acb_mat_clear(vrow);
-    flint_randclear(state);
+    flint_rand_clear(state);
     return 0;
 }
