@@ -70,8 +70,14 @@ NeedsExtra := function(Gamma);
     den_coeffs := Gamma`TriangleNumericalBelyiMapDenominatorCoefficients;
     num_coeffs := Gamma`TriangleNumericalBelyiMapNumeratorCoefficients;
     needs := #den_coeffs eq s + t;
-    // consistency: the numerator must use its full space L(t*O) iff den does
-    assert (#num_coeffs eq t) eq needs;
+    if t ge 2 then
+      // consistency: the numerator must use its full space L(t*O) iff den does
+      assert (#num_coeffs eq t) eq needs;
+    else
+      // t = 1 (sigma_0 a d-cycle): num is constant and cannot witness the
+      // drop, since dim L(1*O) = dim L(0*O) = 1; needs must be false here
+      assert #num_coeffs eq 1 and not needs;
+    end if;
     // extra zero is impossible when sigma_0 is a d-cycle (Remark 5.2.10 of
     // MSSV: 0 totally ramified => s = d, t = 1, den in L(d*O), no slack)
     assert (not needs) or (s lt d);
