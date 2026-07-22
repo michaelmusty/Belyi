@@ -57,6 +57,67 @@ typedef struct {
     double log10resid;
 } cand_t;
 
+/* log2 of the L2 norm of a matrix row (via bit length of the sum of
+ * squares); used for the LLL gap test */
+static double
+row_log2norm(const fmpz_mat_t M, slong row, slong ncols)
+{
+    fmpz_t ss, sq;
+    double out;
+    fmpz_init(ss);
+    fmpz_init(sq);
+    for (slong j = 0; j < ncols; j++)
+    {
+        fmpz_mul(sq, fmpz_mat_entry(M, row, j), fmpz_mat_entry(M, row, j));
+        fmpz_add(ss, ss, sq);
+    }
+    out = fmpz_is_zero(ss) ? -1e9 : 0.5 * (double) fmpz_bits(ss);
+    fmpz_clear(ss);
+    fmpz_clear(sq);
+    return out;
+}
+
+/* Block gap test.  A reduced relation lattice splits into a block of short
+ * rows (the true relation and, in the minpoly mode with bound > degree, its
+ * x^k multiples) and a block of junk rows at the lattice noise scale.  Sort
+ * the row norms, find the largest jump between consecutive norms, and
+ * return that jump (in bits) if the candidate row lies in the lower block
+ * -- else 0.  Junk-only bases have no significant jump. */
+static double
+lll_gap_bits(const fmpz_mat_t M, slong row, slong nrows, slong ncols)
+{
+    double *norms = malloc(nrows * sizeof(double));
+    double mine = row_log2norm(M, row, ncols);
+    slong nn = 0;
+    for (slong r = 0; r < nrows; r++)
+    {
+        double nr = row_log2norm(M, r, ncols);
+        if (nr > -1e8)
+            norms[nn++] = nr;
+    }
+    if (nn < 2) { free(norms); return 0.0; }
+    /* insertion sort (nn is tiny) */
+    for (slong i = 1; i < nn; i++)
+    {
+        double v = norms[i];
+        slong j = i - 1;
+        while (j >= 0 && norms[j] > v) { norms[j + 1] = norms[j]; j--; }
+        norms[j + 1] = v;
+    }
+    double best_jump = 0.0, blocktop = norms[0];
+    for (slong i = 0; i + 1 < nn; i++)
+    {
+        double jump = norms[i + 1] - norms[i];
+        if (jump > best_jump) { best_jump = jump; blocktop = norms[i]; }
+    }
+    double out = (mine <= blocktop + 1e-9) ? best_jump : 0.0;
+    free(norms);
+    return out;
+}
+
+#define GAP_CERT_BITS 40.0
+#define GAP_UNCERT_BITS 10.0
+
 typedef struct {
     cand_t *cands;
     slong ncand;
@@ -172,9 +233,10 @@ recognize_one(cand_t *c, slong maxm, slong prec)
         /* certify the relation before factoring.  Two conditions:
          * (a) the residual sits at the exact-relation noise floor,
          *     |rel(u)| <= 10^(-p + log10 H + slack); and
-         * (b) the height is informative at this precision,
-         *     log10 H <= p / (2*(n+2)) -- LLL junk relations balance their
-         *     height near p/(n+2) digits and always violate this. */
+         * (b) the LLL gap test: the relation row is dramatically shorter
+         *     than every other row of the reduced basis.  Junk rows have
+         *     comparable norms (gap ~ 0 bits); a forced true relation
+         *     sits far below the lattice noise. */
         {
             double p10 = prec * 0.30102999566398119521;
             double lr = poly_eval_log10(rel, c->u, prec);
@@ -184,7 +246,8 @@ recognize_one(cand_t *c, slong maxm, slong prec)
                 double a = fabs(fmpz_get_d(fmpz_poly_get_coeff_ptr(rel, i)));
                 if (a > 1 && log10(a) > log10H) log10H = log10(a);
             }
-            if (log10H > p10 / (2.0 * (n + 2)) || lr > -p10 + log10H + 30)
+            double gap = lll_gap_bits(B, row, n, n + 2);
+            if (gap < GAP_CERT_BITS || lr > -p10 + log10H + 30)
             {
                 fmpz_poly_clear(rel);
                 continue;   /* junk relation: precision cannot certify */
@@ -466,6 +529,7 @@ overk_seq(oseq_t *s, const acb_ptr basis, slong m, slong prec,
         arb_t re, im;
         arf_t mid;
         int ok = 0;
+        int cert_flag = 0;
 
         acb_init(tgt);
         arb_init(re); arb_init(im); arf_init(mid);
@@ -540,10 +604,17 @@ overk_seq(oseq_t *s, const acb_ptr basis, slong m, slong prec,
                     double a = fabs(fmpz_get_d(i < m ? fmpz_mat_entry(M, row, i) : q));
                     if (a > 1 && log10(a) > log10H) log10H = log10(a);
                 }
-                /* same two-condition certification as the minpoly mode */
+                /* three-tier verdict via the LLL gap test.  CERTIFIED: the
+                 * relation row is >= GAP_CERT_BITS shorter than every other
+                 * reduced row (a forced relation).  UNCERTIFIED: a modest
+                 * gap (>= GAP_UNCERT_BITS) -- the marginal regime the
+                 * legacy path silently accepts; tagged for the caller.
+                 * No gap: junk, contributes to NOPREC.  Both tiers also
+                 * require the residual at the exact-relation noise floor. */
                 double p10 = prec * 0.30102999566398119521;
-                if (log10H <= p10 / (2.0 * (m + 3))
-                    && lr <= -p10 + log10H + 30)
+                double gap = lll_gap_bits(M, row, m + 1, m + 3);
+                int certified = (gap >= GAP_CERT_BITS);
+                if (gap >= GAP_UNCERT_BITS && lr <= -p10 + log10H + 30)
                 {
                     /* accept: coords = a, den = q * prevden (sign into a) */
                     fmpz_t den;
@@ -565,6 +636,7 @@ overk_seq(oseq_t *s, const acb_ptr basis, slong m, slong prec,
                     fmpz_clear(qa);
                     fmpz_clear(den);
                     ok = 1;
+                    cert_flag = certified;
                 }
                 arf_clear(ub);
                 arb_clear(abs);
@@ -582,7 +654,7 @@ overk_seq(oseq_t *s, const acb_ptr basis, slong m, slong prec,
             /* chain is broken; remaining targets unprocessed */
             break;
         }
-        s->status[n] = 1;
+        s->status[n] = cert_flag ? 1 : 2;
     }
     fmpz_clear(prevden);
 }
@@ -696,10 +768,11 @@ run_overk(const char *inpath, const char *outpath)
         oseq_t *s = &seqs[sidx];
         for (slong n = 0; n < s->nt; n++)
         {
-            if (s->status[n] == 1)
+            if (s->status[n] == 1 || s->status[n] == 2)
             {
                 nfound++;
-                fprintf(fout, "FOUND %ld %ld ", sidx, n);
+                fprintf(fout, "%s %ld %ld ",
+                        s->status[n] == 1 ? "FOUND" : "UNCERT", sidx, n);
                 fmpz_fprint(fout, s->dens + n);
                 for (slong i = 0; i < m; i++)
                 {

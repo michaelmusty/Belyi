@@ -590,7 +590,15 @@ intrinsic RecognizeOverKBatch(Skc::SeqEnum, K::FldAlg, ZKbCC::SeqEnum : escapeOK
     parts := Split(line, " ");
     if parts[1] eq "RELFINDER_DONE" then
       done := true;
-    elif parts[1] eq "FOUND" then
+    elif parts[1] eq "FOUND" or parts[1] eq "UNCERT" then
+      // UNCERT: the relation passes the noise-floor residual check but its
+      // height is in the marginal regime where a true relation cannot be
+      // distinguished from LLL junk at this precision.  This is exactly
+      // what the legacy path silently accepts, so accept it too -- the eps
+      // check below and the downstream BelyiMapSanityCheck arbitrate.
+      if parts[1] eq "UNCERT" then
+        vprintf Shimura : "  ...RecognizeOverK: coefficient %o/%o accepted UNCERTIFIED (marginal height for this precision)\n", parts[2], parts[3];
+      end if;
       sidx := StringToInteger(parts[2]) + 1;
       n := StringToInteger(parts[3]) + 1;
       den := StringToInteger(parts[4]);
