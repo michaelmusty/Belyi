@@ -77,7 +77,7 @@ intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2Tri, coeffs::SeqEnum, vals::
 end intrinsic;
 
 // TODO: Make work for genus 2, at least
-intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : prec := 40) -> Any
+intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : prec := 40, PowserAl := "Arnoldi") -> Any
   {Given a sequence of triangle subgroups (GrpPSL2Tris), write FldComElt invariants and coefficients for the curve and BelyiMap to the objects.}
   // should we return a bool?
   // check if numerical data already exists for this object
@@ -104,7 +104,7 @@ intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : prec := 40) -
   genus := Genus(initial_Gamma);
   if genus eq 1 then
     _ := UnitDisc(initial_Gamma : Precision := prec);
-    Sk := PowerSeriesBasis(initial_Gamma, 2 : prec := prec);
+    Sk := PowerSeriesBasis(initial_Gamma, 2 : prec := prec, Al := PowserAl);
     CC<I> := BaseRing(Parent(Sk[1][1]));
     DDs := initial_Gamma`TriangleDDs;
     // get numerical data for initial_Gamma
@@ -113,7 +113,7 @@ intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : prec := 40) -
       for j in [2..#Gammas] do
         Gamma := Gammas[j];
         _:= UnitDisc(Gamma : Precision := prec);
-        Sk := PowerSeriesBasis(Gamma, 2 : prec := prec);
+        Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Al := PowserAl);
         _, i_j, num_bool_j := TriangleGenusOneNumericalBelyiMap(Sk[1],Gamma : rescale_ind := rescale_ind, num_bool := num_bool);
         //need to make sure same indices of coefficients are used in computing lambda!
         if i_j ne rescale_ind or num_bool_j ne num_bool then
@@ -123,7 +123,7 @@ intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : prec := 40) -
     end if;
   elif genus eq 2 then
     _ := UnitDisc(initial_Gamma : Precision := prec);
-    Sk := PowerSeriesBasis(initial_Gamma, 2 : prec := prec);
+    Sk := PowerSeriesBasis(initial_Gamma, 2 : prec := prec, Al := PowserAl);
     CC<I> := BaseRing(Parent(Sk[1][1]));
     DDs := initial_Gamma`TriangleDDs;
     // get numerical data for initial_Gamma
@@ -132,7 +132,7 @@ intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : prec := 40) -
       for j in [2..#Gammas] do
         Gamma := Gammas[j];
         _ := UnitDisc(Gamma : Precision := prec);
-        Sk := PowerSeriesBasis(Gamma, 2 : prec := prec);
+        Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Al := PowserAl);
         TriangleHyperellipticNumericalCoefficients(Sk, Gamma);
       end for;
     end if;
@@ -142,10 +142,10 @@ intrinsic TriangleRecordCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : prec := 40) -
   return "Numerical data for given triangle subgroups computed and assigned.";
 end intrinsic;
 
-intrinsic TriangleRecordCoefficients(sigmas::SeqEnum[SeqEnum[GrpPermElt]] : prec := 40) -> Any
+intrinsic TriangleRecordCoefficients(sigmas::SeqEnum[SeqEnum[GrpPermElt]] : prec := 40, PowserAl := "Arnoldi") -> Any
   {Given a sequence of permutation triples, write FldComElt invariants and coefficients for the curve and BelyiMap to the objects.}
   Gammas := [TriangleSubgroup(sigma) : sigma in sigmas];
-  TriangleRecordCoefficients(Gammas : prec := prec);
+  TriangleRecordCoefficients(Gammas : prec := prec, PowserAl := PowserAl);
   return Gammas;
 end intrinsic;
 

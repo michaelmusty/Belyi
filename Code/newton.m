@@ -30,7 +30,7 @@ end intrinsic;
 */
 
 // NewtonGaloisOrbits
-intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2Tri
+intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewton := 1000, bound := 0, PowserAl := "Arnoldi") -> GrpPSL2Tri
   {}
   SetVerbose("BelyiNewton", true); // temporarily don't print Shimura so we can see what's happening
   // SetVerbose("Shimura", false);
@@ -40,7 +40,7 @@ intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewt
     // numerical data
       vprintf BelyiNewton : "Computing numerical data...";
       t0 := Cputime();
-      Gamma := NewtonGetNumericalData(Gamma : prec := precstart);
+      Gamma := NewtonGetNumericalData(Gamma : prec := precstart, PowserAl := PowserAl);
       t1 := Cputime();
       vprintf BelyiNewton : "done. That took %o seconds.\n", t1-t0;
     // ramification points
@@ -96,7 +96,7 @@ intrinsic NewtonGenusOne(Gammas::SeqEnum[GrpPSL2Tri] : precstart := 40, precNewt
     return Gammas;
 end intrinsic;
 
-intrinsic NewtonGenusOne(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000, bound := 0) -> GrpPSL2Tri
+intrinsic NewtonGenusOne(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000, bound := 0, PowserAl := "Arnoldi") -> GrpPSL2Tri
   {Less Naive wrapper...}
   SetVerbose("BelyiNewton", true); // temporarily don't print Shimura so we can see what's happening
   // SetVerbose("Shimura", false);
@@ -104,7 +104,7 @@ intrinsic NewtonGenusOne(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000
   // numerical data
     vprintf BelyiNewton : "Computing numerical data...";
     t0 := Cputime();
-    Gamma := NewtonGetNumericalData(Gamma : prec := precstart);
+    Gamma := NewtonGetNumericalData(Gamma : prec := precstart, PowserAl := PowserAl);
     t1 := Cputime();
     vprintf BelyiNewton : "done. That took %o seconds.\n", t1-t0;
   // ramification points
@@ -157,13 +157,13 @@ intrinsic NewtonGenusOne(Gamma::GrpPSL2Tri : precstart := 40, precNewton := 1000
     return Gamma;
 end intrinsic;
 
-intrinsic NewtonGetNumericalData(Gamma::GrpPSL2Tri : prec := 40) -> GrpPSL2Tri
+intrinsic NewtonGetNumericalData(Gamma::GrpPSL2Tri : prec := 40, PowserAl := "Arnoldi") -> GrpPSL2Tri
   {Computes numerical data necessary for Newton, writes it to Gamma and returns Gamma.}
   _:= UnitDisc(Gamma : Precision := prec);
   // this is what takes time
   ass_bool := assigned Gamma`TriangleNewtonSk and assigned Gamma`TriangleNewtonFD and assigned Gamma`TriangleUnitDisc;
   if not (ass_bool and (Gamma`TriangleUnitDisc)`prec ge prec) then
-    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := true);
+    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := true, Al := PowserAl);
   else
     Sk := Gamma`TriangleNewtonSk;
   end if;
@@ -886,56 +886,166 @@ intrinsic NewtonGetBasicInitializationValues(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
       end if;
     end for;
     phi_num *:= -lc; // negative because TriangleGenusOneNumericalBelyiMap outputs NEGATIVES of numerator coeffs
-    c0 := Coefficient(phi_num, 0);
-    //printf "constant coefficient of numerator = %o\n", Coefficient(c0,0);
-    //print Abs(Coefficient(c0,0));
-    //printf "linear coefficient of numerator = %o\n", Coefficient(c0,1);
-    c1 := Coefficient(phi_num, 1);
-    eqn_num := c0^2-c1^2*(x^3-27*c4*x-54*c6);
-    d0 := Coefficient(phi_den, 0);
-    d1 := Coefficient(phi_den, 1);
-    eqn_den := d0^2-d1^2*(x^3-27*c4*x-54*c6);
     vprintf Shimura : "Numerator equation :\n%o\n", phi_num;
     vprintf Shimura : "Denominator equation :\n%o\n", phi_den;
-    roots_num := Roots(eqn_num);
-    roots_den := Roots(eqn_den);
-    vprintf Shimura : "numerator roots = %o\n", [ComplexField(10)!el[1] : el in roots_num];
-    vprintf Shimura : "denominator roots = %o\n", [ComplexField(10)!el[1] : el in roots_den];
-    common_bool := false;
-    for i := 1 to #roots_num do // looking for common roots of num and den
-      a := roots_num[i][1];
-      //vprintf Shimura : "numerator root = %o\n", a;
-      for j := 1 to #roots_den do
-        b := roots_den[j][1];
-        //vprintf Shimura : "\tdenominator root = %o\n", b;
-        if Abs(a-b) lt 10^(-prec/4) then // wild guess
-          common_bool := true;
-          a0 := a;
-          b0 := b;
-          vprintf Shimura : "Common zero found!\nError = %o\n", Abs(a0-b0);
-          vprintf Shimura : "Numerator root = %o\n", a0;
-          vprintf Shimura : "Denominator root = %o\n\n", b0;
+    // Locate the common zero P_s.
+    //
+    // P_s is a SIMPLE zero of den (den vanishes on D_oo + P_s), and by
+    // Riemann-Roch it is the UNIQUE common zero of num and den.  So:
+    // enumerate the zeros of den on the curve from the norm equation of den
+    // (whose coefficients are accurate to working precision), Newton-refine
+    // each as a 2x2 system (den, curve) -- both equations are simple at P_s,
+    // so this converges quadratically with no cluster smearing -- and select
+    // the unique refined zero where num also vanishes: at the true P_s the
+    // relative num-residual is ~10^(-prec), at every other zero of den it is
+    // bounded away by many orders of magnitude.
+    //
+    // Two approaches that do NOT work here, for the record:
+    // (1) matching roots of the num norm equation against roots of the den
+    //     norm equation (the original implementation): num may vanish at P_s
+    //     to high order -- e.g. when the group law forces P_s onto a
+    //     ramified fiber point, as happens whenever num is even -- and a
+    //     zero of multiplicity m smears the numerical roots into a cluster
+    //     of radius ~10^(-prec/m), far wider than any sensible tolerance;
+    // (2) computing P_s = -Sum(D_0') = -Sum(D_oo) (Abel) by chord-and-
+    //     tangent from the stored ramification points: those points are
+    //     Newton SEEDS of limited accuracy, and the fiber sum inherits and
+    //     amplifies their error.  The fiber sums are still computed below as
+    //     a coarse structural diagnostic (verbose only).
+    A := -27*c4;  // the curve is y^2 = x^3 + A*x + B
+    B := -54*c6;
+    epspair := 10^(-(prec div 2));
+    epscheck := 10^(-(prec div 4));
+    ecadd := function(P, Q)  // [] represents the origin O
+      if #P eq 0 then return Q; end if;
+      if #Q eq 0 then return P; end if;
+      if Abs(P[1]-Q[1]) lt epspair then
+        if Abs(P[2]+Q[2]) lt epspair then
+          return [CC | ];  // Q = -P (includes doubling a 2-torsion point)
         end if;
+        lam := (3*P[1]^2 + A)/(2*P[2]);  // tangent
+      else
+        lam := (Q[2]-P[2])/(Q[1]-P[1]);  // chord
+      end if;
+      x3 := lam^2 - P[1] - Q[1];
+      return [CC | x3, lam*(P[1]-x3) - P[2]];
+    end function;
+    ecmul := function(m, P)  // double-and-add
+      R := [CC | ]; Q := P; mm := m;
+      while mm gt 0 do
+        if mm mod 2 eq 1 then R := ecadd(R, Q); end if;
+        Q := ecadd(Q, Q); mm := mm div 2;
+      end while;
+      return R;
+    end function;
+    ecsum := function(pts, mults)
+      S := [CC | ];
+      for i := 1 to #pts do
+        S := ecadd(S, ecmul(mults[i], [CC | pts[i][1], pts[i][2]]));
+      end for;
+      return S;
+    end function;
+    // diagnostic only: group-law fiber sums, at seed accuracy
+    sum0 := ecsum(Gamma`TriangleNewtonRamificationPoints0,
+                  Gamma`TriangleNewtonRamificationMultiplicities0);
+    sumoo := ecsum(Gamma`TriangleNewtonRamificationPointsoo,
+                   Gamma`TriangleNewtonRamificationMultiplicitiesoo);
+    if #sum0 gt 0 then
+      vprintf Shimura : "P_s from 0-fiber seeds (coarse)  = %o\n", [ComplexField(10) | sum0[1], -sum0[2]];
+    end if;
+    if #sumoo gt 0 then
+      vprintf Shimura : "P_s from oo-fiber seeds (coarse) = %o\n", [ComplexField(10) | sumoo[1], -sumoo[2]];
+    end if;
+    // candidates: zeros of (den, curve), Newton-refined
+    f := x^3 + A*x + B;
+    fp := Derivative(f);
+    d0 := Coefficient(phi_den, 0);
+    d1 := Coefficient(phi_den, 1);
+    d0p := Derivative(d0);
+    d1p := Derivative(d1);
+    abseval := function(pol, xa, ya)  // size of the terms of pol at (xa, ya)
+      sc := RealField(prec)!0;
+      for j := 0 to Degree(pol) do
+        cj := Coefficient(pol, j);
+        for i := 0 to Degree(cj) do
+          sc +:= Abs(Coefficient(cj, i))*xa^i*ya^j;
+        end for;
+      end for;
+      return sc;
+    end function;
+    refine := function(x0, y0)  // Newton on (den, curve); both simple at P_s
+      xr := x0; yr := y0;
+      for it := 1 to 8 do
+        Fden := Evaluate(d0, xr) + Evaluate(d1, xr)*yr;
+        Fcrv := yr^2 - Evaluate(f, xr);
+        J11 := Evaluate(d0p, xr) + Evaluate(d1p, xr)*yr;
+        J12 := Evaluate(d1, xr);
+        J21 := -Evaluate(fp, xr);
+        J22 := 2*yr;
+        det := J11*J22 - J12*J21;
+        if det eq 0 then break; end if;
+        xr := xr - (J22*Fden - J12*Fcrv)/det;
+        yr := yr - (-J21*Fden + J11*Fcrv)/det;
+      end for;
+      return [CC | xr, yr];
+    end function;
+    numres := function(P)  // relative residual of num at P
+      return Abs(Evaluate(Evaluate(phi_num, P[2]), P[1]))
+             / abseval(phi_num, Abs(P[1]), Abs(P[2]));
+    end function;
+    cands := [];
+    for r in Roots(d0^2 - d1^2*f) do
+      x0 := r[1];
+      ycands := [CC | ];
+      d1x := Evaluate(d1, x0);
+      if d1x ne 0 then
+        Append(~ycands, -Evaluate(d0, x0)/d1x);
+      end if;
+      ysqrt := Sqrt(Evaluate(f, x0));
+      Append(~ycands, ysqrt);
+      Append(~ycands, -ysqrt);
+      for y0 in ycands do
+        P := refine(x0, y0);
+        Append(~cands, <numres(P), P[1], P[2]>);
       end for;
     end for;
-    if not common_bool then
-      error "No common zero found! :(";
+    assert #cands gt 0;
+    best := 1;
+    for i := 2 to #cands do
+      if cands[i][1] lt cands[best][1] then best := i; end if;
+    end for;
+    xs := cands[best][2];
+    ys := cands[best][3];
+    vprintf Shimura : "P_s selected = %o (relative num residual %o)\n",
+      [ComplexField(10) | xs, ys], RealField(10)!cands[best][1];
+    // P_s is the UNIQUE common zero of num and den (Riemann-Roch), so every
+    // candidate at a genuinely different point must have num bounded away
+    dsep := Max([RealField(prec) | 1, Abs(xs), Abs(ys)])*10^(-(prec div 8));
+    for i := 1 to #cands do
+      if Abs(cands[i][2]-xs) + Abs(cands[i][3]-ys) gt dsep then
+        assert cands[i][1] gt epscheck;  // no second common zero
+      end if;
+    end for;
+    if #sum0 gt 0 then
+      vprintf Shimura : "distance of P_s from coarse 0-fiber estimate: %o\n",
+        RealField(10)!(Abs(xs-sum0[1]) + Abs(ys+sum0[2]));
     end if;
-    vprintf Shimura : "Computing y-value of zero...\n";
-    xs := a0;
-    ys := Sqrt(xs^3 - 27*c4*xs - 54*c6);
-    eval_num := Evaluate(Evaluate(phi_num,ys),xs);
-    eval_den := Evaluate(Evaluate(phi_den,ys),xs);
-    if (Abs(eval_num) gt 10^(-prec/4)) or (Abs(eval_den) gt 10^(-prec/4)) then
-      ys := -ys;
+    if #sumoo gt 0 then
+      vprintf Shimura : "distance of P_s from coarse oo-fiber estimate: %o\n",
+        RealField(10)!(Abs(xs-sumoo[1]) + Abs(ys+sumoo[2]));
     end if;
-    eval_num := Evaluate(Evaluate(phi_num,ys),xs);
-    eval_den := Evaluate(Evaluate(phi_den,ys),xs);
-    vprintf Shimura : "error of numerator evaluated at common zero: %o\n", Abs(eval_num);
-    vprintf Shimura : "error of denominator evaluated at common zero: %o\n", Abs(eval_den);
-    // who knows how close they should be?
-    // assert Abs(eval_num) lt 10^(-prec/4);
-    // assert Abs(eval_den) lt 10^(-prec/4);
+    // verify: P_s lies on the curve and is a zero of both num and den
+    // (residuals measured relative to the size of the terms involved)
+    eval_crv := Abs(ys^2 - (xs^3 + A*xs + B));
+    scale_crv := Abs(ys)^2 + Abs(xs)^3 + Abs(A)*Abs(xs) + Abs(B);
+    eval_num := Abs(Evaluate(Evaluate(phi_num,ys),xs));
+    eval_den := Abs(Evaluate(Evaluate(phi_den,ys),xs));
+    vprintf Shimura : "relative residual of curve equation at P_s: %o\n", RealField(10)!(eval_crv/scale_crv);
+    vprintf Shimura : "relative residual of numerator at P_s: %o\n", RealField(10)!(eval_num/abseval(phi_num, Abs(xs), Abs(ys)));
+    vprintf Shimura : "relative residual of denominator at P_s: %o\n", RealField(10)!(eval_den/abseval(phi_den, Abs(xs), Abs(ys)));
+    assert eval_crv lt scale_crv*epscheck;
+    assert eval_num lt abseval(phi_num, Abs(xs), Abs(ys))*epscheck;
+    assert eval_den lt abseval(phi_den, Abs(xs), Abs(ys))*epscheck;
     vprintf Shimura : "Common zero = %o\n", [xs, ys];
     Gamma`TriangleNewtonInitializationSpecialPoint := [xs, ys];
   end if;

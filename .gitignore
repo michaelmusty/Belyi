@@ -1,3 +1,5 @@
 *.sig
 *.swp
 *.DS_Store
+Cext/powser_arnoldi
+Cext/powser_bench

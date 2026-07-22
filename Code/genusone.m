@@ -3,6 +3,7 @@
 // ================================================================================
 
 import "hyperelliptic.m" : ZeroifyCoeffsLaurent;
+import "powser_iter_arfed.m" : FDReduce;
 
 declare attributes GrpPSL2Tri:  
 
@@ -44,11 +45,44 @@ declare attributes GrpPSL2Tri:
   TriangleNewtonNeedsExtra; // set when there is a need for extra variables for common zero;
 
 NeedsExtra := function(Gamma);
+  // The Belyi map phi = num/den needs an extra common zero of num and den
+  // exactly when den requires the full space L((s+t)*O) = L((d+1)*O), i.e.
+  // pole order d+1 > d: by Riemann-Roch this happens iff the sum of the
+  // fiber points is nonzero in the group law of E, and then num and den
+  // share exactly one extra zero (which Newton must track as a special
+  // point, with 2 extra variables and 3 extra equations).
+  // We read this off from the numerical stage: after trailing machine
+  // zeroes are stripped, #den_coeffs = s+t iff the extra zero is present.
+  // (The old condition `d gt Degree(Universe(sigma))` was identically
+  // false, so the special-point machinery never activated and the Newton
+  // system was underdetermined by 1 in common-factor cases.)
+  // Both branches occur with s < d in the LMFDB: 6T12-5.1_5.1_3.3-a needs
+  // the extra zero, while 6T7-4.2_4.2_3.3-a (which factors through the
+  // x-line, so its 0-fiber is 4*O + 2*(2-torsion) and sums to O) does not
+  // -- so the purely combinatorial criterion `s lt d` cannot replace this
+  // data-driven predicate; see Tests/test_genusone_extra_zero.m.
   if not assigned Gamma`TriangleNewtonNeedsExtra then
+    error if not assigned Gamma`TriangleNumericalBelyiMapDenominatorCoefficients,
+      "NeedsExtra requires the numerical Belyi map (run TriangleGenusOneNumericalBelyiMap first)";
     sigma := Gamma`TriangleSigma;
-	  d := Gamma`TriangleD;
-  	s := #CycleDecomposition(sigma[1])[1];
-    Gamma`TriangleNewtonNeedsExtra := d gt Degree(Universe(sigma)) and s lt d;
+    d := Gamma`TriangleD;
+    s := #CycleDecomposition(sigma[1])[1];
+    t := d - s + 1;
+    den_coeffs := Gamma`TriangleNumericalBelyiMapDenominatorCoefficients;
+    num_coeffs := Gamma`TriangleNumericalBelyiMapNumeratorCoefficients;
+    needs := #den_coeffs eq s + t;
+    if t ge 2 then
+      // consistency: the numerator must use its full space L(t*O) iff den does
+      assert (#num_coeffs eq t) eq needs;
+    else
+      // t = 1 (sigma_0 a d-cycle): num is constant and cannot witness the
+      // drop, since dim L(1*O) = dim L(0*O) = 1; needs must be false here
+      assert #num_coeffs eq 1 and not needs;
+    end if;
+    // extra zero is impossible when sigma_0 is a d-cycle (Remark 5.2.10 of
+    // MSSV: 0 totally ramified => s = d, t = 1, den in L(d*O), no slack)
+    assert (not needs) or (s lt d);
+    Gamma`TriangleNewtonNeedsExtra := needs;
   end if;
   return Gamma`TriangleNewtonNeedsExtra;
 end function;
@@ -226,9 +260,11 @@ end intrinsic;
 
 intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum) -> Any
   {Given an element w of the hyperbolic disc, outputs the corresponding point in the complex plane (mod the lattice Lambda).}
-  
+
   assert Genus(Gamma) eq 1;
-  prec := Precision(Parent(Sk[1][1]));
+  // NB: Precision(Parent(Sk[1][1])) is the power series ring precision (the
+  // number of terms), NOT the coefficient precision; use the base ring's
+  prec := Precision(BaseRing(Parent(Sk[1][1])));
   Sk1 := Sk[1];
   CC<I> := BaseRing(Parent(Sk[1][1]));
   DDs := Gamma`TriangleDDs;
@@ -238,7 +274,74 @@ intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnu
     Sk1[j] := Sk1[j]*2*I*Im(centers[j]);
   end for;
   Sk1int := [Integral(f) : f in Sk1];
-  w_CC := Evaluate(Sk1int[1], ComplexValue(w)) - Evaluate(Sk1int[1], ComplexValue(DD!0)); // CC mod Lambda
+  // The previous implementation evaluated Sk1int[1] at w regardless of where
+  // w lies; for w far from the first center -- e.g. the fundamental domain
+  // vertices, which is exactly where the ramification points live -- the
+  // truncation error of an N-term expansion grows like (|w|/rho)^N and
+  // destroyed most of the working precision (ramification points came out
+  // with ~5 correct digits at prec 100).  Instead: FDReduce w into the chart
+  // of its nearest expansion center (a Gamma-translate, which shifts the
+  // integral by a period -- harmless mod Lambda) and integrate with that
+  // center's expansion, exactly as the period computation below already does
+  // chart by chart.  The integration constants K_j = int_{c_1}^{c_j} f dz are
+  // chained through pairwise chart-overlap midpoints, so that every series
+  // evaluation happens well inside a disc of convergence.
+  Delta := ContainingTriangleGroup(Gamma);
+  rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
+  eps := (RealField(CC)!10)^(-prec/2);
+  UU := UpperHalfPlane();
+  nv := #Sk1;
+  czs := [UU!ComplexValue(Center(D)) : D in DDs];
+  locc := function(z, j)  // local coordinate (a complex number) of the UHP point z in chart j
+    return ComplexValue(PlaneToDisc(DDs[j], z));
+  end function;
+  // chain the integration constants K_j from center 1 by a greedy tree
+  K := [CC | 0 : j in [1..nv]];
+  done := [j eq 1 : j in [1..nv]];
+  for count in [2..nv] do
+    bestr := RealField(CC)!2;
+    besti := 0; bestj := 0;
+    bestm := DiscToPlane(UU, DD!0);
+    for j in [1..nv] do
+      if done[j] then continue; end if;
+      for i in [1..nv] do
+        if not done[i] then continue; end if;
+        m := DiscToPlane(UU, DDs[i]!(locc(czs[j], i)/2));  // midpoint of c_i, c_j in chart i
+        r := Max(Abs(locc(m, i)), Abs(locc(m, j)));
+        if r lt bestr then
+          bestr := r; besti := i; bestj := j; bestm := m;
+        end if;
+      end for;
+    end for;
+    error if bestr ge rho + eps,
+      "cannot chain expansion centers: best chart-overlap midpoint lies outside rho";
+    K[bestj] := K[besti]
+      + Evaluate(Sk1int[besti], locc(bestm, besti)) - Evaluate(Sk1int[besti], CC!0)
+      + Evaluate(Sk1int[bestj], CC!0) - Evaluate(Sk1int[bestj], locc(bestm, bestj));
+    done[bestj] := true;
+  end for;
+  // Abel-Jacobi value of a disc point via its nearest chart.  (Do NOT trust
+  // whichcoset to name the nearest chart: it is built for the reduction
+  // machinery's own inputs, and e.g. for interior points like the base point
+  // DD!0 the assigned chart can lie farther than rho.  Any chart with a
+  // small local coordinate is equally correct once the constants K_j are in
+  // place, so choose by explicit minimization.)
+  ajval := function(v)
+    vp := FDReduce(v, Gamma);  // Gamma-translate into the FD: shifts the integral by a period
+    z := DiscToPlane(UU, vp);
+    jj := 1;
+    best := Abs(locc(z, 1));
+    for j in [2..nv] do
+      r := Abs(locc(z, j));
+      if r lt best then
+        best := r; jj := j;
+      end if;
+    end for;
+    error if best ge rho + eps,
+      "point is not covered by any expansion chart: nearest local coordinate has absolute value", best, "vs rho =", rho;
+    return K[jj] + Evaluate(Sk1int[jj], locc(z, jj)) - Evaluate(Sk1int[jj], CC!0);
+  end function;
+  w_CC := ajval(w) - ajval(DD!0); // CC mod Lambda
   return w_CC;
 end intrinsic;
 
@@ -282,9 +385,17 @@ intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEn
   {Given an element w of the hyperbolic disc, outputs the corresponding point on the elliptic curve associated to Gamma.}
 
   assert Genus(Gamma) eq 1;
-  prec := Precision(Parent(Sk[1][1]));
+  prec := Precision(BaseRing(Parent(Sk[1][1])));  // coefficient precision, not series length
   w_CC := TriangleDiscToComplexPlane(w, Gamma, Sk);
-  if Abs(w_CC) lt 10^(-prec/2) then // TODO check that w_CC is not one of the other lattice points
+  // reduce mod Lambda to a smallest representative: the nearest-chart
+  // evaluation returns w_CC only up to a period, and the pole test must
+  // catch every lattice translate of 0 (this resolves the old TODO); the
+  // periods are chart-by-chart integrals, accurate to working precision
+  Lambda := Gamma`TrianglePeriodLattice;
+  M := Matrix([[Re(l), Im(l)] : l in Lambda]);
+  sol := Solution(M, Vector([Re(w_CC), Im(w_CC)]));
+  w_CC := w_CC - Round(sol[1])*Lambda[1] - Round(sol[2])*Lambda[2];
+  if Abs(w_CC) lt 10^(-prec/2) then
     error "w_CC is a pole of wp!";
   else
     w_E := TriangleComplexPlaneToEllipticCurve(w_CC, Gamma, x, y);

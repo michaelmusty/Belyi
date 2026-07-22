@@ -23,7 +23,7 @@ intrinsic S3Orbit(phi::FldFunFracSchElt) -> SeqEnum
 end intrinsic;
 
 // sigma one at a time
-intrinsic BelyiMap(sigma::SeqEnum[GrpPermElt] : prec := 0, Al := "Default", ExactAl := "AlgebraicNumbers", DegreeBound := 0, precNewton := 0, Federalize := true) -> Any, Any
+intrinsic BelyiMap(sigma::SeqEnum[GrpPermElt] : prec := 0, Al := "Default", ExactAl := "AlgebraicNumbers", DegreeBound := 0, precNewton := 0, Federalize := true, PowserAl := "Arnoldi") -> Any, Any
   {Computes the Belyi curve X and Belyi map f associated to the permutation triple sigma. Same description as below.}
 
   chi := &+[1/Order(sigma_s) : sigma_s in sigma];
@@ -45,11 +45,11 @@ intrinsic BelyiMap(sigma::SeqEnum[GrpPermElt] : prec := 0, Al := "Default", Exac
 
   Gamma := TriangleSubgroup(sigma);
 
-  return BelyiMap(Gamma : prec := prec, Al := Al, ExactAl := ExactAl, DegreeBound := DegreeBound, precNewton := precNewton, Federalize := Federalize);
+  return BelyiMap(Gamma : prec := prec, Al := Al, ExactAl := ExactAl, DegreeBound := DegreeBound, precNewton := precNewton, Federalize := Federalize, PowserAl := PowserAl);
 end intrinsic;
 
 // Gamma one at a time
-intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "AlgebraicNumbers", DegreeBound := 0, precNewton := 0, Federalize := true) -> Any, Any, Any
+intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "AlgebraicNumbers", DegreeBound := 0, precNewton := 0, Federalize := true, PowserAl := "Arnoldi") -> Any, Any, Any
   {
     Computes the Belyi curve X and Belyi map f associated to the triangle subgroup Gamma.
     Currently only works for genera 0, 1.
@@ -89,7 +89,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
     while SkDimension(Gamma,k) lt 2 do
       k +:= 2;
     end while;
-    Sk := PowerSeriesBasis(Gamma, k : dim := 2, Federalize := Federalize);
+    Sk := PowerSeriesBasis(Gamma, k : dim := 2, Federalize := Federalize, Al := PowserAl);
     if Al eq "Default" then
       Al := "Newton";
     end if;
@@ -106,7 +106,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
     end if;
   elif Genus(Gamma) eq 1 then
     // compute numerical data
-    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
+    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize, Al := PowserAl);
     if Al eq "Default" then
       // Al := "NumericalKernel";
       Al := "Newton";
@@ -122,7 +122,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
       if precNewton eq 0 then
         precNewton := 100*m0*Round(Log(d));
       end if;
-      Gamma := NewtonGenusOne(Gamma : precstart := prec, precNewton := precNewton, bound := m0);
+      Gamma := NewtonGenusOne(Gamma : precstart := prec, precNewton := precNewton, bound := m0, PowserAl := PowserAl);
       // Gamma := NewtonGenusOne(Gamma : precstart := prec, precNewton := precNewton, bound := DegreeBound);
     elif Al eq "NumericalKernel" then
       // right now this is the only NumAl
@@ -148,7 +148,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
     end if;
   elif Genus(Gamma) eq 2 then
     // compute numerical data
-    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
+    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize, Al := PowserAl);
     if Al eq "Default" then
       Al := "NumericalKernel";
     end if;
@@ -180,7 +180,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
     TriangleMakeBelyiMap(Gamma);
   else
     vprint Shimura : "Testing if hyperelliptic...";
-    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize);
+    Sk := PowerSeriesBasis(Gamma, 2 : prec := prec, Federalize := Federalize, Al := PowserAl);
     hyp_bool, curve_coeffs, curve_vals := TriangleHyperellipticTest(Sk, Gamma);
     if hyp_bool then
       Gamma := TriangleHyperellipticNumericalCoefficients(Sk, Gamma : curve_coeffs := curve_coeffs, curve_vals := curve_vals);
@@ -204,7 +204,7 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
 end intrinsic;
 
 // sigmas (passport at a time)
-intrinsic BelyiMap(sigmas::SeqEnum[SeqEnum[GrpPermElt]] : prec := 0, Al := "Default", ExactAl := "GaloisOrbits", DegreeBound := 0, precNewton := 0, Federalize := true) -> Any, Any
+intrinsic BelyiMap(sigmas::SeqEnum[SeqEnum[GrpPermElt]] : prec := 0, Al := "Default", ExactAl := "GaloisOrbits", DegreeBound := 0, precNewton := 0, Federalize := true, PowserAl := "Arnoldi") -> Any, Any
   {Computes the Belyi curve X and Belyi map f associated to the permutation triple sigma. Same description as below.}
   // assertions
   chi_list := [];
@@ -225,11 +225,11 @@ intrinsic BelyiMap(sigmas::SeqEnum[SeqEnum[GrpPermElt]] : prec := 0, Al := "Defa
   // make Gammas
   // TODO optimize for bad abc?
   Gammas := [TriangleSubgroup(sigma) : sigma in sigmas];
-  return BelyiMap(Gammas : prec := prec, Al := Al, ExactAl := ExactAl, DegreeBound := DegreeBound, precNewton := precNewton, Federalize := Federalize);
+  return BelyiMap(Gammas : prec := prec, Al := Al, ExactAl := ExactAl, DegreeBound := DegreeBound, precNewton := precNewton, Federalize := Federalize, PowserAl := PowserAl);
 end intrinsic;
 
 // Gammas (passport at a time)
-intrinsic BelyiMap(Gammas::SeqEnum[GrpPSL2Tri] : prec := 0, Al := "Default", ExactAl := "GaloisOrbits", DegreeBound := 0, precNewton := 0, Federalize := true) -> Any, Any, Any
+intrinsic BelyiMap(Gammas::SeqEnum[GrpPSL2Tri] : prec := 0, Al := "Default", ExactAl := "GaloisOrbits", DegreeBound := 0, precNewton := 0, Federalize := true, PowserAl := "Arnoldi") -> Any, Any, Any
   {
     Computes the Belyi curves and Belyi maps associated to the triangle subgroups in Gammas.
     Optional parameters:
@@ -285,16 +285,16 @@ intrinsic BelyiMap(Gammas::SeqEnum[GrpPSL2Tri] : prec := 0, Al := "Default", Exa
     end if;
     if Al eq "Newton" then
       for i := 1 to #Gammas do
-        BelyiMap(Gammas[i] : Al := "Newton", prec := prec, precNewton := precNewton, DegreeBound := m0);
+        BelyiMap(Gammas[i] : Al := "Newton", prec := prec, precNewton := precNewton, DegreeBound := m0, PowserAl := PowserAl);
       end for;
     else
-      TriangleRecordCoefficients(Gammas : prec := prec);
+      TriangleRecordCoefficients(Gammas : prec := prec, PowserAl := PowserAl);
       TriangleRecognizeCoefficients(Gammas : ExactAl := ExactAl, DegreeBound := DegreeBound);
       TriangleMakeBelyiMaps(Gammas);
     end if;
   elif Genus(Gammas[1]) eq 2 then
     // TODO implement arbitrary genus hyperelliptic see BelyiMap(Gamma)
-    TriangleRecordCoefficients(Gammas : prec := prec);
+    TriangleRecordCoefficients(Gammas : prec := prec, PowserAl := PowserAl);
     TriangleRecognizeCoefficients(Gammas : ExactAl := ExactAl, DegreeBound := DegreeBound);
     TriangleMakeBelyiMaps(Gammas);
   else
