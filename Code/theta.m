@@ -261,11 +261,14 @@ intrinsic MakeKBatch(cfs::SeqEnum, m::RngIntElt) -> Any, Any, Any, Any, Any
 
   // parse: FOUND <idx> <deg> <log10resid> <c_0> ... <c_deg> | NOPREC <idx>
   best_deg := 0; best_idx := 0; best_cfs := [];
+  nnoprec := 0;
   done := false;
   for line in Split(Read(outfile), "\n") do
     parts := Split(line, " ");
     if parts[1] eq "RELFINDER_DONE" then
       done := true;
+    elif parts[1] eq "NOPREC" then
+      nnoprec +:= 1;
     elif parts[1] eq "FOUND" then
       idx := StringToInteger(parts[2]) + 1;  // C is 0-based
       deg := StringToInteger(parts[3]);
@@ -281,6 +284,16 @@ intrinsic MakeKBatch(cfs::SeqEnum, m::RngIntElt) -> Any, Any, Any, Any, Any
 
   if best_deg eq 0 then
     vprint Shimura : "  ...MakeKBatch: no candidate certified at this precision";
+    return false, _, _, _, _;
+  end if;
+  // Guard against the trivial-rational trap: normalized coefficient lists
+  // contain exact constants (e.g. a leading 1) that certify at degree 1
+  // regardless of seed quality.  Only accept K = QQ when EVERY candidate
+  // certified; a degree-1 best alongside NOPREC candidates means the
+  // interesting coefficients could not be certified -- report failure so
+  // the caller raises precision instead of building a wrong map.
+  if best_deg eq 1 and nnoprec gt 0 then
+    vprintf Shimura : "  ...MakeKBatch: only trivial degree-1 certifications (%o candidates NOPREC) -- insufficient precision\n", nnoprec;
     return false, _, _, _, _;
   end if;
   vprintf Shimura : "  ...MakeKBatch: certified minimal polynomial of degree %o at coefficient %o\n", best_deg, best_idx;
