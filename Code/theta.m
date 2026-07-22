@@ -501,6 +501,10 @@ intrinsic RecognizeOverK(Skc::SeqEnum[SeqEnum[FldComElt]], K::FldAlg, v::PlcNumE
 
   m := Degree(K);
 
+  if GetEnv("MAKEK_RELFINDER_BIN") ne "" and m gt 1 then
+    return RecognizeOverKBatch(Skc, K, ZKbCC : escapeOK := escapeOK);
+  end if;
+
   Skb := [];
   for fc in Skc do
     fb := [];
@@ -535,6 +539,93 @@ intrinsic RecognizeOverK(Skc::SeqEnum[SeqEnum[FldComElt]], K::FldAlg, v::PlcNumE
     Append(~Skb, fb);
   end for;
 
+  return Skb;
+end intrinsic;
+
+intrinsic RecognizeOverKBatch(Skc::SeqEnum, K::FldAlg, ZKbCC::SeqEnum : escapeOK := false) -> SeqEnum
+  {Batched certified RecognizeOverK backed by the external C relation finder
+   (Cext/makek_relfinder --overk).  Same semantics as the legacy loop --
+   integral-basis coordinates, per-sequence denominator chaining, eps check
+   -- but one threaded external pass over all sequences, and a certified
+   NOPREC verdict on insufficient precision instead of hours of grinding
+   before the same failure.}
+
+  cbin := GetEnv("MAKEK_RELFINDER_BIN");
+  require cbin ne "" : "MAKEK_RELFINDER_BIN is not set";
+  CC := Parent(ZKbCC[1]);
+  eps := 10^(-Precision(CC)/2);
+  m := Degree(K);
+  ZK := Integers(K);
+  precbits := Ceiling(Precision(CC)*3.3219280948873623);
+
+  tmpdir := GetEnv("TMPDIR");
+  if tmpdir eq "" then
+    tmpdir := "/tmp";
+  end if;
+  tag := Sprintf("%o_%o_%o", Getpid(), Round(1000*Realtime()) mod 10^9, Random(10^15));
+  infile := Sprintf("%o/overk_in_%o.txt", tmpdir, tag);
+  outfile := Sprintf("%o/overk_out_%o.txt", tmpdir, tag);
+
+  F := Open(infile, "w");
+  Puts(F, Sprintf("%o %o %o", precbits, m, #Skc));
+  for b in ZKbCC do
+    Puts(F, Sprintf("%o", Real(b)));
+    Puts(F, Sprintf("%o", Imaginary(b)));
+  end for;
+  for fc in Skc do
+    Puts(F, Sprintf("%o", #fc));
+    for c in fc do
+      Puts(F, Sprintf("%o", Real(c)));
+      Puts(F, Sprintf("%o", Imaginary(c)));
+    end for;
+  end for;
+  delete F;
+
+  ret := System(Sprintf("%o --overk %o %o", cbin, infile, outfile));
+  require ret eq 0 : "external relation finder (--overk) failed";
+
+  found := AssociativeArray();
+  done := false;
+  for line in Split(Read(outfile), "\n") do
+    parts := Split(line, " ");
+    if parts[1] eq "RELFINDER_DONE" then
+      done := true;
+    elif parts[1] eq "FOUND" then
+      sidx := StringToInteger(parts[2]) + 1;
+      n := StringToInteger(parts[3]) + 1;
+      den := StringToInteger(parts[4]);
+      coords := [StringToInteger(parts[k]) : k in [5..4+m]];
+      found[<sidx, n>] := <den, coords>;
+    end if;
+  end for;
+  require done : "external relation finder (--overk) output truncated";
+  System(Sprintf("rm -f %o %o", infile, outfile));
+
+  Skb := [];
+  for sidx in [1..#Skc] do
+    fc := Skc[sidx];
+    fb := [];
+    for n in [1..#fc] do
+      if not IsDefined(found, <sidx, n>) then
+        if escapeOK then break; end if;
+        error "Insufficient precision in RecognizeOverK (certified by the external relation finder); increase prec";
+      end if;
+      den, coords := Explode(found[<sidx, n>]);
+      elt := K!((ZK!coords)/den);
+      // final eps check against the numerical value, via the embedded basis
+      // (ZKbCC already encodes the place and conjugation)
+      fbv := &+[ CC!coords[i]*ZKbCC[i] : i in [1..m] ] / CC!den;
+      err := Abs(fbv - fc[n]);
+      vprintf Shimura : "Coefficient %o of %o in array %o recognized (batch), error = %o \n",
+        n, #fc, sidx, RealField(4)!err;
+      if err gt eps then
+        if escapeOK then break; end if;
+        error "RecognizeOverK batch result fails the eps check; increase prec";
+      end if;
+      Append(~fb, elt);
+    end for;
+    Append(~Skb, fb);
+  end for;
   return Skb;
 end intrinsic;
 

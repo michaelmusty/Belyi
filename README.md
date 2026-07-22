@@ -112,6 +112,14 @@ The batched path is used by the genus-0 recognition stage whenever
 `MAKEK_RELFINDER_BIN` is set; unset it to fall back to the legacy search,
 which is unchanged and remains the default.
 
+The same binary's `--overk` mode accelerates the follow-on stage,
+`RecognizeOverK` (expressing every remaining coefficient over the found
+field K): the integral-basis lattice is LLL-reduced once and each
+coefficient is then a small certified reduction against it, with the same
+denominator chaining as the legacy loop and a certified abort ("increase
+prec") in place of the legacy fatal error deep into the run.  Gated by the
+same environment variable.
+
 ## Tests
 
 ```
