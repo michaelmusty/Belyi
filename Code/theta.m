@@ -141,27 +141,17 @@ intrinsic TriangleMakeNumberField(uCC::FldComElt, deg::RngIntElt : K := "") -> A
 end intrinsic;
 */
 
-intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
-  {MakeK!  What more to say?}
-
-  if m eq 1 then
-    vprint Shimura : "  ...m eq 1, so taking QQ";
-    K := RationalsAsNumberField();
-    v := RealPlaces(K)[1];
-    return true, K, v, false, Parent(uCC)!1;
-  end if;
-
-  vprintf Shimura : "  ...Trying to MakeK with m = %o\n", m;
+intrinsic MakeKFromPoly(uCC::Any, u_pol::Any) -> Any, Any, Any, Any, Any
+  {Shared tail of MakeK: given uCC and its (already found, irreducible)
+   minimal polynomial u_pol over ZZ, build the optimized field, ramification
+   screen, and complex embedding.  Returns bl, K, v, conj, uCC.}
 
   CC := Parent(uCC);
   eps := 10^(-Precision(CC)/2);
-
-  u_pol := PowerRelation(uCC, m : Al := "LLL");
-  if Degree(u_pol) ne m or not IsIrreducible(u_pol) then
-    if Degree(u_pol) gt 1 then
-      vprint Shimura : "  ...coefficient not degree m, looked like degree", [<Degree(c[1]),c[2]> : c in Factorization(u_pol)];
-    end if;
-    return false, _, _, _, _;
+  if Degree(u_pol) eq 1 then
+    K := RationalsAsNumberField();
+    v := RealPlaces(K)[1];
+    return true, K, v, false, Parent(uCC)!1;
   end if;
   lc := LeadingCoefficient(u_pol);
   K0 := NumberField(u_pol);
@@ -202,6 +192,107 @@ intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
   v := InfinitePlaces(Kop)[vind];
   // return true, Kop, v, conj, uop;
   return true, Kop, v, conj, uCC;
+end intrinsic;
+
+intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
+  {MakeK!  What more to say?}
+
+  if m eq 1 then
+    vprint Shimura : "  ...m eq 1, so taking QQ";
+    K := RationalsAsNumberField();
+    v := RealPlaces(K)[1];
+    return true, K, v, false, Parent(uCC)!1;
+  end if;
+
+  vprintf Shimura : "  ...Trying to MakeK with m = %o\n", m;
+
+  u_pol := PowerRelation(uCC, m : Al := "LLL");
+  if Degree(u_pol) ne m or not IsIrreducible(u_pol) then
+    if Degree(u_pol) gt 1 then
+      vprint Shimura : "  ...coefficient not degree m, looked like degree", [<Degree(c[1]),c[2]> : c in Factorization(u_pol)];
+    end if;
+    return false, _, _, _, _;
+  end if;
+  return MakeKFromPoly(uCC, u_pol);
+end intrinsic;
+
+intrinsic MakeKBatch(cfs::SeqEnum, m::RngIntElt) -> Any, Any, Any, Any, Any
+  {Batched, certified replacement for the MakeK search loop, backed by the
+   external C relation finder (Cext/makek_relfinder.c, FLINT fmpz_lll).  For
+   every candidate coefficient in cfs it finds and certifies the true minimal
+   polynomial of degree <= m in a single threaded pass, then runs the usual
+   MakeK tail (ramification screen, Polredbestabs, embedding) on the best
+   candidate: largest certified degree, earliest index breaking ties.
+
+   Returns bl, K, v, conj, uCC.  bl = false means NO candidate certified any
+   relation -- with the certification in the C tool that is strong evidence
+   the working precision is insufficient (raise prec), as opposed to the
+   legacy loop which cannot distinguish "no relation" from "not enough
+   precision" and grinds through O(m * #cfs) LLL calls before failing.
+
+   Requires MAKEK_RELFINDER_BIN to point at the built binary; threads via
+   MAKEK_RELFINDER_THREADS.  File handoff mirrors the CArnoldi solver:
+   TMPDIR-respecting, random-tagged names, plain-text output (parsed, never
+   eval'd).}
+
+  cbin := GetEnv("MAKEK_RELFINDER_BIN");
+  require cbin ne "" : "MAKEK_RELFINDER_BIN is not set";
+  CC := Parent(cfs[1]);
+  precbits := Ceiling(Precision(CC)*3.3219280948873623);
+
+  tmpdir := GetEnv("TMPDIR");
+  if tmpdir eq "" then
+    tmpdir := "/tmp";
+  end if;
+  tag := Sprintf("%o_%o_%o", Getpid(), Round(1000*Realtime()) mod 10^9, Random(10^15));
+  infile := Sprintf("%o/makek_in_%o.txt", tmpdir, tag);
+  outfile := Sprintf("%o/makek_out_%o.txt", tmpdir, tag);
+
+  F := Open(infile, "w");
+  Puts(F, Sprintf("%o %o %o", precbits, #cfs, m));
+  for u in cfs do
+    Puts(F, Sprintf("%o", Real(u)));
+    Puts(F, Sprintf("%o", Imaginary(u)));
+  end for;
+  delete F;
+
+  ret := System(Sprintf("%o %o %o", cbin, infile, outfile));
+  require ret eq 0 : "external relation finder failed";
+
+  // parse: FOUND <idx> <deg> <log10resid> <c_0> ... <c_deg> | NOPREC <idx>
+  best_deg := 0; best_idx := 0; best_cfs := [];
+  done := false;
+  for line in Split(Read(outfile), "\n") do
+    parts := Split(line, " ");
+    if parts[1] eq "RELFINDER_DONE" then
+      done := true;
+    elif parts[1] eq "FOUND" then
+      idx := StringToInteger(parts[2]) + 1;  // C is 0-based
+      deg := StringToInteger(parts[3]);
+      if deg gt best_deg or (deg eq best_deg and best_deg gt 0 and idx lt best_idx) then
+        best_deg := deg;
+        best_idx := idx;
+        best_cfs := [StringToInteger(parts[k]) : k in [5..5+deg]];
+      end if;
+    end if;
+  end for;
+  require done : "external relation finder output truncated";
+  System(Sprintf("rm -f %o %o", infile, outfile));
+
+  if best_deg eq 0 then
+    vprint Shimura : "  ...MakeKBatch: no candidate certified at this precision";
+    return false, _, _, _, _;
+  end if;
+  vprintf Shimura : "  ...MakeKBatch: certified minimal polynomial of degree %o at coefficient %o\n", best_deg, best_idx;
+  uCC := cfs[best_idx];
+  if best_deg eq 1 then
+    K := RationalsAsNumberField();
+    v := RealPlaces(K)[1];
+    return true, K, v, false, Parent(uCC)!1;
+  end if;
+  ZZx<xZ> := PolynomialRing(Integers());
+  u_pol := ZZx ! best_cfs;
+  return MakeKFromPoly(uCC, u_pol);
 end intrinsic;
 
 intrinsic TriangleK(Gamma::GrpPSL2Tri) -> Any, Any, Any

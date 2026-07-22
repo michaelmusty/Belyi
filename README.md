@@ -84,6 +84,34 @@ in ~23 s with the C solver versus ~170 s without, on a 16-core machine.
 Implementation notes, the input/output file formats, and numerical details
 are documented in `Cext/README.md`.
 
+## Fast certified recognition for MakeK (number field of the Belyi map)
+
+After the numerical solve, `BelyiMap` must recognize the coefficient field
+K from complex approximations (`MakeK` in `Code/theta.m`).  The legacy
+search calls Magma's `PowerRelation` once per (coefficient, degree) pair —
+up to `passport size x #coefficients` sequential LLL calls, each of which
+can take minutes at high precision — and when the working precision is too
+low to certify any relation it grinds through the entire loop before
+failing (observed: 15+ CPU-hours of doomed `MakeK` calls on an M24 genus-0
+run at `prec := 400`).
+
+`Cext/makek_relfinder` replaces the loop with one batched, threaded pass:
+a single `fmpz_lll` integer-relation reduction per coefficient at the
+passport degree bound, followed by `fmpz_poly_factor` and an arb-certified
+check of which irreducible factor actually vanishes at the coefficient.
+The true minimal polynomial of any degree up to the bound falls out
+directly; if nothing certifies, the run aborts within seconds with an
+explicit "raise prec" error instead of days of grinding.
+
+Build it with the same `make` as above, then:
+```
+export MAKEK_RELFINDER_BIN=/path/to/Belyi/Cext/makek_relfinder
+export MAKEK_RELFINDER_THREADS=8
+```
+The batched path is used by the genus-0 recognition stage whenever
+`MAKEK_RELFINDER_BIN` is set; unset it to fall back to the legacy search,
+which is unchanged and remains the default.
+
 ## Tests
 
 ```

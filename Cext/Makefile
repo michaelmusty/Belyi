@@ -1,5 +1,8 @@
-# External C solver for the Arnoldi stage of PowerSeriesBasis
-# (used by Al := "CArnoldi" in Code/powser_iter_arfed.m)
+# External C solvers:
+#   powser_arnoldi  -- Arnoldi stage of PowerSeriesBasis
+#                      (used by Al := "CArnoldi" in Code/powser_iter_arfed.m)
+#   makek_relfinder -- batched certified recognition for the MakeK stage
+#                      (used when MAKEK_RELFINDER_BIN is set; see Code/theta.m)
 #
 # Linux:  make            (needs libflint-dev >= 3.0, libmpfr-dev, libgmp-dev)
 # macOS:  make mac        (brew install flint mpfr gmp)
@@ -9,8 +12,13 @@ CC = gcc
 CFLAGS = -O2 -pthread
 LIBS = -lflint -lmpfr -lgmp -lm
 
+all: powser_arnoldi makek_relfinder
+
 powser_arnoldi: powser_arnoldi.c
 	$(CC) $(CFLAGS) powser_arnoldi.c -o powser_arnoldi $(LIBS)
+
+makek_relfinder: makek_relfinder.c
+	$(CC) $(CFLAGS) makek_relfinder.c -o makek_relfinder $(LIBS)
 
 mac: powser_arnoldi.c
 	clang -O2 -pthread powser_arnoldi.c -o powser_arnoldi \
@@ -30,10 +38,11 @@ server: powser_arnoldi.c
 bench: powser_bench.c
 	$(CC) $(CFLAGS) powser_bench.c -o powser_bench $(LIBS)
 
-test: powser_arnoldi
+test: powser_arnoldi makek_relfinder
 	./powser_arnoldi --selftest
+	./makek_relfinder --selftest
 
 clean:
-	rm -f powser_arnoldi powser_bench
+	rm -f powser_arnoldi powser_bench makek_relfinder
 
-.PHONY: mac test clean server
+.PHONY: all mac test clean server

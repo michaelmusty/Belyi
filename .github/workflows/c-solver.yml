@@ -16,8 +16,10 @@ jobs:
       - name: Install FLINT
         run: sudo apt-get update && sudo apt-get install -y libflint-dev libmpfr-dev libgmp-dev
       - name: Build
-        run: make -C Cext CC=${{ matrix.cc }}
-      - name: Selftest
+        run: make -C Cext all CC=${{ matrix.cc }}
+      - name: Selftest (powser_arnoldi)
         run: ./Cext/powser_arnoldi --selftest | tee /dev/stderr | grep -q "SELFTEST PASSED"
+      - name: Selftest (makek_relfinder)
+        run: ./Cext/makek_relfinder --selftest | tee /dev/stderr | grep -q "SELFTEST PASSED"
       - name: Benchmark build
         run: make -C Cext bench CC=${{ matrix.cc }}
