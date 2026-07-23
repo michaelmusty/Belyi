@@ -246,8 +246,20 @@ recognize_one(cand_t *c, slong maxm, slong prec)
                 double a = fabs(fmpz_get_d(fmpz_poly_get_coeff_ptr(rel, i)));
                 if (a > 1 && log10(a) > log10H) log10H = log10(a);
             }
+            /* noise floor must account for |u|: evaluating a height-H
+             * relation at u carries error ~ H * max(1,|u|)^deg * 10^-p */
+            double log10u = 0;
+            {
+                arb_t au;
+                arb_init(au);
+                acb_abs(au, c->u, 64);
+                double du = arf_get_d(arb_midref(au), ARF_RND_UP);
+                if (du > 1) log10u = log10(du);
+                arb_clear(au);
+            }
             double gap = lll_gap_bits(B, row, n, n + 2);
-            if (gap < GAP_CERT_BITS || lr > -p10 + log10H + 30)
+            if (gap < GAP_CERT_BITS
+                || lr > -p10 + log10H + fmpz_poly_degree(rel) * log10u + 30)
             {
                 fmpz_poly_clear(rel);
                 continue;   /* junk relation: precision cannot certify */
@@ -271,8 +283,17 @@ recognize_one(cand_t *c, slong maxm, slong prec)
                     double a = fabs(fmpz_get_d(fmpz_poly_get_coeff_ptr(pf, i)));
                     if (a > 1 && log10(a) > log10Hf) log10Hf = log10(a);
                 }
+                double log10u = 0;
+                {
+                    arb_t au;
+                    arb_init(au);
+                    acb_abs(au, c->u, 64);
+                    double du = arf_get_d(arb_midref(au), ARF_RND_UP);
+                    if (du > 1) log10u = log10(du);
+                    arb_clear(au);
+                }
                 double p10 = prec * 0.30102999566398119521;
-                if (lf <= -p10 + log10Hf + 40)
+                if (lf <= -p10 + log10Hf + fmpz_poly_degree(pf) * log10u + 40)
                 {
                     fmpz_poly_set(c->minpoly, pf);
                     c->log10resid = lf;
@@ -610,11 +631,29 @@ overk_seq(oseq_t *s, const acb_ptr basis, slong m, slong prec,
                  * gap (>= GAP_UNCERT_BITS) -- the marginal regime the
                  * legacy path silently accepts; tagged for the caller.
                  * No gap: junk, contributes to NOPREC.  Both tiers also
-                 * require the residual at the exact-relation noise floor. */
+                 * require the residual at the exact-relation noise floor,
+                 * which must account for the magnitudes of the basis
+                 * embeddings and the (prevden-scaled) target. */
                 double p10 = prec * 0.30102999566398119521;
+                double log10mag = 0;
+                {
+                    arb_t am;
+                    arb_init(am);
+                    for (slong i = 0; i < m; i++)
+                    {
+                        acb_abs(am, basis + i, 64);
+                        double d0 = arf_get_d(arb_midref(am), ARF_RND_UP);
+                        if (d0 > 1 && log10(d0) > log10mag) log10mag = log10(d0);
+                    }
+                    acb_abs(am, s->t + n, 64);
+                    double d1 = arf_get_d(arb_midref(am), ARF_RND_UP);
+                    d1 *= fabs(fmpz_get_d(prevden));
+                    if (d1 > 1 && log10(d1) > log10mag) log10mag = log10(d1);
+                    arb_clear(am);
+                }
                 double gap = lll_gap_bits(M, row, m + 1, m + 3);
                 int certified = (gap >= GAP_CERT_BITS);
-                if (gap >= GAP_UNCERT_BITS && lr <= -p10 + log10H + 30)
+                if (gap >= GAP_UNCERT_BITS && lr <= -p10 + log10H + log10mag + 30)
                 {
                     /* accept: coords = a, den = q * prevden (sign into a) */
                     fmpz_t den;
