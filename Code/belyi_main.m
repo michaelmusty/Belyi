@@ -24,7 +24,16 @@ end intrinsic;
 
 // sigma one at a time
 intrinsic BelyiMap(sigma::SeqEnum[GrpPermElt] : prec := 0, Al := "Default", ExactAl := "AlgebraicNumbers", DegreeBound := 0, precNewton := 0, Federalize := true, PowserAl := "Arnoldi") -> Any, Any
-  {Computes the Belyi curve X and Belyi map f associated to the permutation triple sigma. Same description as below.}
+  {Computes the Belyi curve X and Belyi map f associated to the permutation triple sigma. Same description as below.
+   ExactAl := "Certified" uses the external certified relation finder for the
+   recognition stages (see Cext/makek_relfinder.c); it requires the
+   MAKEK_RELFINDER_BIN environment variable to point at the built binary.}
+
+  if ExactAl eq "Certified" then
+    require GetEnv("MAKEK_RELFINDER_BIN") ne "" :
+      "ExactAl := \"Certified\" requires the MAKEK_RELFINDER_BIN environment variable (build Cext/makek_relfinder and export its path)";
+    ExactAl := "AlgebraicNumbers";  // certified paths engage via the env var
+  end if;
 
   chi := &+[1/Order(sigma_s) : sigma_s in sigma];
   if chi ge 1 then
