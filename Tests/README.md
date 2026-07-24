@@ -30,7 +30,15 @@ The runner executes, in order:
    through the x-line, so the 0-fiber is 4*O + 2*(2-torsion) and sums to O:
    no extra zero despite s < d, `NeedsExtra` false — which shows the
    predicate must be data-driven, not combinatorial.
-5. **`test_powser_consistency.m`** (slow, `RUNSLOW=1`): degree-7 example;
+5. **`test_genusone_aj.m`**: unit tests for the genus-1 Abel-Jacobi
+   evaluation.  On two examples (4T5-4_4_3.1-a, and a (5,5,4) triple whose
+   chart layout is kept as a regression), checks that the exact coset-path
+   evaluation (`TriangleCosetVertexToComplexPlane`) and the adaptive path
+   integrator (`TriangleDiscToComplexPlane`) agree modulo the period
+   lattice at every fundamental domain vertex, and that all ramification
+   points satisfy the curve equation to working accuracy (the original
+   single-expansion evaluation left only ~5 correct digits).
+6. **`test_powser_consistency.m`** (slow, `RUNSLOW=1`): degree-7 example;
    computes the weight-4 power series basis with both `Al := "Arnoldi"` and
    `Al := "CArnoldi"` at 100 digits and asserts the echelonized bases agree
    as functions to 1e-70, that both minimal singular values are below
