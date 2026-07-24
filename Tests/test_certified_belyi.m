@@ -33,5 +33,19 @@ R<x> := PolynomialRing(Rationals());
 assert IsIsomorphic(NumberField(R!DefiningPolynomial(K2)), NumberField(x^2 - 10));
 print "test 2 ok: genus-0 over QQ(sqrt 10) via certified path";
 
+// ---- 3: genus 0, degree 6, base field of degree 4
+// (LMFDB 6T16-4.2_3.2.1_3.2.1-a, orbit size 4; suggested by SamSchiavone):
+// certified recognition of a quartic field through the genus-0 pipeline.
+// LMFDB base field: x^4 - 2x^3 - 3x^2 + 4x - 2.
+sigma3 := [S6 | S6![4,6,1,5,3,2], S6![2,3,1,5,4,6], S6![2,6,4,3,5,1]];
+assert sigma3[3]*sigma3[2]*sigma3[1] eq Id(S6);
+X3, phi3 := BelyiMap(sigma3 : prec := 80, ExactAl := "Certified");
+assert BelyiMapSanityCheck(sigma3, X3, phi3);
+K3 := BaseRing(X3);
+assert Degree(K3) eq 4;
+assert IsIsomorphic(NumberField(R!DefiningPolynomial(K3)),
+                    NumberField(x^4 - 2*x^3 - 3*x^2 + 4*x - 2));
+print "test 3 ok: genus-0 over a quartic field via certified path";
+
 print "ALL TESTS PASSED";
 exit;
