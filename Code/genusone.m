@@ -258,6 +258,63 @@ intrinsic TriangleMakeLattice(Lambda::SeqEnum[FldComElt]) -> Any
   return L;
 end intrinsic;
 
+intrinsic TriangleAJSegment(aCC::FldComElt, bCC::FldComElt, Gamma::GrpPSL2Tri, Sk1int::SeqEnum, DD::SpcHyd) -> FldComElt
+  {Integrate the Gamma-invariant differential (chart antiderivatives Sk1int)
+   along the straight segment from aCC to bCC (disc coordinates).  Each piece
+   is transported into the fundamental domain by the element reducing its
+   midpoint -- which leaves the integral of an invariant form unchanged --
+   and evaluated in the chart minimizing its local coordinates; the segment
+   is adaptively subdivided only if no chart covers a piece.  For a short
+   segment through known geometry this is a single piece, a single chart.}
+
+  CC := Parent(aCC);
+  DDs := Gamma`TriangleDDs;
+  Delta := ContainingTriangleGroup(Gamma);
+  rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
+  prec := Precision(CC);
+  eps := (RealField(CC)!10)^(-(prec div 2));
+  UU := UpperHalfPlane();
+  nv := #Sk1int;
+  locc := function(z, j)  // local coordinate (a complex number) of the UHP point z in chart j
+    return ComplexValue(PlaneToDisc(DDs[j], z));
+  end function;
+  k := 1;
+  repeat
+    ok := true;
+    total := CC!0;
+    for l in [0..k-1] do
+      p := aCC + (bCC-aCC)*l/k;
+      q := aCC + (bCC-aCC)*(l+1)/k;
+      mred, delta := FDReduce(DD!((p+q)/2), Gamma);
+      // convention check: delta must be the element carrying the input to
+      // the reduced point (fires loudly if FDReduce's return order or
+      // action direction ever changes)
+      assert Abs(ComplexValue(delta*(DD!((p+q)/2))) - ComplexValue(mred)) lt 10^(-10);
+      pr := DiscToPlane(UU, delta*(DD!p));
+      qr := DiscToPlane(UU, delta*(DD!q));
+      jj := 1;
+      best := Max(Abs(locc(pr, 1)), Abs(locc(qr, 1)));
+      for j in [2..nv] do
+        r := Max(Abs(locc(pr, j)), Abs(locc(qr, j)));
+        if r lt best then
+          best := r; jj := j;
+        end if;
+      end for;
+      if best ge rho + eps then  // piece too coarse: subdivide further
+        ok := false;
+        break;
+      end if;
+      total +:= Evaluate(Sk1int[jj], locc(qr, jj)) - Evaluate(Sk1int[jj], locc(pr, jj));
+    end for;
+    if not ok then
+      k *:= 2;
+      error if k gt 1024,
+        "integration path cannot be covered by the expansion charts even after 1024 subdivisions";
+    end if;
+  until ok;
+  return total;
+end intrinsic;
+
 intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum) -> Any
   {Given an element w of the hyperbolic disc, outputs the corresponding point in the complex plane (mod the lattice Lambda).}
 
@@ -287,56 +344,7 @@ intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnu
   // This is the same chart-by-chart pattern the period computation below has
   // always used, and unlike chaining charts through single overlap
   // midpoints, it makes no assumption about how the charts are laid out.
-  Delta := ContainingTriangleGroup(Gamma);
-  rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
-  eps := (RealField(CC)!10)^(-prec/2);
-  UU := UpperHalfPlane();
-  nv := #Sk1;
-  locc := function(z, j)  // local coordinate (a complex number) of the UHP point z in chart j
-    return ComplexValue(PlaneToDisc(DDs[j], z));
-  end function;
-  segint := function(aCC, bCC)  // integral of f dz from aCC to bCC (disc coordinates)
-    k := 1;
-    repeat
-      ok := true;
-      total := CC!0;
-      for l in [0..k-1] do
-        p := aCC + (bCC-aCC)*l/k;
-        q := aCC + (bCC-aCC)*(l+1)/k;
-        // transport this piece into the fundamental domain by the element
-        // reducing its midpoint; both endpoints ride along, so the piece
-        // stays contiguous and its integral is unchanged (f dz is invariant)
-        mred, delta := FDReduce(DD!((p+q)/2), Gamma);
-        // convention check: delta must be the element carrying the input to
-        // the reduced point (fires loudly if FDReduce's return order or
-        // action direction ever changes)
-        assert Abs(ComplexValue(delta*(DD!((p+q)/2))) - ComplexValue(mred)) lt 10^(-10);
-        pr := DiscToPlane(UU, delta*(DD!p));
-        qr := DiscToPlane(UU, delta*(DD!q));
-        // best chart for this piece
-        jj := 1;
-        best := Max(Abs(locc(pr, 1)), Abs(locc(qr, 1)));
-        for j in [2..nv] do
-          r := Max(Abs(locc(pr, j)), Abs(locc(qr, j)));
-          if r lt best then
-            best := r; jj := j;
-          end if;
-        end for;
-        if best ge rho + eps then  // piece too coarse: subdivide further
-          ok := false;
-          break;
-        end if;
-        total +:= Evaluate(Sk1int[jj], locc(qr, jj)) - Evaluate(Sk1int[jj], locc(pr, jj));
-      end for;
-      if not ok then
-        k *:= 2;
-        error if k gt 1024,
-          "integration path cannot be covered by the expansion charts even after 1024 subdivisions";
-      end if;
-    until ok;
-    return total;
-  end function;
-  w_CC := segint(CC!0, ComplexValue(w));
+  w_CC := TriangleAJSegment(CC!0, ComplexValue(w), Gamma, Sk1int, DD);
   return w_CC;
 end intrinsic;
 
@@ -411,10 +419,11 @@ intrinsic TriangleCosetVertexToComplexPlane(ind::RngIntElt, vi::RngIntElt, Gamma
    integrating chart by chart along the coset-graph path from the identity
    to alphas[ind], as in the period computation: the coset labels produced
    by the enumeration (KMSV Algorithms 3.5/3.8) are prefix-closed, so every
-   partial word of alphas[ind] is itself a coset representative, consecutive
-   translates of the fundamental triangle are adjacent, and each step
-   integrates between alpha0*v and alpha1*v inside the chart of the new
-   coset.  The base point is w_a = 0 (the disc is centered at z_a).}
+   partial word of alphas[ind] is itself a coset representative and
+   consecutive translates of the fundamental triangle are adjacent tiles;
+   each step integrates between alpha0*v and alpha1*v via TriangleAJSegment,
+   which selects the covering chart per segment.  The base point is
+   w_a = 0 (the disc is centered at z_a).}
 
   assert Genus(Gamma) eq 1;
   prec := Precision(BaseRing(Parent(Sk[1][1])));
@@ -426,38 +435,29 @@ intrinsic TriangleCosetVertexToComplexPlane(ind::RngIntElt, vi::RngIntElt, Gamma
     Sk1[j] := Sk1[j]*2*I*Im(centers[j]);
   end for;
   Sk1int := [Integral(f) : f in Sk1];
-  UU := UpperHalfPlane();
-  locc := func< z, j | ComplexValue(PlaneToDisc(DDs[j], DiscToPlane(UU, z))) >;
   Delta := ContainingTriangleGroup(Gamma);
   DD := UnitDisc(Gamma : Precision := prec);
   VD := FundamentalDomain(Delta, DD);
-  rho := Max([Abs(z) : z in VD]);
-  eps := (RealField(CC)!10)^(-(prec div 2));
   alphas := CosetRepresentatives(Gamma);
-  whichcoset := Gamma`TriangleWhichCoset;
   v := VD[vi];
-  // initial segment: base point w_a = 0 to v inside the identity coset's chart
-  idind := Index(alphas, Delta!1);
-  error if idind eq 0, "identity is not among the coset representatives";
-  j0 := whichcoset[idind];
-  l0 := locc(DD!0, j0);
-  l1 := locc(v, j0);
-  assert Abs(l0) lt rho + eps and Abs(l1) lt rho + eps;
-  total := Evaluate(Sk1int[j0], l1) - Evaluate(Sk1int[j0], l0);
-  // walk the word of alphas[ind], carrying the vertex along
+  // Waypoints from the coset word: each partial word of alphas[ind] is a
+  // coset representative (the enumeration's labels are prefix-closed) and
+  // consecutive translates of the fundamental triangle are adjacent tiles,
+  // so the segments below are short hops through known geometry.  Each hop
+  // is integrated by TriangleAJSegment, which picks the chart minimizing
+  // the local coordinates of the endpoints; the expansion charts exist only
+  // at one representative vertex per cycle (Federalize), so a fixed
+  // per-coset chart assignment is NOT guaranteed to cover both endpoints --
+  // the covering chart must be chosen per segment, with subdivision as a
+  // fallback for awkward layouts.  The base point is w_a = 0 (the disc is
+  // centered at z_a).
+  total := TriangleAJSegment(CC!0, ComplexValue(v), Gamma, Sk1int, DD);
   alpha0 := Delta!1;
   p0 := v;
   for s in Eltseq(alphas[ind]) do
     alpha1 := alpha0*Delta.s;
-    indx := Index(alphas, alpha1);
-    error if indx eq 0,
-      "coset representatives are not prefix-closed: partial word is not a representative";
-    j := whichcoset[indx];
     p1 := alpha1*v;
-    l0 := locc(p0, j);
-    l1 := locc(p1, j);
-    assert Abs(l0) lt rho + eps and Abs(l1) lt rho + eps;
-    total +:= Evaluate(Sk1int[j], l1) - Evaluate(Sk1int[j], l0);
+    total +:= TriangleAJSegment(ComplexValue(p0), ComplexValue(p1), Gamma, Sk1int, DD);
     p0 := p1;
     alpha0 := alpha1;
   end for;
