@@ -64,7 +64,7 @@ assert Gamma2`TriangleNewtonNeedsExtra;
 // would wrongly add the special point here (3 extra equations but only
 // 2 extra variables: overdetermined system).
 // (https://www.lmfdb.org/Belyi/6T7/4.2/4.2/3.3/a/)
-sigma3 := [S6 | S6b![5,1,6,2,4,3], S6b![3,5,4,6,2,1], S6b![5,3,4,2,6,1]];
+sigma3 := [S6 | S6![5,1,6,2,4,3], S6![3,5,4,6,2,1], S6![5,3,4,2,6,1]];
 Gamma3 := TriangleSubgroup(sigma3);
 X3, phi3 := BelyiMap(Gamma3 : prec := 40);
 assert BelyiMapSanityCheck(sigma3, X3, phi3);
@@ -74,7 +74,7 @@ assert assigned Gamma3`TriangleNewtonNeedsExtra;
 assert not Gamma3`TriangleNewtonNeedsExtra;
 
 // ---- Extra zero present: sigma_0 not a d-cycle ----------------------------
-// LMFDB 6T15-5.1_5.1_4.2-b: degree 6, genus 1, hyperbolic (orders (5,5,3)),
+// LMFDB 6T15-5.1_5.1_4.2-b: degree 6, genus 1, hyperbolic (orders (5,5,4)),
 // defined over quartic field with label 4.2.24000.2
 // sigma_0 has cycle type 5.1, so s = 5, t = 2, and the 0-fiber is
 // 5*O + Q with Q ne O.  The special point's class is
