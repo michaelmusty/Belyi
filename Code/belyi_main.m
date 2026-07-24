@@ -22,6 +22,18 @@ intrinsic S3Orbit(phi::FldFunFracSchElt) -> SeqEnum
   return [S3Action(el, phi) : el in Sym(3)];
 end intrinsic;
 
+// ExactAl := "Certified" remaps to AlgebraicNumbers after checking that the
+// external relation finder is configured; the MakeK / RecognizeOverK paths
+// themselves engage via MAKEK_RELFINDER_BIN.
+RequireCertifiedExactAl := function(ExactAl);
+  if ExactAl eq "Certified" then
+    error if GetEnv("MAKEK_RELFINDER_BIN") eq "",
+      "ExactAl := \"Certified\" requires the MAKEK_RELFINDER_BIN environment variable (build Cext/makek_relfinder and export its path)";
+    return "AlgebraicNumbers";
+  end if;
+  return ExactAl;
+end function;
+
 // sigma one at a time
 intrinsic BelyiMap(sigma::SeqEnum[GrpPermElt] : prec := 0, Al := "Default", ExactAl := "AlgebraicNumbers", DegreeBound := 0, precNewton := 0, Federalize := true, PowserAl := "Arnoldi") -> Any, Any
   {Computes the Belyi curve X and Belyi map f associated to the permutation triple sigma. Same description as below.
@@ -29,11 +41,7 @@ intrinsic BelyiMap(sigma::SeqEnum[GrpPermElt] : prec := 0, Al := "Default", Exac
    recognition stages (see Cext/makek_relfinder.c); it requires the
    MAKEK_RELFINDER_BIN environment variable to point at the built binary.}
 
-  if ExactAl eq "Certified" then
-    require GetEnv("MAKEK_RELFINDER_BIN") ne "" :
-      "ExactAl := \"Certified\" requires the MAKEK_RELFINDER_BIN environment variable (build Cext/makek_relfinder and export its path)";
-    ExactAl := "AlgebraicNumbers";  // certified paths engage via the env var
-  end if;
+  ExactAl := RequireCertifiedExactAl(ExactAl);
 
   chi := &+[1/Order(sigma_s) : sigma_s in sigma];
   if chi ge 1 then
@@ -76,8 +84,11 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
         NumAl := "NumericalKernel", which computes the numerical kernel using multiplied power series expansions,
         NumAl := "Newton", not implemented yet.
         ExactAl := "GaloisOrbits", which recognizes coefficients (using the entire Galois orbit) over the rationals,
-        ExactAl := "AlgebraicNumbers", which uses MakeK to recognize coefficients over a number field.
+        ExactAl := "AlgebraicNumbers", which uses MakeK to recognize coefficients over a number field,
+        ExactAl := "Certified", which uses the external certified relation finder (requires MAKEK_RELFINDER_BIN).
   }
+
+  ExactAl := RequireCertifiedExactAl(ExactAl);
 
   d := IndexDegree(Gamma);
 
@@ -256,8 +267,11 @@ intrinsic BelyiMap(Gammas::SeqEnum[GrpPSL2Tri] : prec := 0, Al := "Default", Exa
         NumAl := "NumericalKernel", which computes the numerical kernel using multiplied power series expansions,
         NumAl := "Newton", not implemented yet.
         ExactAl := "GaloisOrbits", which recognizes coefficients (using the entire Galois orbit) over the rationals,
-        ExactAl := "AlgebraicNumbers", which uses MakeK to recognize coefficients over a number field.
+        ExactAl := "AlgebraicNumbers", which uses MakeK to recognize coefficients over a number field,
+        ExactAl := "Certified", which uses the external certified relation finder (requires MAKEK_RELFINDER_BIN).
   }
+
+  ExactAl := RequireCertifiedExactAl(ExactAl);
 
   d := IndexDegree(Gammas[1]);
   if DegreeBound eq 0 then

@@ -265,6 +265,7 @@ intrinsic MakeKBatch(cfs::SeqEnum, m::RngIntElt) -> Any, Any, Any, Any, Any
   done := false;
   for line in Split(Read(outfile), "\n") do
     parts := Split(line, " ");
+    if #parts eq 0 then continue; end if;
     if parts[1] eq "RELFINDER_DONE" then
       done := true;
     elif parts[1] eq "NOPREC" then
@@ -580,6 +581,7 @@ function OverKRunRelfinder(seqs, ZKbCC, m, precbits, cbin, tmpdir)
   done := false;
   for line in Split(Read(outfile), "\n") do
     parts := Split(line, " ");
+    if #parts eq 0 then continue; end if;
     if parts[1] eq "RELFINDER_DONE" then
       done := true;
     elif parts[1] eq "FOUND" or parts[1] eq "UNCERT" then

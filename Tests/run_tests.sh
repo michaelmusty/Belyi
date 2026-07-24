@@ -5,27 +5,49 @@
 cd "$(dirname "$0")/.." || exit 1
 FAILED=0
 
-# ---- 1. C solver selftest -------------------------------------------------
+# ---- 1. C solver selftests ------------------------------------------------
+build_cext() {
+    if command -v make >/dev/null 2>&1; then
+        (cd Cext && make all >/dev/null 2>&1) || (cd Cext && make mac >/dev/null 2>&1) || true
+    fi
+}
+
 BIN=${POWSER_ARNOLDI_BIN:-Cext/powser_arnoldi}
-if [ ! -x "$BIN" ] && command -v make >/dev/null 2>&1; then
-    (cd Cext && make powser_arnoldi >/dev/null 2>&1 || make mac >/dev/null 2>&1)
+RELFINDER=${MAKEK_RELFINDER_BIN:-Cext/makek_relfinder}
+if [ ! -x "$BIN" ] || [ ! -x "$RELFINDER" ]; then
+    build_cext
 fi
-# export an absolute path so the Magma tests (which read POWSER_ARNOLDI_BIN
-# via GetEnv) actually use the binary we just built, instead of silently
-# SKIPping when nothing named powser_arnoldi is on PATH
+# export absolute paths so Magma tests (which read via GetEnv) actually use
+# the binaries we just built, instead of silently falling back to legacy
 if [ -x "$BIN" ]; then
     POWSER_ARNOLDI_BIN="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
     export POWSER_ARNOLDI_BIN
 fi
-if [ -x "$BIN" ]; then
-    if "$BIN" --selftest 2>&1 | grep -q "SELFTEST PASSED"; then
-        echo "PASS: C solver selftest"
+if [ -x "$RELFINDER" ]; then
+    MAKEK_RELFINDER_BIN="$(cd "$(dirname "$RELFINDER")" && pwd)/$(basename "$RELFINDER")"
+    export MAKEK_RELFINDER_BIN
+fi
+
+if [ -x "${POWSER_ARNOLDI_BIN:-$BIN}" ]; then
+    if "$POWSER_ARNOLDI_BIN" --selftest 2>&1 | grep -q "SELFTEST PASSED"; then
+        echo "PASS: C powser_arnoldi selftest"
     else
-        echo "FAIL: C solver selftest"
+        echo "FAIL: C powser_arnoldi selftest"
         FAILED=1
     fi
 else
-    echo "SKIP: C solver selftest (no binary; build Cext/powser_arnoldi)"
+    echo "SKIP: C powser_arnoldi selftest (no binary; build Cext/powser_arnoldi)"
+fi
+
+if [ -x "${MAKEK_RELFINDER_BIN:-$RELFINDER}" ]; then
+    if "$MAKEK_RELFINDER_BIN" --selftest 2>&1 | grep -q "SELFTEST PASSED"; then
+        echo "PASS: C makek_relfinder selftest"
+    else
+        echo "FAIL: C makek_relfinder selftest"
+        FAILED=1
+    fi
+else
+    echo "SKIP: C makek_relfinder selftest (no binary; build Cext/makek_relfinder)"
 fi
 
 # ---- 2. Magma tests -------------------------------------------------------
@@ -54,6 +76,13 @@ run_magma_test() {
 run_magma_test Tests/test_basic_belyi.m
 run_magma_test Tests/test_carnoldi_belyi.m
 run_magma_test Tests/test_genusone_extra_zero.m
+if [ -n "$MAKEK_RELFINDER_BIN" ] && [ -x "$MAKEK_RELFINDER_BIN" ]; then
+    run_magma_test Tests/test_makek_relfinder.m
+    run_magma_test Tests/test_certified_belyi.m
+else
+    echo "SKIP: Tests/test_makek_relfinder.m (no MAKEK_RELFINDER_BIN)"
+    echo "SKIP: Tests/test_certified_belyi.m (no MAKEK_RELFINDER_BIN)"
+fi
 if [ -n "$RUNSLOW" ]; then
     run_magma_test Tests/test_powser_consistency.m
 else
