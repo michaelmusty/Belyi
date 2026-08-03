@@ -288,8 +288,10 @@ intrinsic TriangleAJSegment(aCC::FldComElt, bCC::FldComElt, Gamma::GrpPSL2Tri, S
       mred, delta := FDReduce(DD!((p+q)/2), Gamma);
       // convention check: delta must be the element carrying the input to
       // the reduced point (fires loudly if FDReduce's return order or
-      // action direction ever changes)
-      assert Abs(ComplexValue(delta*(DD!((p+q)/2))) - ComplexValue(mred)) lt 10^(-10);
+      // action direction ever changes).  This is a binary discrimination --
+      // right convention agrees to ~10^(-prec), wrong convention differs by
+      // O(1) -- so any threshold in the gap works; use eps = 10^(-prec/2).
+      assert Abs(ComplexValue(delta*(DD!((p+q)/2))) - ComplexValue(mred)) lt eps;
       pr := DiscToPlane(UU, delta*(DD!p));
       qr := DiscToPlane(UU, delta*(DD!q));
       jj := 1;
@@ -403,7 +405,7 @@ intrinsic TriangleAJToEllipticCurve(w_CC::FldComElt, Gamma::GrpPSL2Tri, x::RngSe
   return TriangleComplexPlaneToEllipticCurve(w_CC, Gamma, x, y);
 end intrinsic;
 
-intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum, x::RngSerLaurElt, y::RngSerLaurElt) -> GenerateLSpaceBasisAnalytic
+intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum, x::RngSerLaurElt, y::RngSerLaurElt) -> Any
   {Given an element w of the hyperbolic disc, outputs the corresponding point on the elliptic curve associated to Gamma.}
 
   assert Genus(Gamma) eq 1;
