@@ -189,29 +189,41 @@ intrinsic NewtonGetRamificationPoints(Gamma::GrpPSL2Tri) -> GrpPSL2Tri
   sigma_cycs := [CycleDecomposition(s) : s in sigma_switch];
   pts := [];
   mults := [];
+  inds := [];
   for i := 1 to 3 do
     cycs := sigma_cycs[i];
     pts_i := [];
     mults_i := [];
+    inds_i := [];
     for cyc in cycs do
       Append(~mults_i, #cyc);
       ind := cyc[1];
-      Append(~pts_i, FD[4*(ind-1)+i]);
+      Append(~inds_i, ind);
+      Append(~pts_i, FD[4*(ind-1)+i]);  // = alphas[ind]*V[i], V the Delta-FD
     end for;
     Append(~pts, pts_i);
     Append(~mults, mults_i);
+    Append(~inds, inds_i);
   end for;
   pts := [pts[1], pts[3], pts[2]]; // now switch back to white, black, cross
   mults := [mults[1], mults[3], mults[2]];
+  inds := [inds[1], inds[3], inds[2]];
+  slots := [1, 3, 2]; // Delta-FD vertex slot for white, black, cross resp.
   // delete the point that maps to point at infinity
   Remove(~pts[1],1);
   Remove(~mults[1],1);
-  // map points in disc to points on elliptic curve
+  Remove(~inds[1],1);
+  // map points to the elliptic curve.  Each point is alphas[ind]*V[slot], so
+  // its Abel-Jacobi value is computed exactly by walking the coset-graph
+  // path from the identity to alphas[ind] chart by chart (the same
+  // structure the period computation uses) -- no reduction and no
+  // nearest-chart search needed
   pts_E := [];
   for i := 1 to 3 do
     pts_E_i := [];
     for j := 1 to #pts[i] do
-      Append(~pts_E_i, TriangleDiscToEllipticCurve(pts[i][j], Gamma, Sk, x, y));
+      w_CC := TriangleCosetVertexToComplexPlane(inds[i][j], slots[i], Gamma, Sk);
+      Append(~pts_E_i, TriangleAJToEllipticCurve(w_CC, Gamma, x, y));
     end for;
     Append(~pts_E, pts_E_i);
   end for;

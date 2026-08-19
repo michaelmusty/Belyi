@@ -7,8 +7,13 @@ FAILED=0
 
 # ---- 1. C solver selftest -------------------------------------------------
 BIN=${POWSER_ARNOLDI_BIN:-Cext/powser_arnoldi}
-if [ ! -x "$BIN" ] && command -v make >/dev/null 2>&1; then
-    (cd Cext && make powser_arnoldi >/dev/null 2>&1 || make mac >/dev/null 2>&1)
+# always invoke make (not only when the binary is missing): make no-ops when
+# the binary is up to date, and a stale binary from an older checkout
+# silently reintroduces already-fixed bugs (observed: a pre-p-notation
+# binary truncating all solver output to 30 digits).  An explicitly set
+# POWSER_ARNOLDI_BIN is respected and never rebuilt.
+if [ -z "${POWSER_ARNOLDI_BIN:-}" ] && command -v make >/dev/null 2>&1; then
+    (cd Cext && { make powser_arnoldi >/dev/null 2>&1 || make mac >/dev/null 2>&1; })
 fi
 # export an absolute path so the Magma tests (which read POWSER_ARNOLDI_BIN
 # via GetEnv) actually use the binary we just built, instead of silently
@@ -54,6 +59,7 @@ run_magma_test() {
 run_magma_test Tests/test_basic_belyi.m
 run_magma_test Tests/test_carnoldi_belyi.m
 run_magma_test Tests/test_genusone_extra_zero.m
+run_magma_test Tests/test_genusone_aj.m
 if [ -n "$RUNSLOW" ]; then
     run_magma_test Tests/test_powser_consistency.m
 else
