@@ -298,6 +298,18 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
   vprint Shimura : "Looking for coefficient to recognize number field...";
   bl := false;
   cfs := Reverse([u] cat phixden_seq cat phixnum_seq);
+  // debugging hook: dump the exact recognition inputs (full precision,
+  // magma-readable) and continue -- lets recognition be iterated offline
+  // without redoing the solver and Newton stages
+  dumpf := GetEnv("BELYI_DUMP_CFS");
+  if dumpf ne "" then
+    DF := Open(dumpf, "w");
+    Puts(DF, Sprintf("u := %m;", u));
+    Puts(DF, Sprintf("phixnum_seq := %m;", phixnum_seq));
+    Puts(DF, Sprintf("phixden_seq := %m;", phixden_seq));
+    delete DF;
+    vprintf Shimura : "  ...dumped recognition inputs to %o\n", dumpf;
+  end if;
   if GetEnv("MAKEK_RELFINDER_BIN") ne "" then
     // batched certified recognition (Cext/makek_relfinder): one threaded
     // pass over all coefficients finds the true minimal polynomial of any

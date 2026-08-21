@@ -41,5 +41,30 @@ bl3 := MakeKBatch([w], 24);
 assert not bl3;
 print "test 3 ok: starved precision -> bl = false";
 
+// ---- 4: RecognizeOverK batch path: known elements of Q(sqrt5) recovered
+// exactly, with denominator chaining across the sequence
+R<x> := PolynomialRing(Rationals());
+K5 := NumberField(x^2 - x - 1);   // ZK basis 1, phi
+v5 := InfinitePlaces(K5)[2];      // phi -> golden ratio (positive root)
+if Abs(Evaluate(K5.1, v5 : Precision := 30) - 1.618) gt 0.01 then
+  v5 := InfinitePlaces(K5)[1];
+end if;
+els := [ K5 | (3 + 7*K5.1)/5, (-2 + 9*K5.1)/40, 11/3 ];
+CCr := ComplexField(200);
+targets := [ CCr!Evaluate(e, v5 : Precision := 200) : e in els ];
+out := RecognizeOverK([targets], K5, v5, false);
+assert out[1] eq els;
+print "test 4 ok: RecognizeOverK batch recovers exact elements";
+
+// ---- 5: a non-element in the sequence must raise the certified error
+ok5 := false;
+try
+  _ := RecognizeOverK([[CCr!Pi(CCr)]], K5, v5, false);
+catch e
+  ok5 := true;
+end try;
+assert ok5;
+print "test 5 ok: non-element -> certified error";
+
 print "ALL TESTS PASSED";
 exit;

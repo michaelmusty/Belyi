@@ -89,7 +89,13 @@ fi
 run_magma_test Tests/test_carnoldi_belyi.m
 run_magma_test Tests/test_genusone_extra_zero.m
 run_magma_test Tests/test_genusone_aj.m
-run_magma_test Tests/test_makek_relfinder.m
+if [ -n "${MAKEK_RELFINDER_BIN:-}" ] && [ -x "$MAKEK_RELFINDER_BIN" ]; then
+    run_magma_test Tests/test_makek_relfinder.m
+    run_magma_test Tests/test_certified_belyi.m
+else
+    echo "SKIP: Tests/test_makek_relfinder.m (no MAKEK_RELFINDER_BIN)"
+    echo "SKIP: Tests/test_certified_belyi.m (no MAKEK_RELFINDER_BIN)"
+fi
 if [ -n "$RUNSLOW" ]; then
     run_magma_test Tests/test_powser_consistency.m
 else
