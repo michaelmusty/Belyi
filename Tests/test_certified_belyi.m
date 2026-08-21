@@ -21,6 +21,11 @@ assert BelyiMapSanityCheck(sigma1, X1, phi1);
 assert Degree(BaseRing(X1)) eq 1;
 print "test 1 ok: genus-0 over QQ via certified path";
 
+// The QQ(sqrt 10) and quartic cases are the expensive part of this file
+// (full BelyiMap runs at prec 60 and 80); gate them behind RUNSLOW so the
+// quick suite still exercises the certified path end to end via tests 1/4.
+if GetEnv("RUNSLOW") ne "" then
+
 // ---- 2: genus 0 hyperbolic, degree 6, base field QQ(sqrt 10)
 // (LMFDB 6T15-5.1_4.2_3.1.1.1-a, orbit size 2): a map NOT defined over QQ;
 // exercises the certified field recognition (MakeKBatch finds the quadratic
@@ -49,6 +54,10 @@ assert Degree(K3) eq 4;
 assert IsIsomorphic(NumberField(R!DefiningPolynomial(K3)),
                     NumberField(x^4 - 2*x^3 - 3*x^2 + 4*x - 2));
 print "test 3 ok: genus-0 over a quartic field via certified path";
+
+else
+  print "(RUNSLOW not set: skipping the QQ(sqrt 10) and quartic certified cases)";
+end if;
 
 // ---- 4: same map as test 1, but through the BelyiMap(Gamma) overload:
 // ExactAl := "Certified" was originally honored only by the sigma overload

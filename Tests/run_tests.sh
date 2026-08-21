@@ -4,6 +4,8 @@
 #   RUNSLOW=1 sh Tests/run_tests.sh
 cd "$(dirname "$0")/.." || exit 1
 FAILED=0
+now() { date +%s; }
+SUITE_T0=$(now)
 
 # ---- 1. C solver selftests ------------------------------------------------
 BIN=${POWSER_ARNOLDI_BIN:-Cext/powser_arnoldi}
@@ -33,10 +35,11 @@ selftest() {
     name=$1
     bin=$2
     if [ -x "$bin" ]; then
+        t0=$(now)
         if "$bin" --selftest 2>&1 | grep -q "SELFTEST PASSED"; then
-            echo "PASS: $name selftest"
+            echo "PASS: $name selftest ($(( $(now) - t0 )) s)"
         else
-            echo "FAIL: $name selftest"
+            echo "FAIL: $name selftest ($(( $(now) - t0 )) s)"
             FAILED=1
         fi
     else
@@ -62,18 +65,20 @@ run_magma_test() {
     # stdin from /dev/null: if a test errors into an interactive or debugger
     # prompt instead of quitting, it terminates on EOF rather than hanging
     # the runner with its output swallowed by the capture
+    t0=$(now)
     if [ "$mode" = "legacy" ]; then
         tag=" (legacy MakeK)"
         out=$(env MAKEK_RELFINDER_BIN= magma -b "$f" 2>&1 </dev/null)
     else
         out=$(magma -b "$f" 2>&1 </dev/null)
     fi
+    dt=$(( $(now) - t0 ))
     if echo "$out" | grep -q "ALL TESTS PASSED"; then
-        echo "PASS: $f$tag"
+        echo "PASS: $f$tag ($dt s)"
     elif echo "$out" | grep -q "^SKIP"; then
         echo "$out" | grep "^SKIP" | head -1
     else
-        echo "FAIL: $f$tag"
+        echo "FAIL: $f$tag ($dt s)"
         echo "$out" | tail -25
         FAILED=1
     fi
@@ -102,4 +107,5 @@ else
     echo "SKIP: Tests/test_powser_consistency.m (slow; set RUNSLOW=1)"
 fi
 
+echo "total: $(( $(now) - SUITE_T0 )) s"
 exit $FAILED
