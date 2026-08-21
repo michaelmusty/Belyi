@@ -4,10 +4,13 @@
 //
 //   MAKEK_RELFINDER_BIN=$PWD/Cext/makek_relfinder magma -b Tests/test_certified_belyi.m
 
+if GetEnv("MAKEK_RELFINDER_BIN") eq "" then
+  print "SKIP: makek_relfinder binary not found (set MAKEK_RELFINDER_BIN)";
+  quit;
+end if;
+
 AttachSpec("MagmaPolred/spec");
 AttachSpec("Code/spec");
-
-assert GetEnv("MAKEK_RELFINDER_BIN") ne "";
 
 // ---- 1: genus 0, hyperbolic, defined over QQ (LMFDB 5T4-5_3.1.1_3.1.1-a):
 // exercises MakeKBatch (field recognition) and the batched RecognizeOverK
@@ -46,6 +49,16 @@ assert Degree(K3) eq 4;
 assert IsIsomorphic(NumberField(R!DefiningPolynomial(K3)),
                     NumberField(x^4 - 2*x^3 - 3*x^2 + 4*x - 2));
 print "test 3 ok: genus-0 over a quartic field via certified path";
+
+// ---- 4: same map as test 1, but through the BelyiMap(Gamma) overload:
+// ExactAl := "Certified" was originally honored only by the sigma overload
+// and silently ignored elsewhere; this pins the require-and-remap on the
+// Gamma entry point (the sigmas overload forwards to Gammas, which remaps).
+Gamma4 := TriangleSubgroup(sigma1);
+X4, phi4 := BelyiMap(Gamma4 : prec := 40, ExactAl := "Certified");
+assert BelyiMapSanityCheck(sigma1, X4, phi4);
+assert Degree(BaseRing(X4)) eq 1;
+print "test 4 ok: certified path via the Gamma overload";
 
 print "ALL TESTS PASSED";
 exit;

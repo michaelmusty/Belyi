@@ -225,7 +225,8 @@ end intrinsic;
 
 // sigmas (passport at a time)
 intrinsic BelyiMap(sigmas::SeqEnum[SeqEnum[GrpPermElt]] : prec := 0, Al := "Default", ExactAl := "GaloisOrbits", DegreeBound := 0, precNewton := 0, Federalize := true, PowserAl := "Arnoldi") -> Any, Any
-  {Computes the Belyi curve X and Belyi map f associated to the permutation triple sigma. Same description as below.}
+  {Computes the Belyi curve X and Belyi map f associated to the permutation triple sigma. Same description as below.
+   ExactAl (including "Certified") is forwarded to the Gammas overload, which validates it.}
   // assertions
   chi_list := [];
   for sigma in sigmas do
