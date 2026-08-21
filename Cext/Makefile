@@ -12,6 +12,10 @@ CC = gcc
 CFLAGS = -O2 -pthread
 LIBS = -lflint -lmpfr -lgmp -lm
 
+BREWFLAGS = -I$$(brew --prefix flint)/include -L$$(brew --prefix flint)/lib \
+	  -I$$(brew --prefix mpfr)/include -L$$(brew --prefix mpfr)/lib \
+	  -I$$(brew --prefix gmp)/include  -L$$(brew --prefix gmp)/lib
+
 all: powser_arnoldi makek_relfinder
 
 powser_arnoldi: powser_arnoldi.c
@@ -20,20 +24,19 @@ powser_arnoldi: powser_arnoldi.c
 makek_relfinder: makek_relfinder.c
 	$(CC) $(CFLAGS) makek_relfinder.c -o makek_relfinder $(LIBS)
 
-mac: powser_arnoldi.c
-	clang -O2 -pthread powser_arnoldi.c -o powser_arnoldi \
-	  -I$$(brew --prefix flint)/include -L$$(brew --prefix flint)/lib \
-	  -I$$(brew --prefix mpfr)/include -L$$(brew --prefix mpfr)/lib \
-	  -I$$(brew --prefix gmp)/include  -L$$(brew --prefix gmp)/lib \
-	  $(LIBS)
+mac: powser_arnoldi.c makek_relfinder.c
+	clang -O2 -pthread powser_arnoldi.c -o powser_arnoldi $(BREWFLAGS) $(LIBS)
+	clang -O2 -pthread makek_relfinder.c -o makek_relfinder $(BREWFLAGS) $(LIBS)
 
 # For servers without admin access: first run  sh build_deps.sh  to build
 # GMP/MPFR/FLINT into PREFIX, then this target static-links against them
 # (no LD_LIBRARY_PATH needed at runtime).
 PREFIX ?= $(HOME)/.local/powser
-server: powser_arnoldi.c
-	$(CC) $(CFLAGS) powser_arnoldi.c -o powser_arnoldi -I$(PREFIX)/include \
+STATICLIBS = -I$(PREFIX)/include \
 	  $(PREFIX)/lib/libflint.a $(PREFIX)/lib/libmpfr.a $(PREFIX)/lib/libgmp.a -lm
+server: powser_arnoldi.c makek_relfinder.c
+	$(CC) $(CFLAGS) powser_arnoldi.c -o powser_arnoldi $(STATICLIBS)
+	$(CC) $(CFLAGS) makek_relfinder.c -o makek_relfinder $(STATICLIBS)
 
 bench: powser_bench.c
 	$(CC) $(CFLAGS) powser_bench.c -o powser_bench $(LIBS)

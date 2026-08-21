@@ -4,10 +4,13 @@
 //
 //   MAKEK_RELFINDER_BIN=$PWD/Cext/makek_relfinder magma -b Tests/test_makek_relfinder.m
 
+if GetEnv("MAKEK_RELFINDER_BIN") eq "" then
+  print "SKIP: makek_relfinder binary not found (set MAKEK_RELFINDER_BIN)";
+  quit;
+end if;
+
 AttachSpec("MagmaPolred/spec");
 AttachSpec("Code/spec");
-
-assert GetEnv("MAKEK_RELFINDER_BIN") ne "";
 
 // ---- 1: mixed batch at generous precision: the sqrt(5)-side coefficient
 // must be certified at degree 2, the rational one at degree 1, and the
