@@ -295,18 +295,41 @@ intrinsic TrianglePhiGenusZeroNumericalBelyiMap(Sk::SeqEnum[SeqEnum[RngSerPowElt
     m := #PassportRepresentatives(sigma : Pointed := true);
   end if;
 
-  vprint Shimura : "Looking for coefficient to recognize number field...";  
+  vprint Shimura : "Looking for coefficient to recognize number field...";
   bl := false;
   cfs := Reverse([u] cat phixden_seq cat phixnum_seq);
-  for mtry := m to 1 by -1 do 
-    vprintf Shimura : "    ==> trying degree m = %o", mtry;
-    cfs_ind := 0;
-    while not bl and cfs_ind lt #cfs do
-      cfs_ind +:= 1;
-      bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], mtry);
-    end while;
-    if bl then break; end if;
-  end for;
+  // debugging hook: dump the exact recognition inputs (full precision,
+  // magma-readable) and continue -- lets recognition be iterated offline
+  // without redoing the solver and Newton stages
+  dumpf := GetEnv("BELYI_DUMP_CFS");
+  if dumpf ne "" then
+    DF := Open(dumpf, "w");
+    Puts(DF, Sprintf("u := %m;", u));
+    Puts(DF, Sprintf("phixnum_seq := %m;", phixnum_seq));
+    Puts(DF, Sprintf("phixden_seq := %m;", phixden_seq));
+    delete DF;
+    vprintf Shimura : "  ...dumped recognition inputs to %o\n", dumpf;
+  end if;
+  if GetEnv("MAKEK_RELFINDER_BIN") ne "" then
+    // batched certified recognition (Cext/makek_relfinder): one threaded
+    // pass over all coefficients finds the true minimal polynomial of any
+    // degree <= m, or certifies that the precision is insufficient --
+    // instead of O(m * #cfs) sequential PowerRelation calls.
+    bl, K, v, conj, uCC := MakeKBatch(cfs, m);
+    if not bl then
+      error "MakeKBatch: no coefficient relation certifies at this precision; raise prec (or unset MAKEK_RELFINDER_BIN to use the legacy search)";
+    end if;
+  else
+    for mtry := m to 1 by -1 do
+      vprintf Shimura : "    ==> trying degree m = %o", mtry;
+      cfs_ind := 0;
+      while not bl and cfs_ind lt #cfs do
+        cfs_ind +:= 1;
+        bl, K, v, conj, uCC := MakeK(cfs[cfs_ind], mtry);
+      end while;
+      if bl then break; end if;
+    end for;
+  end if;
   if not bl then
     error "K not found; is the Galois orbit smaller than the passport size?  Try smaller m!";
   end if;

@@ -141,27 +141,17 @@ intrinsic TriangleMakeNumberField(uCC::FldComElt, deg::RngIntElt : K := "") -> A
 end intrinsic;
 */
 
-intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
-  {MakeK!  What more to say?}
-
-  if m eq 1 then
-    vprint Shimura : "  ...m eq 1, so taking QQ";
-    K := RationalsAsNumberField();
-    v := RealPlaces(K)[1];
-    return true, K, v, false, Parent(uCC)!1;
-  end if;
-
-  vprintf Shimura : "  ...Trying to MakeK with m = %o\n", m;
+intrinsic MakeKFromPoly(uCC::Any, u_pol::Any) -> Any, Any, Any, Any, Any
+  {Shared tail of MakeK: given uCC and its (already found, irreducible)
+   minimal polynomial u_pol over ZZ, build the optimized field, ramification
+   screen, and complex embedding.  Returns bl, K, v, conj, uCC.}
 
   CC := Parent(uCC);
   eps := 10^(-Precision(CC)/2);
-
-  u_pol := PowerRelation(uCC, m : Al := "LLL");
-  if Degree(u_pol) ne m or not IsIrreducible(u_pol) then
-    if Degree(u_pol) gt 1 then
-      vprint Shimura : "  ...coefficient not degree m, looked like degree", [<Degree(c[1]),c[2]> : c in Factorization(u_pol)];
-    end if;
-    return false, _, _, _, _;
+  if Degree(u_pol) eq 1 then
+    K := RationalsAsNumberField();
+    v := RealPlaces(K)[1];
+    return true, K, v, false, Parent(uCC)!1;
   end if;
   lc := LeadingCoefficient(u_pol);
   K0 := NumberField(u_pol);
@@ -202,6 +192,121 @@ intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
   v := InfinitePlaces(Kop)[vind];
   // return true, Kop, v, conj, uop;
   return true, Kop, v, conj, uCC;
+end intrinsic;
+
+intrinsic MakeK(uCC::Any, m::Any) -> Any, Any, Any, Any, Any
+  {MakeK!  What more to say?}
+
+  if m eq 1 then
+    vprint Shimura : "  ...m eq 1, so taking QQ";
+    K := RationalsAsNumberField();
+    v := RealPlaces(K)[1];
+    return true, K, v, false, Parent(uCC)!1;
+  end if;
+
+  vprintf Shimura : "  ...Trying to MakeK with m = %o\n", m;
+
+  u_pol := PowerRelation(uCC, m : Al := "LLL");
+  if Degree(u_pol) ne m or not IsIrreducible(u_pol) then
+    if Degree(u_pol) gt 1 then
+      vprint Shimura : "  ...coefficient not degree m, looked like degree", [<Degree(c[1]),c[2]> : c in Factorization(u_pol)];
+    end if;
+    return false, _, _, _, _;
+  end if;
+  return MakeKFromPoly(uCC, u_pol);
+end intrinsic;
+
+intrinsic MakeKBatch(cfs::SeqEnum, m::RngIntElt) -> Any, Any, Any, Any, Any
+  {Batched, certified replacement for the MakeK search loop, backed by the
+   external C relation finder (Cext/makek_relfinder.c, FLINT fmpz_lll).  For
+   every candidate coefficient in cfs it finds and certifies the true minimal
+   polynomial of degree <= m in a single threaded pass, then runs the usual
+   MakeK tail (ramification screen, Polredbestabs, embedding) on the best
+   candidate: largest certified degree, earliest index breaking ties.
+
+   Returns bl, K, v, conj, uCC.  bl = false means NO candidate certified any
+   relation -- with the certification in the C tool that is strong evidence
+   the working precision is insufficient (raise prec), as opposed to the
+   legacy loop which cannot distinguish "no relation" from "not enough
+   precision" and grinds through O(m * #cfs) LLL calls before failing.
+
+   Requires MAKEK_RELFINDER_BIN to point at the built binary; threads via
+   MAKEK_RELFINDER_THREADS.  File handoff mirrors the CArnoldi solver:
+   TMPDIR-respecting, random-tagged names, plain-text output (parsed, never
+   eval'd).}
+
+  cbin := GetEnv("MAKEK_RELFINDER_BIN");
+  require cbin ne "" : "MAKEK_RELFINDER_BIN is not set";
+  CC := Parent(cfs[1]);
+  precbits := Ceiling(Precision(CC)*3.3219280948873623);
+
+  tmpdir := GetEnv("TMPDIR");
+  if tmpdir eq "" then
+    tmpdir := "/tmp";
+  end if;
+  tag := Sprintf("%o_%o_%o", Getpid(), Round(1000*Realtime()) mod 10^9, Random(10^15));
+  infile := Sprintf("%o/makek_in_%o.txt", tmpdir, tag);
+  outfile := Sprintf("%o/makek_out_%o.txt", tmpdir, tag);
+
+  F := Open(infile, "w");
+  Puts(F, Sprintf("%o %o %o", precbits, #cfs, m));
+  for u in cfs do
+    Puts(F, Sprintf("%o", Real(u)));
+    Puts(F, Sprintf("%o", Imaginary(u)));
+  end for;
+  delete F;
+
+  ret := System(Sprintf("%o %o %o", cbin, infile, outfile));
+  require ret eq 0 : "external relation finder failed";
+
+  // parse: FOUND <idx> <deg> <log10resid> <c_0> ... <c_deg> | NOPREC <idx>
+  best_deg := 0; best_idx := 0; best_cfs := [];
+  nnoprec := 0;
+  done := false;
+  for line in Split(Read(outfile), "\n") do
+    parts := Split(line, " ");
+    if #parts eq 0 then continue; end if;
+    if parts[1] eq "RELFINDER_DONE" then
+      done := true;
+    elif parts[1] eq "NOPREC" then
+      nnoprec +:= 1;
+    elif parts[1] eq "FOUND" then
+      idx := StringToInteger(parts[2]) + 1;  // C is 0-based
+      deg := StringToInteger(parts[3]);
+      if deg gt best_deg or (deg eq best_deg and best_deg gt 0 and idx lt best_idx) then
+        best_deg := deg;
+        best_idx := idx;
+        best_cfs := [StringToInteger(parts[k]) : k in [5..5+deg]];
+      end if;
+    end if;
+  end for;
+  require done : "external relation finder output truncated";
+  System(Sprintf("rm -f %o %o", infile, outfile));
+
+  if best_deg eq 0 then
+    vprint Shimura : "  ...MakeKBatch: no candidate certified at this precision";
+    return false, _, _, _, _;
+  end if;
+  // Guard against the trivial-rational trap: normalized coefficient lists
+  // contain exact constants (e.g. a leading 1) that certify at degree 1
+  // regardless of seed quality.  Only accept K = QQ when EVERY candidate
+  // certified; a degree-1 best alongside NOPREC candidates means the
+  // interesting coefficients could not be certified -- report failure so
+  // the caller raises precision instead of building a wrong map.
+  if best_deg eq 1 and nnoprec gt 0 then
+    vprintf Shimura : "  ...MakeKBatch: only trivial degree-1 certifications (%o candidates NOPREC) -- insufficient precision\n", nnoprec;
+    return false, _, _, _, _;
+  end if;
+  vprintf Shimura : "  ...MakeKBatch: certified minimal polynomial of degree %o at coefficient %o\n", best_deg, best_idx;
+  uCC := cfs[best_idx];
+  if best_deg eq 1 then
+    K := RationalsAsNumberField();
+    v := RealPlaces(K)[1];
+    return true, K, v, false, Parent(uCC)!1;
+  end if;
+  ZZx<xZ> := PolynomialRing(Integers());
+  u_pol := ZZx ! best_cfs;
+  return MakeKFromPoly(uCC, u_pol);
 end intrinsic;
 
 intrinsic TriangleK(Gamma::GrpPSL2Tri) -> Any, Any, Any
@@ -410,6 +515,10 @@ intrinsic RecognizeOverK(Skc::SeqEnum[SeqEnum[FldComElt]], K::FldAlg, v::PlcNumE
 
   m := Degree(K);
 
+  if GetEnv("MAKEK_RELFINDER_BIN") ne "" and m gt 1 then
+    return RecognizeOverKBatch(Skc, K, ZKbCC : escapeOK := escapeOK);
+  end if;
+
   Skb := [];
   for fc in Skc do
     fb := [];
@@ -444,6 +553,159 @@ intrinsic RecognizeOverK(Skc::SeqEnum[SeqEnum[FldComElt]], K::FldAlg, v::PlcNumE
     Append(~Skb, fb);
   end for;
 
+  return Skb;
+end intrinsic;
+
+function OverKRunRelfinder(seqs, ZKbCC, m, precbits, cbin, tmpdir)
+  // one --overk invocation on the given sequences; returns the found map
+  tag := Sprintf("%o_%o_%o", Getpid(), Round(1000*Realtime()) mod 10^9, Random(10^15));
+  infile := Sprintf("%o/overk_in_%o.txt", tmpdir, tag);
+  outfile := Sprintf("%o/overk_out_%o.txt", tmpdir, tag);
+  F := Open(infile, "w");
+  Puts(F, Sprintf("%o %o %o", precbits, m, #seqs));
+  for b in ZKbCC do
+    Puts(F, Sprintf("%o", Real(b)));
+    Puts(F, Sprintf("%o", Imaginary(b)));
+  end for;
+  for fc in seqs do
+    Puts(F, Sprintf("%o", #fc));
+    for c in fc do
+      Puts(F, Sprintf("%o", Real(c)));
+      Puts(F, Sprintf("%o", Imaginary(c)));
+    end for;
+  end for;
+  delete F;
+  ret := System(Sprintf("%o --overk %o %o", cbin, infile, outfile));
+  error if ret ne 0, "external relation finder (--overk) failed";
+  found := AssociativeArray();
+  done := false;
+  for line in Split(Read(outfile), "\n") do
+    parts := Split(line, " ");
+    if #parts eq 0 then continue; end if;
+    if parts[1] eq "RELFINDER_DONE" then
+      done := true;
+    elif parts[1] eq "FOUND" or parts[1] eq "UNCERT" then
+      if parts[1] eq "UNCERT" then
+        vprintf Shimura : "  ...RecognizeOverK: coefficient %o/%o accepted UNCERTIFIED (marginal height for this precision)\n", parts[2], parts[3];
+      end if;
+      found[<StringToInteger(parts[2]) + 1, StringToInteger(parts[3]) + 1>] :=
+        <StringToInteger(parts[4]), [StringToInteger(parts[k]) : k in [5..4+m]]>;
+    end if;
+  end for;
+  error if not done, "external relation finder (--overk) output truncated";
+  System(Sprintf("rm -f %o %o", infile, outfile));
+  return found;
+end function;
+
+intrinsic RecognizeOverKBatch(Skc::SeqEnum, K::FldAlg, ZKbCC::SeqEnum : escapeOK := false) -> SeqEnum
+  {Batched certified RecognizeOverK backed by the external C relation finder
+   (Cext/makek_relfinder --overk).  Same semantics as the legacy loop --
+   integral-basis coordinates, per-sequence denominator chaining, eps check
+   -- but one threaded external pass over all sequences, and a certified
+   NOPREC verdict on insufficient precision instead of hours of grinding
+   before the same failure.}
+
+  cbin := GetEnv("MAKEK_RELFINDER_BIN");
+  require cbin ne "" : "MAKEK_RELFINDER_BIN is not set";
+  CC := Parent(ZKbCC[1]);
+  eps := 10^(-Precision(CC)/2);
+  m := Degree(K);
+  ZK := Integers(K);
+  precbits := Ceiling(Precision(CC)*3.3219280948873623);
+
+  tmpdir := GetEnv("TMPDIR");
+  if tmpdir eq "" then
+    tmpdir := "/tmp";
+  end if;
+  found := OverKRunRelfinder(Skc, ZKbCC, m, precbits, cbin, tmpdir);
+
+  // Smooth-denominator rescale retry (the 17T7 trick, cf. Sam's
+  // denom_recognition branch): denominators grow as powers of a smooth base
+  // D along the coefficient sequences, and a sequence whose FIRST targets
+  // already carry a high power cannot start its prevden chain.  Extract D
+  // from every denominator recognized so far, probe D^j against the first
+  // failed target of each truncated sequence (one threaded call over the
+  // whole grid), and rerun the remainder of the sequence under the winning
+  // scale.  Recognized scaled targets satisfy scale*c = a/den, so
+  // c = a/(den*scale).
+  scaleof := AssociativeArray();
+  JMAX := 200;
+  for sidx in [1..#Skc] do
+    fc := Skc[sidx];
+    k0 := 1;
+    while k0 le #fc and IsDefined(found, <sidx, k0>) do k0 +:= 1; end while;
+    if k0 gt #fc then continue; end if;
+    dens := [ found[t][1] : t in Keys(found) ];
+    if #dens eq 0 then continue; end if;
+    // candidate bases: the collective smooth radical, plus the largest few
+    // individual recognized denominators (a stuck sequence's scaling is
+    // typically a power of ONE structured denominator, e.g. den(u), not of
+    // the radical of everything)
+    fac := TrialDivision(LCM(dens), 10^6);
+    Drad := &*[ Integers() | f[1] : f in fac ];
+    bigdens := Reverse(Sort(SetToSequence({ d : d in dens | d gt 1 })));
+    cands := [ Integers() | ];
+    for d in bigdens[1..Min(3, #bigdens)] cat [Drad] do
+      if d gt 1 and d notin cands then Append(~cands, d); end if;
+    end for;
+    if #cands eq 0 then continue; end if;
+    // one threaded probe over the whole (base, power) grid
+    grid := [ Parent(<1,1>) | ];
+    for ci in [1..#cands] do
+      maxj := Min(JMAX, (Precision(CC) div 3) div Max(1, #IntegerToString(cands[ci])));
+      for j in [1..maxj] do Append(~grid, <ci, j>); end for;
+    end for;
+    if #grid eq 0 then continue; end if;
+    vprintf Shimura : "  ...RecognizeOverK: sequence %o stuck at %o; probing %o candidate scales from %o bases\n", sidx, k0, #grid, #cands;
+    probe := OverKRunRelfinder([ [ CC!(cands[g[1]]^g[2]) * fc[k0] ] : g in grid ],
+                               ZKbCC, m, precbits, cbin, tmpdir);
+    scale := 0;
+    best := 0;
+    for gi in [1..#grid] do
+      if IsDefined(probe, <gi, 1>) then
+        s := cands[grid[gi][1]]^grid[gi][2];
+        if scale eq 0 or s lt scale then scale := s; best := gi; end if;
+      end if;
+    end for;
+    if scale eq 0 then continue; end if;
+    vprintf Shimura : "  ...RecognizeOverK: scale %o^%o unlocks sequence %o; rerunning remainder\n", cands[grid[best][1]], grid[best][2], sidx;
+    rerun := OverKRunRelfinder([ [ CC!scale * c : c in fc[k0..#fc] ] ],
+                               ZKbCC, m, precbits, cbin, tmpdir);
+    for n in [k0..#fc] do
+      if IsDefined(rerun, <1, n - k0 + 1>) then
+        found[<sidx, n>] := rerun[<1, n - k0 + 1>];
+        scaleof[<sidx, n>] := scale;
+      end if;
+    end for;
+  end for;
+
+  Skb := [];
+  for sidx in [1..#Skc] do
+    fc := Skc[sidx];
+    fb := [];
+    for n in [1..#fc] do
+      if not IsDefined(found, <sidx, n>) then
+        if escapeOK then break; end if;
+        error "Insufficient precision in RecognizeOverK (certified by the external relation finder); increase prec";
+      end if;
+      den, coords := Explode(found[<sidx, n>]);
+      scdef, sc := IsDefined(scaleof, <sidx, n>);
+      if not scdef then sc := 1; end if;
+      elt := K!((ZK!coords)/(den*sc));
+      // final eps check against the numerical value, via the embedded basis
+      // (ZKbCC already encodes the place and conjugation)
+      fbv := &+[ CC!coords[i]*ZKbCC[i] : i in [1..m] ] / (CC!den * CC!sc);
+      err := Abs(fbv - fc[n]);
+      vprintf Shimura : "Coefficient %o of %o in array %o recognized (batch), error = %o \n",
+        n, #fc, sidx, RealField(4)!err;
+      if err gt eps then
+        if escapeOK then break; end if;
+        error "RecognizeOverK batch result fails the eps check; increase prec";
+      end if;
+      Append(~fb, elt);
+    end for;
+    Append(~Skb, fb);
+  end for;
   return Skb;
 end intrinsic;
 
