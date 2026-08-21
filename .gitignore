@@ -3,3 +3,4 @@
 *.DS_Store
 Cext/powser_arnoldi
 Cext/powser_bench
+Cext/makek_relfinder

@@ -258,6 +258,65 @@ intrinsic TriangleMakeLattice(Lambda::SeqEnum[FldComElt]) -> Any
   return L;
 end intrinsic;
 
+intrinsic TriangleAJSegment(aCC::FldComElt, bCC::FldComElt, Gamma::GrpPSL2Tri, Sk1int::SeqEnum, DD::SpcHyd) -> FldComElt
+  {Integrate the Gamma-invariant differential (chart antiderivatives Sk1int)
+   along the straight segment from aCC to bCC (disc coordinates).  Each piece
+   is transported into the fundamental domain by the element reducing its
+   midpoint -- which leaves the integral of an invariant form unchanged --
+   and evaluated in the chart minimizing its local coordinates; the segment
+   is adaptively subdivided only if no chart covers a piece.  For a short
+   segment through known geometry this is a single piece, a single chart.}
+
+  CC := Parent(aCC);
+  DDs := Gamma`TriangleDDs;
+  Delta := ContainingTriangleGroup(Gamma);
+  rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
+  prec := Precision(CC);
+  eps := (RealField(CC)!10)^(-(prec div 2));
+  UU := UpperHalfPlane();
+  nv := #Sk1int;
+  locc := function(z, j)  // local coordinate (a complex number) of the UHP point z in chart j
+    return ComplexValue(PlaneToDisc(DDs[j], z));
+  end function;
+  k := 1;
+  repeat
+    ok := true;
+    total := CC!0;
+    for l in [0..k-1] do
+      p := aCC + (bCC-aCC)*l/k;
+      q := aCC + (bCC-aCC)*(l+1)/k;
+      mred, delta := FDReduce(DD!((p+q)/2), Gamma);
+      // convention check: delta must be the element carrying the input to
+      // the reduced point (fires loudly if FDReduce's return order or
+      // action direction ever changes).  This is a binary discrimination --
+      // right convention agrees to ~10^(-prec), wrong convention differs by
+      // O(1) -- so any threshold in the gap works; use eps = 10^(-prec/2).
+      assert Abs(ComplexValue(delta*(DD!((p+q)/2))) - ComplexValue(mred)) lt eps;
+      pr := DiscToPlane(UU, delta*(DD!p));
+      qr := DiscToPlane(UU, delta*(DD!q));
+      jj := 1;
+      best := Max(Abs(locc(pr, 1)), Abs(locc(qr, 1)));
+      for j in [2..nv] do
+        r := Max(Abs(locc(pr, j)), Abs(locc(qr, j)));
+        if r lt best then
+          best := r; jj := j;
+        end if;
+      end for;
+      if best ge rho + eps then  // piece too coarse: subdivide further
+        ok := false;
+        break;
+      end if;
+      total +:= Evaluate(Sk1int[jj], locc(qr, jj)) - Evaluate(Sk1int[jj], locc(pr, jj));
+    end for;
+    if not ok then
+      k *:= 2;
+      error if k gt 1024,
+        "integration path cannot be covered by the expansion charts even after 1024 subdivisions";
+    end if;
+  until ok;
+  return total;
+end intrinsic;
+
 intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum) -> Any
   {Given an element w of the hyperbolic disc, outputs the corresponding point in the complex plane (mod the lattice Lambda).}
 
@@ -274,74 +333,20 @@ intrinsic TriangleDiscToComplexPlane(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnu
     Sk1[j] := Sk1[j]*2*I*Im(centers[j]);
   end for;
   Sk1int := [Integral(f) : f in Sk1];
-  // The previous implementation evaluated Sk1int[1] at w regardless of where
+  // The original implementation evaluated Sk1int[1] at w regardless of where
   // w lies; for w far from the first center -- e.g. the fundamental domain
   // vertices, which is exactly where the ramification points live -- the
   // truncation error of an N-term expansion grows like (|w|/rho)^N and
   // destroyed most of the working precision (ramification points came out
-  // with ~5 correct digits at prec 100).  Instead: FDReduce w into the chart
-  // of its nearest expansion center (a Gamma-translate, which shifts the
-  // integral by a period -- harmless mod Lambda) and integrate with that
-  // center's expansion, exactly as the period computation below already does
-  // chart by chart.  The integration constants K_j = int_{c_1}^{c_j} f dz are
-  // chained through pairwise chart-overlap midpoints, so that every series
-  // evaluation happens well inside a disc of convergence.
-  Delta := ContainingTriangleGroup(Gamma);
-  rho := Max([Abs(z) : z in FundamentalDomain(Delta, DD)]);
-  eps := (RealField(CC)!10)^(-prec/2);
-  UU := UpperHalfPlane();
-  nv := #Sk1;
-  czs := [UU!ComplexValue(Center(D)) : D in DDs];
-  locc := function(z, j)  // local coordinate (a complex number) of the UHP point z in chart j
-    return ComplexValue(PlaneToDisc(DDs[j], z));
-  end function;
-  // chain the integration constants K_j from center 1 by a greedy tree
-  K := [CC | 0 : j in [1..nv]];
-  done := [j eq 1 : j in [1..nv]];
-  for count in [2..nv] do
-    bestr := RealField(CC)!2;
-    besti := 0; bestj := 0;
-    bestm := DiscToPlane(UU, DD!0);
-    for j in [1..nv] do
-      if done[j] then continue; end if;
-      for i in [1..nv] do
-        if not done[i] then continue; end if;
-        m := DiscToPlane(UU, DDs[i]!(locc(czs[j], i)/2));  // midpoint of c_i, c_j in chart i
-        r := Max(Abs(locc(m, i)), Abs(locc(m, j)));
-        if r lt bestr then
-          bestr := r; besti := i; bestj := j; bestm := m;
-        end if;
-      end for;
-    end for;
-    error if bestr ge rho + eps,
-      "cannot chain expansion centers: best chart-overlap midpoint lies outside rho";
-    K[bestj] := K[besti]
-      + Evaluate(Sk1int[besti], locc(bestm, besti)) - Evaluate(Sk1int[besti], CC!0)
-      + Evaluate(Sk1int[bestj], CC!0) - Evaluate(Sk1int[bestj], locc(bestm, bestj));
-    done[bestj] := true;
-  end for;
-  // Abel-Jacobi value of a disc point via its nearest chart.  (Do NOT trust
-  // whichcoset to name the nearest chart: it is built for the reduction
-  // machinery's own inputs, and e.g. for interior points like the base point
-  // DD!0 the assigned chart can lie farther than rho.  Any chart with a
-  // small local coordinate is equally correct once the constants K_j are in
-  // place, so choose by explicit minimization.)
-  ajval := function(v)
-    vp := FDReduce(v, Gamma);  // Gamma-translate into the FD: shifts the integral by a period
-    z := DiscToPlane(UU, vp);
-    jj := 1;
-    best := Abs(locc(z, 1));
-    for j in [2..nv] do
-      r := Abs(locc(z, j));
-      if r lt best then
-        best := r; jj := j;
-      end if;
-    end for;
-    error if best ge rho + eps,
-      "point is not covered by any expansion chart: nearest local coordinate has absolute value", best, "vs rho =", rho;
-    return K[jj] + Evaluate(Sk1int[jj], locc(z, jj)) - Evaluate(Sk1int[jj], CC!0);
-  end function;
-  w_CC := ajval(w) - ajval(DD!0); // CC mod Lambda
+  // with ~5 correct digits at prec 100).  Instead, integrate the invariant
+  // differential f dz along the straight segment from 0 to w in the disc,
+  // adaptively subdivided until each piece -- after transporting it into the
+  // fundamental domain by a group element, which leaves the integral of a
+  // Gamma-invariant form unchanged -- fits well inside SOME expansion chart.
+  // This is the same chart-by-chart pattern the period computation below has
+  // always used, and unlike chaining charts through single overlap
+  // midpoints, it makes no assumption about how the charts are laid out.
+  w_CC := TriangleAJSegment(CC!0, ComplexValue(w), Gamma, Sk1int, DD);
   return w_CC;
 end intrinsic;
 
@@ -381,26 +386,84 @@ intrinsic TriangleComplexPlaneToEllipticCurve(c::FldComElt, Gamma::GrpPSL2Tri, x
   return c_E;
 end intrinsic;
 
-intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum, x::RngSerLaurElt, y::RngSerLaurElt) -> GenerateLSpaceBasisAnalytic
-  {Given an element w of the hyperbolic disc, outputs the corresponding point on the elliptic curve associated to Gamma.}
+intrinsic TriangleAJToEllipticCurve(w_CC::FldComElt, Gamma::GrpPSL2Tri, x::RngSerLaurElt, y::RngSerLaurElt) -> Any
+  {Given an Abel-Jacobi value w_CC in CC, reduce it mod the period lattice to
+   a smallest representative, check it is not a pole, and return the
+   corresponding point [x, y] on the elliptic curve associated to Gamma.}
 
   assert Genus(Gamma) eq 1;
-  prec := Precision(BaseRing(Parent(Sk[1][1])));  // coefficient precision, not series length
-  w_CC := TriangleDiscToComplexPlane(w, Gamma, Sk);
-  // reduce mod Lambda to a smallest representative: the nearest-chart
-  // evaluation returns w_CC only up to a period, and the pole test must
-  // catch every lattice translate of 0 (this resolves the old TODO); the
-  // periods are chart-by-chart integrals, accurate to working precision
+  prec := Precision(Parent(w_CC));
+  // the periods are chart-by-chart integrals, accurate to working precision,
+  // and the reduction makes the pole test catch every lattice translate of 0
   Lambda := Gamma`TrianglePeriodLattice;
   M := Matrix([[Re(l), Im(l)] : l in Lambda]);
   sol := Solution(M, Vector([Re(w_CC), Im(w_CC)]));
   w_CC := w_CC - Round(sol[1])*Lambda[1] - Round(sol[2])*Lambda[2];
-  if Abs(w_CC) lt 10^(-prec/2) then
+  if Abs(w_CC) lt 10^(-(prec div 2)) then
     error "w_CC is a pole of wp!";
-  else
-    w_E := TriangleComplexPlaneToEllipticCurve(w_CC, Gamma, x, y);
   end if;
-  return w_E;
+  return TriangleComplexPlaneToEllipticCurve(w_CC, Gamma, x, y);
+end intrinsic;
+
+intrinsic TriangleDiscToEllipticCurve(w::SpcHydElt, Gamma::GrpPSL2Tri, Sk::SeqEnum, x::RngSerLaurElt, y::RngSerLaurElt) -> Any
+  {Given an element w of the hyperbolic disc, outputs the corresponding point on the elliptic curve associated to Gamma.}
+
+  assert Genus(Gamma) eq 1;
+  w_CC := TriangleDiscToComplexPlane(w, Gamma, Sk);
+  return TriangleAJToEllipticCurve(w_CC, Gamma, x, y);
+end intrinsic;
+
+intrinsic TriangleCosetVertexToComplexPlane(ind::RngIntElt, vi::RngIntElt, Gamma::GrpPSL2Tri, Sk::SeqEnum) -> Any
+  {Abel-Jacobi image in CC of the fundamental domain vertex
+   alphas[ind]*V[vi], where V = [w_a, w_c, w_b, w_cbar] is the fundamental
+   domain of the containing triangle group and alphas the coset
+   representatives.  Computed EXACTLY (no reduction, no mod-Lambda slack) by
+   integrating chart by chart along the coset-graph path from the identity
+   to alphas[ind], as in the period computation: the coset labels produced
+   by the enumeration (KMSV Algorithms 3.5/3.8) are prefix-closed, so every
+   partial word of alphas[ind] is itself a coset representative and
+   consecutive translates of the fundamental triangle are adjacent tiles;
+   each step integrates between alpha0*v and alpha1*v via TriangleAJSegment,
+   which selects the covering chart per segment.  The base point is
+   w_a = 0 (the disc is centered at z_a).}
+
+  assert Genus(Gamma) eq 1;
+  prec := Precision(BaseRing(Parent(Sk[1][1])));
+  Sk1 := Sk[1];
+  CC<I> := BaseRing(Parent(Sk[1][1]));
+  DDs := Gamma`TriangleDDs;
+  centers := [ComplexValue(Center(D)) : D in DDs];
+  for j in [1..#Sk1] do
+    Sk1[j] := Sk1[j]*2*I*Im(centers[j]);
+  end for;
+  Sk1int := [Integral(f) : f in Sk1];
+  Delta := ContainingTriangleGroup(Gamma);
+  DD := UnitDisc(Gamma : Precision := prec);
+  VD := FundamentalDomain(Delta, DD);
+  alphas := CosetRepresentatives(Gamma);
+  v := VD[vi];
+  // Waypoints from the coset word: each partial word of alphas[ind] is a
+  // coset representative (the enumeration's labels are prefix-closed) and
+  // consecutive translates of the fundamental triangle are adjacent tiles,
+  // so the segments below are short hops through known geometry.  Each hop
+  // is integrated by TriangleAJSegment, which picks the chart minimizing
+  // the local coordinates of the endpoints; the expansion charts exist only
+  // at one representative vertex per cycle (Federalize), so a fixed
+  // per-coset chart assignment is NOT guaranteed to cover both endpoints --
+  // the covering chart must be chosen per segment, with subdivision as a
+  // fallback for awkward layouts.  The base point is w_a = 0 (the disc is
+  // centered at z_a).
+  total := TriangleAJSegment(CC!0, ComplexValue(v), Gamma, Sk1int, DD);
+  alpha0 := Delta!1;
+  p0 := v;
+  for s in Eltseq(alphas[ind]) do
+    alpha1 := alpha0*Delta.s;
+    p1 := alpha1*v;
+    total +:= TriangleAJSegment(ComplexValue(p0), ComplexValue(p1), Gamma, Sk1int, DD);
+    p0 := p1;
+    alpha0 := alpha1;
+  end for;
+  return total;
 end intrinsic;
 
 /*
