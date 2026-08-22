@@ -58,7 +58,8 @@ intrinsic TriangleTheta(Sk::SeqEnum[SeqEnum[RngSerPowElt]], Gamma::GrpPSL2Tri :
   else // Al eq "ByValues"
     // Normalize so that the sum of the values is 1.
     vals := TriangleRamificationValues(Sk, Gamma : NormalizeByTheta := false);
-    Thetainvs := &cat[ [ &+[vals[s][i][j+1]/vals[s][i][j] : i in [1..#vals[1]] | Abs(vals[s][i][j]) gt eps] : j in [1..#vals[1][1]-1]] : s in [1..3]];
+    CCvals := BaseRing(Parent(Sk[1][1]));
+    Thetainvs := &cat[ [ &+[CCvals | vals[s][i][j+1]/vals[s][i][j] : i in [1..#vals[1]] | Abs(vals[s][i][j]) gt eps] : j in [1..#vals[1][1]-1]] : s in [1..3]];
     Thetainvs := [Thetainv : Thetainv in Thetainvs | Abs(Thetainv) gt eps and Abs(Thetainv) lt 1/eps];
     if #Thetainvs eq 0 then
       vprintf Shimura : "Tried Al := 'ByValues' but failed, so now using 'Ratio'\n";
