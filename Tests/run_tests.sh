@@ -98,30 +98,20 @@ run_magma_test Tests/test_genusone_aj.m
 # Magma test -- it is dominated by the power series basis at prec 60, roughly
 # a couple of minutes -- so move it under the RUNSLOW guard below if that
 # becomes too much for the default suite.
-run_magma_test Tests/test_genus3nonhyperelliptic_belyi.m
+run_magma_test Tests/test_genus3_nonhyp_deg7.m
+run_magma_test Tests/test_genus3_nonhyp_deg8.m
+run_magma_test Tests/test_genus3_nonhyp_9T27.m
 if [ -n "${MAKEK_RELFINDER_BIN:-}" ] && [ -x "$MAKEK_RELFINDER_BIN" ]; then
     run_magma_test Tests/test_makek_relfinder.m
-    run_magma_test Tests/test_certified_belyi.m
 else
     echo "SKIP: Tests/test_makek_relfinder.m (no MAKEK_RELFINDER_BIN)"
     echo "SKIP: Tests/test_certified_belyi.m (no MAKEK_RELFINDER_BIN)"
 fi
 if [ -n "$RUNSLOW" ]; then
     run_magma_test Tests/test_powser_consistency.m
-    # genus 3, not hyperelliptic, degree 8.  These are the cases with
-    # dim I_d nonzero, with a six-dimensional space of representatives, and
-    # (the second triple) with sigma_0 having more than one cycle.  Gated
-    # because they are degree 8 rather than 7 and so slower still, and
-    # because they have never been run -- see Code/genus3nonhyperelliptic.md.
-    run_magma_test Tests/test_genus3nonhyperelliptic_degree8.m
-    # the generic (full S_8, trivial Aut) counterpart.  Exploratory: its field
-    # of definition and passport size are unknown, so prec and DegreeBound are
-    # guesses -- read the header before treating a failure as a regression.
-    run_magma_test Tests/test_genus3nonhyperelliptic_generic.m
+    run_magma_test Tests/test_certified_belyi.m
 else
     echo "SKIP: Tests/test_powser_consistency.m (slow; set RUNSLOW=1)"
-    echo "SKIP: Tests/test_genus3nonhyperelliptic_degree8.m (slow; set RUNSLOW=1)"
-    echo "SKIP: Tests/test_genus3nonhyperelliptic_generic.m (slow; set RUNSLOW=1)"
 fi
 
 echo "total: $(( $(now) - SUITE_T0 )) s"
