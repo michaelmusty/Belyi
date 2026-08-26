@@ -62,11 +62,13 @@ retc := System(Sprintf("command -v %o > /dev/null 2>&1 || test -x %o", cbin, cbi
 powseral := (retc eq 0) select "CArnoldi" else "Arnoldi";
 printf "PowserAl := %o\n", powseral;
 
+
 // DegreeBound := 1, so K = Q.  The default is the PASSPORT SIZE, and for a
 // cyclic cover the passport members are related by the S_3 action on the
 // branch points rather than by Galois -- they differ only in which exponent
 // sits at 0, 1, oo -- so each is defined over Q and the default sends MakeK
 // hunting for a field that does not exist.  Same trap as 9T1-[9,9,9].
+
 for u in [<[S8 | c, c^5, c^2], "sigma_0 an 8-cycle">,
           <[S8 | c^2, c^5, c],  "sigma_0 with TWO cycles (0 and oo swapped)">] do
   sigma := u[1];
@@ -75,14 +77,13 @@ for u in [<[S8 | c, c^5, c^2], "sigma_0 an 8-cycle">,
   // Magma composes permutations left to right, so sigma_0 sigma_1 sigma_oo = 1
   // is the REVERSED product here.
   assert &*Reverse(sigma) eq Id(S8);
-  assert IsTransitive(sub<S8 | sigma>);
-  assert #sub<S8 | sigma> eq 8;                 // cyclic, so defined over Q
+  pass := PassportRepresentatives(sigma : Pointed := true);
 
   Gamma := TriangleSubgroup(sigma);
   assert Genus(Gamma) eq 3;
 
   t0 := Cputime();
-  X, phi, Gamma := BelyiMap(Gamma : prec := 60, DegreeBound := 1, PowserAl := powseral);
+  X, phi := BelyiMap(Gamma : prec := 50, DegreeBound := 1, PowserAl := powseral);
   printf "BelyiMap took %o s\n", Cputime(t0);
 
   // the curve

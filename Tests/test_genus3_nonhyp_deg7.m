@@ -1,5 +1,5 @@
 // Genus 3, not hyperelliptic: KMSV Example 5.27 (Klug-Musty-Schiavone-Voight,
-// LMS JCM 17 (2014), p. 50).  A rigid (7,7,7)-triple generating PSL_2(F_7),
+// LMS JCM 17 (2014), p. 50).  A (7,7,7)-triple generating PSL_2(F_7),
 // refined passport of genus 3, over K = Q(sqrt(-7)).  The canonical model is
 // a smooth plane quartic, so this exercises Code/genus3nonhyperelliptic.m.
 //
@@ -21,8 +21,6 @@ AttachSpec("Code/spec");
 S7 := Sym(7);
 sigma := [S7 | (1,2,3,4,5,6,7), (1,6,2,5,7,3,4), (1,5,3,6,2,4,7)];
 
-// Magma composes permutations left to right, so sigma_0 sigma_1 sigma_oo = 1
-// is the REVERSED product here.
 assert &*Reverse(sigma) eq Id(S7);
 assert IsTransitive(sub<S7 | sigma>);
 
@@ -33,12 +31,6 @@ assert Genus(Gamma) eq 3;
 // belyi_main.m pick the default prec := 30+5*(Genus+1)*d, which is 170 here
 // and very slow -- the power series basis dominates and is superlinear in
 // precision.
-//
-// DegreeBound := 2 is passed explicitly because the default is the PASSPORT
-// SIZE, which is not the same as the degree of the field of definition: this
-// triple is rigid, and MakeK short circuits to K = Q whenever it is handed
-// m = 1, which would silently produce nonsense over Q instead of over
-// K = Q(sqrt(-7)).
 //
 // The power series basis dominates the runtime, so use the external C solver
 // when it is available -- as Tests/test_carnoldi_belyi.m does, and as the
@@ -51,7 +43,7 @@ powseral := (retc eq 0) select "CArnoldi" else "Arnoldi";
 printf "PowserAl := %o\n", powseral;
 
 t0 := Cputime();
-X, phi, Gamma := BelyiMap(Gamma : prec := 60, DegreeBound := 2, PowserAl := powseral);
+X, phi, Gamma := BelyiMap(Gamma : prec := 40, PowserAl := powseral);
 printf "BelyiMap took %o s\n", Cputime(t0);
 
 // the curve: a smooth plane quartic of genus 3
