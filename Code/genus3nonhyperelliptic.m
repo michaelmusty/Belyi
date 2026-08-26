@@ -333,7 +333,8 @@ intrinsic TriangleGenus3NonHyperellipticTest(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> 
       "Sk should be an echelonized basis of S_2(Gamma), which has dimension 3 in genus 3";
 
   prec := Precision(BaseRing(Parent(Sk[1][1])));
-  eps := 10^(-(prec div 2));
+  eps := 10^(-prec/2);   // NB rational exponent -> FldReElt; (prec div 2) gives
+                         // FldRatElt, which NumericalKernel rejects
   CC := BaseRing(Parent(Sk[1][1]));
   Delta := ContainingTriangleGroup(Gamma);
   _, kappa := TrianglePhi(Delta);
@@ -438,7 +439,8 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
       "Sk should be an echelonized basis of S_2(Gamma), which has dimension 3 in genus 3";
 
   prec := Precision(BaseRing(Parent(Sk[1][1])));
-  eps := 10^(-(prec div 2));
+  eps := 10^(-prec/2);   // NB rational exponent -> FldReElt; (prec div 2) gives
+                         // FldRatElt, which NumericalKernel rejects
   CC := BaseRing(Parent(Sk[1][1]));
   gg := Genus(Gamma);   // NOT `g`: a polynomial ring with a generator named g
                         // would silently rebind it
