@@ -94,6 +94,7 @@ fi
 run_magma_test Tests/test_carnoldi_belyi.m
 run_magma_test Tests/test_genusone_extra_zero.m
 run_magma_test Tests/test_genusone_aj.m
+run_magma_test Tests/test_genus3_hyp.m
 run_magma_test Tests/test_genus3_nonhyp_deg7.m # genus 3, not hyperelliptic: KMSV Example 5.27
 run_magma_test Tests/test_genus3_nonhyp_deg8.m
 run_magma_test Tests/test_genus3_nonhyp_9T27.m

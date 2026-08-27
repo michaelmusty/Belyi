@@ -9,6 +9,19 @@ sigma := [Sym(8) |
   (1, 3, 5, 7)(2, 8, 6, 4)
 ];
 Gamma := TriangleSubgroup(sigma);
-X, phi := BelyiMap(Gamma : prec := 40, PowserAl := "CArnoldi");
+
+cbin := GetEnv("POWSER_ARNOLDI_BIN");
+if cbin eq "" then cbin := "powser_arnoldi"; end if;
+retc := System(Sprintf("command -v %o > /dev/null 2>&1 || test -x %o", cbin, cbin));
+powseral := (retc eq 0) select "CArnoldi" else "Arnoldi";
+printf "PowserAl := %o\n", powseral;
+
+t0 := Cputime();
+X, phi, Gamma := BelyiMap(Gamma : prec := 40, PowserAl := powseral);
+printf "BelyiMap took %o s\n", Cputime(t0);
+
 assert BelyiMapSanityCheck(sigma, X, phi);
 assert Gamma`TriangleIsHyperelliptic;
+
+print "ALL TESTS PASSED";
+quit;
