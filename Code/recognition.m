@@ -174,13 +174,13 @@ intrinsic TriangleRootMatcher5000(z::FldComElt, fact_list::SeqEnum) -> Any
         else //degree > 1
           K<zK> := NumberField(f);
           ps, foobar := TrialDivision(Discriminant(K));
-          if #foobar gt 0 and not &and[IsSquare(foobarf) : foobarf in foobar] then
+          if foobar ne 1 and not IsSquare(foobar) then
             error "Discriminant doesn't jive...try a higher precision";
           end if;
-          if foobar eq [] then
-            vprintf Shimura : "  ...number field found, with ps = %o and foobar = []\n", ps;
+          if foobar eq 1 then
+            vprintf Shimura : "  ...number field found, with ps = %o and foobar = 1\n", ps;
           else
-            vprintf Shimura : "  ...number field found, with ps = %o and sqrt(foobar) = %o\n", ps, Round(Sqrt(CC!foobar[1]));
+            vprintf Shimura : "  ...number field found, with ps = %o and sqrt(foobar) = %o\n", ps, Round(Sqrt(CC!foobar));
           end if;
           vprintf Shimura : "  ...%o\n", K;
           vprint Shimura : "  ...Optimizing";
