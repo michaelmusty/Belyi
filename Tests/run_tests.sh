@@ -94,11 +94,7 @@ fi
 run_magma_test Tests/test_carnoldi_belyi.m
 run_magma_test Tests/test_genusone_extra_zero.m
 run_magma_test Tests/test_genusone_aj.m
-# genus 3, not hyperelliptic: KMSV Example 5.27.  This is the slowest ungated
-# Magma test -- it is dominated by the power series basis at prec 60, roughly
-# a couple of minutes -- so move it under the RUNSLOW guard below if that
-# becomes too much for the default suite.
-run_magma_test Tests/test_genus3_nonhyp_deg7.m
+run_magma_test Tests/test_genus3_nonhyp_deg7.m # genus 3, not hyperelliptic: KMSV Example 5.27
 run_magma_test Tests/test_genus3_nonhyp_deg8.m
 run_magma_test Tests/test_genus3_nonhyp_9T27.m
 if [ -n "${MAKEK_RELFINDER_BIN:-}" ] && [ -x "$MAKEK_RELFINDER_BIN" ]; then
