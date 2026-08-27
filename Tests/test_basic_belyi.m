@@ -2,9 +2,9 @@
 // against the ramification data.
 AttachSpec("Code/spec");
 
-// README example: degree 4, genus 0
+// README example: degree 4, genus 1
 sigma := [Sym(4) | (1,2,3,4), (1,3,4,2), (1,3,4)];
-X, phi := BelyiMap(sigma);
+X, phi := BelyiMap(sigma : prec := 30);
 assert BelyiMapSanityCheck(sigma, X, phi);
 
 // LMFDB 5T4-5_3.1.1_3.1.1-a: degree 5, genus 0, hyperbolic (orders (5,3,3)),
