@@ -2,7 +2,8 @@
 
 Companion notes for `Code/genus3nonhyperelliptic.m` and for the changes it
 required in `Code/belyi_main.m`, `Code/recognition.m`, `Code/hackobj.m` and
-`Code/spec`.
+`Code/spec`.  See also `Doc/genus3-riemann-roch-basis.md`, which covers the
+Riemann-Roch space and the monomial basis the map is written in.
 
 ## What was added
 
@@ -13,10 +14,11 @@ required in `Code/belyi_main.m`, `Code/recognition.m`, `Code/hackobj.m` and
 | `Code/hackobj.m` | attributes `TriangleIsGenus3NonHyperelliptic`, `TriangleGenus3NonHyperellipticDegree` |
 | `Code/belyi_main.m` | genus 3 non-hyperelliptic branch replaces the `error` at the end of the genus `>= 2` dispatch |
 | `Code/recognition.m` | `TriangleRecognizeAlgebraicCoefficients` and `TriangleMakeBelyiMap` widened; `TriangleRescaleCoefficients` gains a working `rescale_ind`, is documented, its `print`s become `vprint`, its weight-zero error names the group |
-| `Tests/test_genus3nonhyperelliptic_belyi.m` | KMSV Example 5.27, degree 7 |
-| `Tests/test_genus3nonhyperelliptic_degree8.m` | degree 8, cyclic: `dim I_d != 0`, and a triple with `sigma_0` in two cycles (RUNSLOW) |
-| `Tests/test_genus3nonhyperelliptic_generic.m` | degree 8, full `S_8`, trivial `Aut(phi)` (RUNSLOW, exploratory) |
-| `Tests/run_tests.sh` | runs all three |
+| `Tests/test_genus3_hyp.m` | degree 8, genus 3 but HYPERELLIPTIC: checks the dispatch does *not* take this branch |
+| `Tests/test_genus3_nonhyp_deg7.m` | KMSV Example 5.27, degree 7 |
+| `Tests/test_genus3_nonhyp_deg8.m` | degree 8, cyclic: `dim I_d != 0`, and a triple with `sigma_0` in two cycles |
+| `Tests/test_genus3_nonhyp_9T27.m` | degree 9, BelyiDB `9T27-[9,9,3]`: generic, trivial `Aut(phi)`, rigid so over `Q` |
+| `Tests/run_tests.sh` | runs all four, in the fast group |
 
 Naming follows the dispatch rather than the model: the cases in
 `belyi_main.m` are distinguished by genus and by hyperellipticity, and
@@ -153,14 +155,21 @@ to bite.
 
 ### Claims about the tests
 
-14. **`DegreeBound` is passed explicitly where the field is known** -- 2 for
-    KMSV 5.27 (`K = Q(sqrt(-7))`, and the triple is rigid so the default
-    passport size may be 1, which makes `MakeK` short circuit to `K = Q`), and
-    1 for the two cyclic degree-8 triples (defined over `Q`; the default would
-    send `MakeK` hunting for a field that does not exist).  Neither passport
-    size was computed.  `test_genus3nonhyperelliptic_generic.m` leaves the
-    default, because nothing is known about its field.
-15. **The degree-8 cyclic pair is derived, not looked up.**  The curve is
+14. **`DegreeBound` is passed explicitly, and the sizes are now measured.**
+
+    | triple | passport | pointed | field | `DegreeBound` passed |
+    |---|---|---|---|---|
+    | KMSV 5.27 | 2 | 2 | `Q(sqrt(-7))` | 2 |
+    | C_8 `(c, c^5, c^2)` | 2 | 2 | `Q` | 1 |
+    | C_8 rotated | 2 | 2 | `Q` | 1 |
+    | 9T27 | 1 | 1 | `Q` | 1 |
+
+    For degree 8 pair, `DegreeBound := 1` is passed because otherwise `MakeK`
+    will use the passport size (2) as `DegreeBound` and fail to create the
+    number field.
+15. **The degree-8 cyclic pair is derived, not looked up -- and the derivation
+    has since been checked in Magma** (genus 3 and `IsHyperelliptic: false`
+    for the curve, `IsHyperelliptic: true` for the control).  The curve is
     `y^8 = x(x-1)^5`; its canonical coordinates carry distinct `C_8` weights
     `3, 6, 7`, no invariant quadric exists, so the curve is **not**
     hyperelliptic -- and the same computation for `y^8 = x(x-1)` produces the
@@ -169,14 +178,17 @@ to bite.
     `oo` swapped: the SAME curve, but with `sigma_0` in two cycles.  If the
     first passes and the second fails, the multi-cycle handling is what broke
     and nothing else.
-16. **`test_genus3nonhyperelliptic_generic.m` is exploratory.**  Its field of
-    definition, passport size, and even its non-hyperellipticity are unknown;
-    `prec` and the default `DegreeBound` are guesses.  Read its header before
-    treating a failure there as a regression.
-17. **No runtime was measured.**  The KMSV case is ungated; if it dominates
-    the suite, move its `run_magma_test` line under the `RUNSLOW` guard rather
-    than lowering `prec` to where recognition becomes marginal.  All three use
-    the external C solver when `POWSER_ARNOLDI_BIN` is available.
+16. **The exploratory generic test was replaced.** `Tests/test_genus3_nonhyp_9T27.m`
+    is now used in the "generic" case. BelyiDB `9T27-[9,9,3]-9-9-333-g3`,
+    monodromy `PSL(2,8)` of order 504, passport size 1 and `Aut(phi)` trivial,
+    so it is generic *and* cheap to recognize. `8T43-[8,8,7]-8-8-71-g3` has
+    the same cycle types at size 6 if a degree-8 generic case is ever wanted.
+17. **Runtimes, measured.**  `test_genus3_hyp.m` 31 s, `deg7` 17 s, `deg8`
+    59 s, `9T27` 66 s; the whole suite with `RUNSLOW=1` is 537 s.  All four run
+    in the fast group.  All four use the external C solver when
+    `POWSER_ARNOLDI_BIN` is available and fall back to pure-Magma Arnoldi
+    otherwise -- do not hardcode either: on 9T27 that choice is 105 s against
+    over 30 minutes and 2.2 GB.
 
 ## Gates that are NOT implemented
 
