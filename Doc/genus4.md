@@ -150,7 +150,9 @@ committed, through `BelyiMap` and its `BelyiMapSanityCheck`:
 | 9T1 (hyperelliptic path) | 40 | Q | 153 s |
 | 9T25 | 40 | Q | 107 s |
 | 9T6 | 40 | Q(sqrt(-3)) | 110 s |
-| 9T27 | 80 | Q | 369 s in the suite, 689 s under load |
+| 9T27 | 80 | Q | 314 s in the suite (RUNSLOW) |
+
+Full suite green with `RUNSLOW=1`, 1120 s; fast group 548 s.
 
 9T27 is gated behind `RUNSLOW` because its 369 s outweighed the rest of the
 suite; 9T1 stays in the fast group because it is the only hyperelliptic

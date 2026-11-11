@@ -120,6 +120,9 @@ prescribed.
 | `test_genus4_nonhyp_9T6.m` | 40 | Q(sqrt-3) | fast | 69-110 s |
 | `test_genus4_nonhyp_9T27.m` | 80 | Q | RUNSLOW | 369-689 s |
 
+Full suite green with `RUNSLOW=1` on Magma 2.29-8 (laptop), 2026-11-11:
+1120 s in all, of which 9T27 took 314 s; the fast group is 548 s.
+
 9T27 is gated because its time alone outweighed the rest of the suite;
 9T1 is NOT gated, being the only hyperelliptic genus-4 test.  9T32
 (passport size 48, prec 100 in the reference computation) has no test:
