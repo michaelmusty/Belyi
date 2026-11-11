@@ -102,7 +102,6 @@ run_magma_test Tests/test_genus3_nonhyp_9T27.m
 run_magma_test Tests/test_genus4_hyp_9T1.m          # hyperelliptic: must NOT take the new branch
 run_magma_test Tests/test_genus4_nonhyp_9T25.m      # over Q, trivial Aut; exercises the DegreeBound fallback
 run_magma_test Tests/test_genus4_nonhyp_9T6.m       # over Q(sqrt-3), Aut of order 3: the weight-gcd branch
-run_magma_test Tests/test_genus4_nonhyp_9T27.m      # over Q, prec 60
 if [ -n "${MAKEK_RELFINDER_BIN:-}" ] && [ -x "$MAKEK_RELFINDER_BIN" ]; then
     run_magma_test Tests/test_makek_relfinder.m
 else
@@ -112,9 +111,11 @@ fi
 if [ -n "$RUNSLOW" ]; then
     run_magma_test Tests/test_powser_consistency.m
     run_magma_test Tests/test_certified_belyi.m
+    run_magma_test Tests/test_genus4_nonhyp_9T27.m   # genus 4, over Q, prec 80: ~6 min on its own
     run_magma_test Tests/test_genus4_nonhyp_9T32.m   # genus 4, passport size 48, prec 100
 else
     echo "SKIP: Tests/test_powser_consistency.m (slow; set RUNSLOW=1)"
+    echo "SKIP: Tests/test_genus4_nonhyp_9T27.m (slow; set RUNSLOW=1)"
     echo "SKIP: Tests/test_genus4_nonhyp_9T32.m (slow; set RUNSLOW=1)"
 fi
 

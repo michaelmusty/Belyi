@@ -19,7 +19,7 @@ construction one dimension up, and only what differs is recorded here.
 | `Tests/test_genus4_nonhyp_9T6.m` | 9T6-[9,9,9], over `Q(sqrt(-3))`, `Aut` of order 3: the weight-gcd branch |
 | `Tests/test_genus4_nonhyp_9T27.m` | 9T27-[9,9,9], over `Q`, `prec := 60` |
 | `Tests/test_genus4_nonhyp_9T32.m` | 9T32-[9,9,9], passport size 48, `prec := 100`; `RUNSLOW` only |
-| `Tests/run_tests.sh` | runs the first four in the fast group, 9T32 under `RUNSLOW` |
+| `Tests/run_tests.sh` | runs 9T1, 9T25 and 9T6 in the fast group; 9T27 and 9T32 under `RUNSLOW` |
 
 The test triples and the precisions come from the degree-9 genus-4 work in
 `M23-recompute` (`pass9.m`, `belyi_9T25.m` and its siblings), where each of
@@ -122,8 +122,10 @@ committed, through `BelyiMap` and its `BelyiMapSanityCheck`:
 | 9T6 | 40 | Q(sqrt(-3)) | 110 s |
 | 9T27 | 80 | Q | 689 s |
 
-9T32 was not run here (prec 100, minutes for the series alone) and is gated
-behind `RUNSLOW`.
+9T27 is gated behind `RUNSLOW` because its 369 s outweighed the rest of the
+suite; 9T1 stays in the fast group because it is the only hyperelliptic
+genus-4 test.  9T32 was not run here (prec 100, minutes for the series
+alone) and is gated behind `RUNSLOW`.
 
 ## Known limitations
 

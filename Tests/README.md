@@ -50,8 +50,8 @@ The runner executes, in order:
    the closed form `y^2 = x^10 - 2x`, `phi = (y + x^5)/(2x^5)` independently.
    `DegreeBound := 1` is passed: the passport's three members are related by
    permuting `0, 1, oo`, not by Galois, so each is over `Q`.
-8. **`test_genus4_nonhyp_9T25.m`**, **`test_genus4_nonhyp_9T6.m`**,
-   **`test_genus4_nonhyp_9T27.m`**: genus 4, not hyperelliptic, the
+8. **`test_genus4_nonhyp_9T25.m`**, **`test_genus4_nonhyp_9T6.m`**, and
+   (slow, `RUNSLOW=1`) **`test_genus4_nonhyp_9T27.m`**: genus 4, not hyperelliptic, the
    canonical model a quadric meeting a cubic in `P^3` (`Code/genus4.m`), on
    the degree-9 `(9,9,9)` passports from BelyiDB.  9T25 (over `Q`, trivial
    `Aut`, passport size 4) passes no `DegreeBound` and so exercises the
@@ -59,8 +59,8 @@ The runner executes, in order:
    size down to `Q`; 9T6 (over `Q(sqrt(-3))`, `Aut` of order 3) exercises the
    weight-gcd branch of the rescaler; 9T27 (over `Q`, passport size 6) needs
    `prec := 80` (at 60 the recognition over `Q` accepts a wrong `B` and the
-   sanity check catches it).  Assertions are on the ramification, not on
-   coefficients.
+   sanity check catches it) and takes about six minutes on its own, which is
+   why it is gated.  Assertions are on the ramification, not on coefficients.
 9. **`test_genus4_nonhyp_9T32.m`** (slow, `RUNSLOW=1`): the same at passport
    size 48 and `prec := 100`, over `Q(sqrt(-3))`.
 
