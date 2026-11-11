@@ -61,7 +61,8 @@
 
 import "genuszero.m" : RemoveLeadingZeros;
 import "genus3nonhyperelliptic.m" : G3NonHypZeroify, G3NonHypRREF,
-    G3NonHypColumnsAvailable, G3NonHypSeriesKernel, G3NonHypConditionNullSpace;
+    G3NonHypColumnsAvailable, G3NonHypSeriesKernel, G3NonHypConditionNullSpace,
+    NonHypCentralPivot;
 
 // --------------------------------------------------------------------------
 // local helpers
@@ -89,36 +90,6 @@ G4LastNonzero := function(L);
     i -:= 1;
   end while;
   return i;
-end function;
-
-// The normalizing pivot of a group: the index of a nonzero coefficient whose
-// weight is nearest the CENTRE of the group's nonzero weight range (ties to
-// the larger modulus).  After the torus is undone each coefficient is
-// (c_j/c_piv) * alpha^(w_j - w_piv) for an algebraic alpha, so its height
-// grows like |w_j - w_piv| times the height of alpha, and a pivot at one
-// extreme of the range -- the constant term, say -- roughly doubles the
-// worst case relative to a centred one.  On 9T27 the extreme pivot gave
-// heights up to 23 where the reference computation had 11.
-G4CentralPivot := function(coeffs, vals, prec);
-  mx := Max([Abs(c) : c in coeffs]);
-  if mx eq 0 then
-    return 0;
-  end if;
-  tol := mx*10^(-(prec div 2));
-  nz := [i : i in [1..#coeffs] | Abs(coeffs[i]) gt tol];
-  lo := Min([vals[i] : i in nz]);
-  hi := Max([vals[i] : i in nz]);
-  mid := (lo + hi)/2;
-  best := nz[1];
-  bd := Abs(vals[best] - mid);
-  for i in nz do
-    d := Abs(vals[i] - mid);
-    if d lt bd or (d eq bd and Abs(coeffs[i]) gt Abs(coeffs[best])) then
-      best := i;
-      bd := d;
-    end if;
-  end for;
-  return best;
 end function;
 
 // reduce the vector v modulo the RREF rows Ibas with pivot columns Ipiv:
@@ -594,10 +565,10 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
   qpart := curve_coeffs[1..nq];
   cpart0 := curve_coeffs[nq+1..nq+nc3];
   if Pivot eq "Centred" then
-    rinds := [G4CentralPivot(qpart, curve_vals[1..nq], prec),
-              G4CentralPivot(num_coeffs, num_vals, prec),
-              G4CentralPivot(denom_coeffs, denom_vals, prec)];
-    cind := G4CentralPivot(cpart0, curve_vals[nq+1..nq+nc3], prec);
+    rinds := [NonHypCentralPivot(qpart, curve_vals[1..nq], prec),
+              NonHypCentralPivot(num_coeffs, num_vals, prec),
+              NonHypCentralPivot(denom_coeffs, denom_vals, prec)];
+    cind := NonHypCentralPivot(cpart0, curve_vals[nq+1..nq+nc3], prec);
   else
     rinds := [G4LastNonzero(qpart), G4LastNonzero(num_coeffs), G4LastNonzero(denom_coeffs)];
     cind := G4LastNonzero(cpart0);

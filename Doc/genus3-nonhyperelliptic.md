@@ -44,6 +44,27 @@ Full detail is in the header comment of the source.  In brief:
   `hyperelliptic.m`'s `while ... t := t - 1` idea in the coordinates available
   here.
 - Both halves are reduced modulo `I_d` **before** echelonizing.  Not optional.
+- **Each list is normalized by a pivot centred on its weight range**
+  (`Pivot := "Centred"`, the default since the genus-4 work; the original
+  constant-term pivot is `"LastNonzero"`).  After the torus is undone each
+  coefficient is the ratio to its list's pivot times an algebraic factor
+  raised to the weight offset from the pivot, so the height grows with that
+  offset.  Measured with every map verified by `BelyiMapSanityCheck`
+  (heights of quartic, A, B):
+
+  | case | prec | constant-term pivot | centred pivot |
+  |---|---|---|---|
+  | KMSV 5.27 | 40 | 4, 2, 3 | 7, 4, 4 |
+  | degree 8 cyclic (both triples) | 50 | 1-2 | 1-2 |
+  | 9T27-[9,9,3] | 60 | 12, 12, 12 | 7, 9, 8 |
+  | 9T27-[9,9,3] | 40 | 10, 10, 10, sanity check FAILS | 7, 9, 8, passes |
+
+  The tuned representative was also measured against the RREF-row one on
+  the same cases: tuned is smaller everywhere in genus 3 (9T27 at 60: 7, 9,
+  8 against 13, 17, 18 and a failed sanity check), and the RREF row even
+  loses the constant term on the cyclic covers, which the rescaler cannot
+  do without.  So the representative stays tuned.  (In genus 4 the RREF row
+  is the smaller one by a few digits; see `Doc/genus4.md`.)
 - The residual of the joint relation is reported and gated: it is the
   statement that `phi = -A/B` on this curve, to full precision.
 

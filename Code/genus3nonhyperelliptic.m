@@ -263,6 +263,38 @@ G3NonHypConditionNullSpace := function(cons, nmons, CC, prec);
   return basis;
 end function;
 
+// The normalizing pivot of a group: the index of a nonzero coefficient whose
+// weight is nearest the CENTRE of the group's nonzero weight range (ties to
+// the larger modulus).  After the torus is undone each coefficient is
+// (c_j/c_piv) * alpha^(w_j - w_piv) for an algebraic alpha, so its height
+// grows like |w_j - w_piv| times the height of alpha, and a pivot at one
+// extreme of the range -- the constant term -- roughly doubles the worst
+// case relative to a centred one.  Measured: on 9T27-[9,9,3] the constant
+// term gives heights 12, 12, 12 (quartic, A, B) at prec 60 and a wrong map
+// at prec 40; the centred pivot gives 7, 9, 8 and passes at 40.  Shared
+// with genus4.m.
+NonHypCentralPivot := function(coeffs, vals, prec);
+  mx := Max([Abs(c) : c in coeffs]);
+  if mx eq 0 then
+    return 0;
+  end if;
+  tol := mx*10^(-(prec div 2));
+  nz := [i : i in [1..#coeffs] | Abs(coeffs[i]) gt tol];
+  lo := Min([vals[i] : i in nz]);
+  hi := Max([vals[i] : i in nz]);
+  mid := (lo + hi)/2;
+  best := nz[1];
+  bd := Abs(vals[best] - mid);
+  for i in nz do
+    d := Abs(vals[i] - mid);
+    if d lt bd or (d eq bd and Abs(coeffs[i]) gt Abs(coeffs[best])) then
+      best := i;
+      bd := d;
+    end if;
+  end for;
+  return best;
+end function;
+
 // x = f_1/f_3 and y = f_2/f_3 as series in the SAME local coordinate as
 // TrianglePhi, built exactly as hyperelliptic.m builds x_CC and y_CC.
 G3NonHypCoordinateSeries := function(Sk, kappa, eps);
@@ -411,7 +443,7 @@ end intrinsic;
 // --------------------------------------------------------------------------
 
 intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
-    curve_coeffs := [], curve_vals := []) -> Any
+    curve_coeffs := [], curve_vals := [], Pivot := "Centred") -> Any
   {Numerical curve, numerator and denominator coefficients for a
    non-hyperelliptic genus 3 Belyi map; assigns them to Gamma.
 
@@ -431,7 +463,16 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
    the header comment of this file.  sigma_0 may have any number of cycles.
    Coefficients of A and B are indexed by
    Genus3NonHyperellipticMonomials(d), those of the quartic by
-   Genus3NonHyperellipticMonomials(4).}
+   Genus3NonHyperellipticMonomials(4).
+
+   Pivot := "Centred" (the default) normalizes each of quartic, A and B by a
+   coefficient whose weight is central in that list's range, which keeps the
+   recognized heights small; Pivot := "LastNonzero" normalizes by the last
+   nonzero entry, the constant term, which was the original behaviour and is
+   kept for comparison.}
+
+  require Pivot in ["Centred", "LastNonzero"] :
+      "Pivot should be \"Centred\" or \"LastNonzero\"";
 
   require Genus(Gamma) eq 3 :
       "TriangleGenus3NonHyperellipticNumericalCoefficients is only implemented for genus 3";
@@ -681,7 +722,15 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
     end while;
     return i;
   end function;
-  rinds := [LastNonzero(curve_coeffs), LastNonzero(num_coeffs), LastNonzero(denom_coeffs)];
+  if Pivot eq "Centred" then
+    rinds := [NonHypCentralPivot(curve_coeffs, curve_vals, prec),
+              NonHypCentralPivot(num_coeffs, num_vals, prec),
+              NonHypCentralPivot(denom_coeffs, denom_vals, prec)];
+  else
+    rinds := [LastNonzero(curve_coeffs), LastNonzero(num_coeffs), LastNonzero(denom_coeffs)];
+  end if;
+  vprintf Shimura : "normalizing pivots (%o): quartic %o, A %o, B %o\n",
+      Pivot, qmons[rinds[1]], mons[rinds[2]], mons[rinds[3]];
   error if rinds[1] lt 1, "the quartic is numerically zero; raise prec";
   error if rinds[2] lt 1, "the numerator A is numerically zero; raise prec";
   error if rinds[3] lt 1, "the denominator B is numerically zero; raise prec";
