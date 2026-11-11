@@ -2,7 +2,7 @@
 
 Companion notes for `Code/genus3nonhyperelliptic.m` and for the changes it
 required in `Code/belyi_main.m`, `Code/recognition.m`, `Code/hackobj.m` and
-`Code/spec`.  See also `Doc/genus3-riemann-roch-basis.md`, which covers the
+`Code/spec`.  The decisions behind it are in `Doc/adr-genus3-nonhyperelliptic.md`.  See also `Doc/genus3-riemann-roch-basis.md`, which covers the
 Riemann-Roch space and the monomial basis the map is written in.
 
 ## What was added
@@ -45,8 +45,9 @@ Full detail is in the header comment of the source.  In brief:
   here.
 - Both halves are reduced modulo `I_d` **before** echelonizing.  Not optional.
 - **Each list is normalized by a pivot centred on its weight range**
-  (`Pivot := "Centred"`, the default since the genus-4 work; the original
-  constant-term pivot is `"LastNonzero"`).  After the torus is undone each
+  (`Pivot := "Centred"`, the default since the genus-4 work, which passes
+  `rescale_ind := "Centred"` to `TriangleRescaleCoefficients`, where the
+  choice is made; the original constant-term pivot is `"LastNonzero"`).  After the torus is undone each
   coefficient is the ratio to its list's pivot times an algebraic factor
   raised to the weight offset from the pivot, so the height grows with that
   offset.  Measured with every map verified by `BelyiMapSanityCheck`
@@ -63,8 +64,8 @@ Full detail is in the header comment of the source.  In brief:
   the same cases: tuned is smaller everywhere in genus 3 (9T27 at 60: 7, 9,
   8 against 13, 17, 18 and a failed sanity check), and the RREF row even
   loses the constant term on the cyclic covers, which the rescaler cannot
-  do without.  So the representative stays tuned.  (In genus 4 the RREF row
-  is the smaller one by a few digits; see `Doc/genus4.md`.)
+  do without.  So the representative stays tuned, in genus 4 as well; the
+  full comparison across both genera is in `Doc/genus4.md`.
 - The residual of the joint relation is reported and gated: it is the
   statement that `phi = -A/B` on this curve, to full precision.
 

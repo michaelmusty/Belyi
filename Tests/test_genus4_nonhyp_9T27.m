@@ -5,21 +5,21 @@
 // Degree 9, cycle types (9, 9, 9), monodromy of order 504 (PSL(2,8)),
 // TRIVIAL automorphism group, passport size 6, field of definition Q.
 //
-// PRECISION.  prec := 80 passes; prec := 60 FAILS, and instructively: at 60
-// the recognition over Q accepted a wrong 16-digit value for B (the true one
-// has height 17 under the default normalization) and the map came out with
-// the wrong degree, caught only by BelyiMapSanityCheck.  The reference
-// computation in M23-recompute saw the same one step lower -- deg phi = 18
-// at prec 40, a pass at 60 -- with a representative of height 11.  The
-// recognition gate is a filter; the ramification is the referee.
-//
-// Heights at prec 80 for the four combinations of options of
-// TriangleGenus4NumericalCoefficients (quadric, cubic, A, B):
-//     Centred pivot,  Tuned     7, 13, 13, 17   <- the default; verified
-//     Centred pivot,  RREFRow   3,  5, 12, 11
-//     LastNonzero,    Tuned    12, 21, 21, 21   <- the genus-3 convention
+// PRECISION.  prec := 80 passes with the default options (centred pivot,
+// tuned representative; heights 7, 13, 13, 17 for quadric, cubic, A, B).
+// prec := 60 FAILS, instructively: B has height 17 and the recognition
+// over Q, which has no residual gate, accepts a wrong 16-digit value; the
+// map then has the wrong degree and only BelyiMapSanityCheck catches it,
+// slowly.  The reference computation in M23-recompute passed at 60 with
+// the RREF-row representative, whose heights here are 3, 5, 12, 11 -- but
+// that representative fails on 9T25, so the default is tuned (see
+// genus4.m and Doc/genus4.md for the comparison).  Measured at prec 80:
+//     Centred pivot,  Tuned     7, 13, 13, 17   <- the default; passes at 80
+//     Centred pivot,  RREFRow   3,  5, 12, 11   passes at 60
+//     LastNonzero,    Tuned    12, 21, 21, 21   fails at 60 and 80
 //     LastNonzero,    RREFRow   4,  6, 14, 13
-// The centred pivot is what makes the default reachable at 80.
+// The recognition gate is a filter; the ramification is the referee.
+// This test is gated behind RUNSLOW: about six minutes on its own.
 //
 // DegreeBound := 1 is passed, since the map is known to be over Q; see
 // test_genus4_nonhyp_9T25.m for the run that exercises the fallback.

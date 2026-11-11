@@ -7,7 +7,7 @@ intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2Tri, coeffs::SeqEnum, vals::
 
    NOTE that lambda is built from num_coeffs cat denom_coeffs ALONE; the curve is merely rescaled by it afterwards.  That is deliberate and load bearing.  Lambda only has to track the torus, so it may be read from any group -- but it MUST be read from one whose weight gcd is 1, since from a group of gcd > 1 the coefficients at offsets not divisible by the gcd need a root of lambda and leave K entirely.  The map's weights are usually consecutive while the curve's need not be: the KMSV plane quartic of genus 3, for instance, is even in its second coordinate, so all of its weights are even.
 
-   rescale_ind names, for each of curve/num/denom, the index of the coefficient to normalize that list by.  Leave it 0 -- the default -- to normalize by the FINAL entry of each list, which is what genus 1, genus 2 and the hyperelliptic path have always done and what their monomial orderings assume.  Pass [i_curve, i_num, i_denom] to name the indices explicitly, with an entry 0 meaning "the final entry of that list"; a caller whose final coefficient may vanish should pass the index of one that does not.}
+   rescale_ind names, for each of curve/num/denom, the index of the coefficient to normalize that list by.  Leave it 0 -- the default -- to normalize by the FINAL entry of each list, which is what genus 1, genus 2 and the hyperelliptic path have always done and what their monomial orderings assume.  Pass [i_curve, i_num, i_denom] to name the indices explicitly, with an entry 0 meaning "the final entry of that list"; a caller whose final coefficient may vanish should pass the index of one that does not.  Pass "Centred" to normalize each list by a nonzero coefficient whose weight is nearest the CENTRE of that list's nonzero weight range (ties to the larger modulus): after the torus is undone each coefficient is (c_j/c_piv) * alpha^(w_j - w_piv) for an algebraic alpha, so its height grows like |w_j - w_piv| times the height of alpha, and a pivot at one extreme of the range roughly doubles the worst case.  Genus 3 and genus 4 use "Centred"; measured on 9T27 in each genus it brought the heights down by a third to a half and turned failed recognitions into passes.}
   g := Genus(Gamma);
   prec := Gamma`TriangleNumericalPrecision;
   eps := 10^(-prec/2);
@@ -17,11 +17,38 @@ intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2Tri, coeffs::SeqEnum, vals::
   // reproduces the historical behaviour exactly -- the final entry of each
   // list -- so existing callers are unchanged.
   lens := [#curve_coeffs, #num_coeffs, #denom_coeffs];
+  CentralPivot := function(cfs, vls);
+    mx := Max([Abs(c) : c in cfs]);
+    if mx eq 0 then
+      return 0;
+    end if;
+    tol := mx*10^(-(prec div 2));
+    nz := [i : i in [1..#cfs] | Abs(cfs[i]) gt tol];
+    lo := Min([vls[i] : i in nz]);
+    hi := Max([vls[i] : i in nz]);
+    mid := (lo + hi)/2;
+    best := nz[1];
+    bd := Abs(vls[best] - mid);
+    for i in nz do
+      d := Abs(vls[i] - mid);
+      if d lt bd or (d eq bd and Abs(cfs[i]) gt Abs(cfs[best])) then
+        best := i;
+        bd := d;
+      end if;
+    end for;
+    return best;
+  end function;
   if rescale_ind cmpeq 0 then
     rinds := lens;
+  elif rescale_ind cmpeq "Centred" then
+    rinds := [CentralPivot(curve_coeffs, curve_vals), CentralPivot(num_coeffs, num_vals),
+              CentralPivot(denom_coeffs, denom_vals)];
+    error if 0 in rinds,
+        "cannot centre the pivot: one of curve, numerator, denominator is numerically zero";
+    vprintf Shimura : "centred normalizing pivots at indices %o\n", rinds;
   else
     require Type(rescale_ind) eq SeqEnum and #rescale_ind eq 3 :
-        "rescale_ind should be 0, or a sequence [i_curve, i_num, i_denom]";
+        "rescale_ind should be 0, \"Centred\", or a sequence [i_curve, i_num, i_denom]";
     rinds := [];
     for i in [1..3] do
       Append(~rinds, rescale_ind[i] eq 0 select lens[i] else rescale_ind[i]);

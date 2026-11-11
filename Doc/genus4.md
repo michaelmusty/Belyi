@@ -4,6 +4,8 @@ Companion notes for `Code/genus4.m` and for the changes it required in
 `Code/belyi_main.m`, `Code/recognition.m`, `Code/hackobj.m` and `Code/spec`.
 Read `Doc/genus3-nonhyperelliptic.md` first: the genus-4 code is that
 construction one dimension up, and only what differs is recorded here.
+The decisions behind it, with the alternatives and the measurements, are
+in `Doc/adr-genus4.md`.
 
 ## What was added
 
@@ -13,13 +15,12 @@ construction one dimension up, and only what differs is recorded here.
 | `Code/spec` | lists `genus4.m` |
 | `Code/hackobj.m` | attributes `TriangleIsGenus4Canonical`, `TriangleGenus4FormDegree` |
 | `Code/belyi_main.m` | genus 4 non-hyperelliptic branch after the genus-3 one; the refusal moves to genus `> 4` |
-| `Code/recognition.m` | `TriangleRecognizeAlgebraicCoefficients` and `TriangleMakeBelyiMap` widened; the former gains a fallback from the passport-size `DegreeBound` down to `Q` |
+| `Code/recognition.m` | `TriangleRecognizeAlgebraicCoefficients` and `TriangleMakeBelyiMap` widened; the former gains a fallback from the passport-size `DegreeBound` down to `Q`; `TriangleRescaleCoefficients` gains `rescale_ind := "Centred"` |
 | `Tests/test_genus4_hyp_9T1.m` | genus 4 but HYPERELLIPTIC: checks the dispatch does *not* take this branch |
 | `Tests/test_genus4_nonhyp_9T25.m` | 9T25-[9,9,9], over `Q`, trivial `Aut`; exercises the `DegreeBound` fallback |
 | `Tests/test_genus4_nonhyp_9T6.m` | 9T6-[9,9,9], over `Q(sqrt(-3))`, `Aut` of order 3: the weight-gcd branch |
 | `Tests/test_genus4_nonhyp_9T27.m` | 9T27-[9,9,9], over `Q`, `prec := 60` |
-| `Tests/test_genus4_nonhyp_9T32.m` | 9T32-[9,9,9], passport size 48, `prec := 100`; `RUNSLOW` only |
-| `Tests/run_tests.sh` | runs 9T1, 9T25 and 9T6 in the fast group; 9T27 and 9T32 under `RUNSLOW` |
+| `Tests/run_tests.sh` | runs 9T1, 9T25 and 9T6 in the fast group; 9T27 under `RUNSLOW` |
 
 The test triples and the precisions come from the degree-9 genus-4 work in
 `M23-recompute` (`pass9.m`, `belyi_9T25.m` and its siblings), where each of
@@ -49,27 +50,56 @@ these maps was first computed and its ramification verified.
   `6d - N - 3`.  `dim I_d = Binom(d+1,3) + Binom(d,3) - Binom(d-2,3)` is 5
   already at `d = 3`; both halves of every kernel vector are reduced modulo
   it **before** echelonizing.
-- **The solution space is forced to dimension 1**, exactly as in genus 3:
-  require `ord_P(B) >= j` and walk `j`, starting from `6d - N - 4`, until the
-  reduced, echelonized space has one row.  Nothing is chosen.  (The genus-4
-  reference scripts in `M23-recompute` took an RREF row of the
-  `(6d - N - 3)`-dimensional space instead, and got away with it only
-  because the degree-9 heights are at most ~9; on M23 that choice produced a
-  ~408-digit representative of a ~130-digit map.  `M23-recompute`'s
-  `SPEC-genus4.md`, revision of 2026-11-11, records the decision.)
-- `TriangleGenus4NumericalCoefficients` takes `Representative := "Tuned"`
-  (the default, above) or `"RREFRow"`: impose no vanishing at `P`, reduce
-  the whole solution space modulo `I_d`, RREF, take the first row whose
-  `B`-part survives.  The latter is the reference scripts' method and the
-  documented fallback; which representative has the smaller height is an
-  empirical question per passport, and the sanity check is the referee for
-  either.
+- **The representative of `(A, B)`.**  `TriangleGenus4NumericalCoefficients`
+  takes `Representative := "Tuned"` (the default): require `ord_P(B) >= j`
+  and walk `j` until the reduced, echelonized space has one row, so that
+  nothing is chosen -- the genus-3 construction.  Or `"RREFRow"`: impose no
+  vanishing at `P`, reduce the whole `(6d - N - 3)`-dimensional solution
+  space modulo `I_d`, RREF it in monomial coordinates, take the first row
+  whose `B`-part survives -- the reference scripts' method.  Every element
+  of that space gives the same map with a different height, and neither
+  rule picks a small one: both pick a corner of the space decided by
+  something unrelated to height (a vanishing order, or which monomials are
+  pivots), so which corner is smaller is an accident of the passport.  The
+  default was decided by measurement across every example we have, all
+  with the centred pivot, every map verified by `BelyiMapSanityCheck`;
+  "height" is the most digits in any numerator or denominator of the
+  answer.
+
+  | case | prec | tuned | RREF row |
+  |---|---|---|---|
+  | genus 3, KMSV 5.27, degree 7 | 40 | 7, passes | 9, passes |
+  | genus 3, degree 8 cyclic, one cycle | 50 | 1, passes | rescaler error: no constant term |
+  | genus 3, degree 8 cyclic, two cycles | 50 | 2, passes | rescaler error: no constant term |
+  | genus 3, 9T27-[9,9,3] | 60 | 9, passes | 18, fails |
+  | genus 3, 9T27-[9,9,3] | 40 | 9, passes | not measured |
+  | genus 4, 9T25 | 40 | 9, passes | hung in the divisor check |
+  | genus 4, 9T25 | 60 | not run | 23, hung in the divisor check |
+  | genus 4, 9T6 | 40 | 1, passes | not run |
+  | genus 4, 9T27 | 60 | 17, fails | 12, passes |
+  | genus 4, 9T27 | 80 | 17, passes | 12 |
+
+  Tuned passed every case at some precision with a worst case of 17; the
+  RREF row won once, on the genus-4 9T27 by five digits, and lost or broke
+  everywhere else, with a worst case of 23.  So tuned is the default in
+  both genera, and the genus-4 9T27 test runs at prec 80.  A second effect
+  is folded into these numbers: `lambda` is read from the map's
+  coefficients, so changing the representative changes `lambda` by an
+  algebraic factor that multiplies into the curve too (on 9T25 the cubic
+  went from 9 to 20 digits when only the representative changed).  The
+  principled fix would be to recognize a basis of the whole solution space
+  over `K` and LLL-reduce it for a genuinely short element; not done.  The
+  sanity check is the referee for either option.
 - The curve has **two groups**, each defined up to its own scalar.
   `TriangleRescaleCoefficients` divides the whole curve list by one pivot,
   which normalizes the quadric; the cubic is then divided by a pivot of its
   own.
 - **Pivots are centred on the weight range** (`Pivot := "Centred"`, the
-  default), not the constant term (`"LastNonzero"`, the genus-3 convention).
+  default, which passes `rescale_ind := "Centred"` to
+  `TriangleRescaleCoefficients`; `"LastNonzero"` is the old constant-term
+  convention).  The rescaler is handed the quadric alone as the curve, and
+  the cubic is rescaled by the same `lambda` and normalized by its own
+  centred pivot afterwards.
   After the torus is undone each coefficient is the ratio to its group's
   pivot times an algebraic factor raised to the weight offset from the
   pivot, so the height grows with that offset, and an extreme pivot roughly
@@ -120,12 +150,15 @@ committed, through `BelyiMap` and its `BelyiMapSanityCheck`:
 | 9T1 (hyperelliptic path) | 40 | Q | 153 s |
 | 9T25 | 40 | Q | 107 s |
 | 9T6 | 40 | Q(sqrt(-3)) | 110 s |
-| 9T27 | 80 | Q | 689 s |
+| 9T27 | 80 | Q | 369 s in the suite, 689 s under load |
 
 9T27 is gated behind `RUNSLOW` because its 369 s outweighed the rest of the
 suite; 9T1 stays in the fast group because it is the only hyperelliptic
-genus-4 test.  9T32 was not run here (prec 100, minutes for the series
-alone) and is gated behind `RUNSLOW`.
+genus-4 test.  9T32 (passport size 48, over `Q(sqrt(-3))`, prec 100 in the
+reference computation, where its heights were at most 20) has no test: at
+prec 100 the series stage alone would take a quarter of an hour or more,
+too slow to be a useful test even under `RUNSLOW`.  9T33 (passport size
+837) is out of reach.
 
 ## Known limitations
 

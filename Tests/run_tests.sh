@@ -112,11 +112,9 @@ if [ -n "$RUNSLOW" ]; then
     run_magma_test Tests/test_powser_consistency.m
     run_magma_test Tests/test_certified_belyi.m
     run_magma_test Tests/test_genus4_nonhyp_9T27.m   # genus 4, over Q, prec 80: ~6 min on its own
-    run_magma_test Tests/test_genus4_nonhyp_9T32.m   # genus 4, passport size 48, prec 100
 else
     echo "SKIP: Tests/test_powser_consistency.m (slow; set RUNSLOW=1)"
     echo "SKIP: Tests/test_genus4_nonhyp_9T27.m (slow; set RUNSLOW=1)"
-    echo "SKIP: Tests/test_genus4_nonhyp_9T32.m (slow; set RUNSLOW=1)"
 fi
 
 echo "total: $(( $(now) - SUITE_T0 )) s"

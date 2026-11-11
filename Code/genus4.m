@@ -61,8 +61,7 @@
 
 import "genuszero.m" : RemoveLeadingZeros;
 import "genus3nonhyperelliptic.m" : G3NonHypZeroify, G3NonHypRREF,
-    G3NonHypColumnsAvailable, G3NonHypSeriesKernel, G3NonHypConditionNullSpace,
-    NonHypCentralPivot;
+    G3NonHypColumnsAvailable, G3NonHypSeriesKernel, G3NonHypConditionNullSpace;
 
 // --------------------------------------------------------------------------
 // local helpers
@@ -317,12 +316,21 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
    Genus4Monomials(d); those of the curve by Genus4Monomials(2) followed by
    Genus4Monomials(3).
 
-   Representative := "Tuned" (the default) is that construction.
-   Representative := "RREFRow" is the documented fallback: impose no
-   vanishing at P, reduce the whole (6d - N - 3)-dimensional solution space
-   modulo I_d, RREF it in monomial coordinates and take the first row whose
-   B-part survives -- the method of the degree-9 reference scripts, which
-   can give a representative of smaller height than the tuned one.
+   Representative := "Tuned" (the default) is the construction above, the
+   same as in genus 3.  Representative := "RREFRow" imposes no vanishing at
+   P, reduces the whole (6d - N - 3)-dimensional solution space modulo I_d,
+   RREFs it in monomial coordinates and takes the first row whose B-part
+   survives -- the method of the degree-9 reference scripts.  Neither rule
+   picks a SMALL element of that space (both pick a corner of it decided by
+   something unrelated to height), and which corner is smaller varies by
+   passport; the default is the one with the smaller worst case.  Measured
+   with the centred pivot, every map verified by BelyiMapSanityCheck,
+   height = most digits in any numerator or denominator (Doc/genus4.md):
+
+       9T25  prec 40   tuned  9, passes      RREF row 23, fails (at 60 too)
+       9T6   prec 40   tuned  1, passes      RREF row not run
+       9T27  prec 60   tuned 17, fails       RREF row 12, passes
+       9T27  prec 80   tuned 17, passes      RREF row 12
 
    Pivot := "Centred" (the default) normalizes each group -- quadric, cubic,
    A, B -- by a coefficient whose weight is central in that group's range,
@@ -562,31 +570,45 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
   //    normalize by.  For the curve that is a coefficient of the QUADRIC;
   //    the cubic, which carries its own scalar, is renormalized afterwards.
   // ------------------------------------------------------------------
+  // The rescaler divides the whole curve list by ONE pivot, so hand it the
+  // quadric alone as the curve: the cubic, which carries its own scalar, is
+  // rescaled by lambda and normalized by its own pivot afterwards.  The
+  // pivot choice itself is TriangleRescaleCoefficients' business.
   qpart := curve_coeffs[1..nq];
-  cpart0 := curve_coeffs[nq+1..nq+nc3];
+  qvals := curve_vals[1..nq];
+  cpart := curve_coeffs[nq+1..nq+nc3];
+  cvals := curve_vals[nq+1..nq+nc3];
   if Pivot eq "Centred" then
-    rinds := [NonHypCentralPivot(qpart, curve_vals[1..nq], prec),
-              NonHypCentralPivot(num_coeffs, num_vals, prec),
-              NonHypCentralPivot(denom_coeffs, denom_vals, prec)];
-    cind := NonHypCentralPivot(cpart0, curve_vals[nq+1..nq+nc3], prec);
+    rinds := "Centred";
   else
     rinds := [G4LastNonzero(qpart), G4LastNonzero(num_coeffs), G4LastNonzero(denom_coeffs)];
-    cind := G4LastNonzero(cpart0);
+    error if rinds[1] lt 1, "the quadric is numerically zero; raise prec";
+    error if rinds[2] lt 1, "the numerator A is numerically zero; raise prec";
+    error if rinds[3] lt 1, "the denominator B is numerically zero; raise prec";
   end if;
-  error if rinds[1] lt 1, "the quadric is numerically zero; raise prec";
-  error if rinds[2] lt 1, "the numerator A is numerically zero; raise prec";
-  error if rinds[3] lt 1, "the denominator B is numerically zero; raise prec";
-  error if cind lt 1, "the cubic is numerically zero; raise prec";
-  vprintf Shimura : "normalizing pivots (%o): quadric %o, cubic %o, A %o, B %o\n",
-      Pivot, mons2[rinds[1]], mons3[cind], mons[rinds[2]], mons[rinds[3]];
 
-  lambda, curve_coeffs, lc, num_coeffs, denom_coeffs :=
-      TriangleRescaleCoefficients(Gamma, [curve_coeffs, num_coeffs, denom_coeffs],
-                                         [curve_vals, num_vals, denom_vals] :
+  lambda, qpart, lc, num_coeffs, denom_coeffs :=
+      TriangleRescaleCoefficients(Gamma, [qpart, num_coeffs, denom_coeffs],
+                                         [qvals, num_vals, denom_vals] :
                                   rescale_ind := rinds);
-  cpart := curve_coeffs[nq+1..nq+nc3];
+  // the cubic, by hand: same lambda, its own pivot (centred, or last nonzero)
+  cpart := [cpart[i]*lambda^(cvals[i]) : i in [1..nc3]];
+  cpart := G3NonHypZeroify(cpart, prec);
+  if Pivot eq "Centred" then
+    cmx := Max([Abs(c) : c in cpart]);
+    cnz := [i : i in [1..nc3] | Abs(cpart[i]) gt cmx*10^(-(prec div 2))];
+    error if #cnz eq 0, "the cubic is numerically zero; raise prec";
+    cmid := (Min([cvals[i] : i in cnz]) + Max([cvals[i] : i in cnz]))/2;
+    cind := cnz[1];
+    for i in cnz do
+      if Abs(cvals[i] - cmid) lt Abs(cvals[cind] - cmid) then cind := i; end if;
+    end for;
+  else
+    cind := G4LastNonzero(cpart);
+    error if cind lt 1, "the cubic is numerically zero; raise prec";
+  end if;
   cpart := [c/cpart[cind] : c in cpart];
-  curve_coeffs := curve_coeffs[1..nq] cat cpart;
+  curve_coeffs := qpart cat cpart;
 
   // ------------------------------------------------------------------
   // 8. write numerical attributes

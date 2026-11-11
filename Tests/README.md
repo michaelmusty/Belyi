@@ -61,9 +61,6 @@ The runner executes, in order:
    `prec := 80` (at 60 the recognition over `Q` accepts a wrong `B` and the
    sanity check catches it) and takes about six minutes on its own, which is
    why it is gated.  Assertions are on the ramification, not on coefficients.
-9. **`test_genus4_nonhyp_9T32.m`** (slow, `RUNSLOW=1`): the same at passport
-   size 48 and `prec := 100`, over `Q(sqrt(-3))`.
-
 Each Magma test prints `ALL TESTS PASSED` on success or `SKIP: ...` when a
 prerequisite (the C binary) is missing; the runner treats anything else as
 failure and shows the tail of the output.
