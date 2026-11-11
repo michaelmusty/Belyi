@@ -111,7 +111,15 @@ declare attributes GrpPSL2Tri:  // = Gamma, a Fuchsian group
   MISC
   */
   TriangleNewtonHyperellipticLeadingCoefficient,
-  TriangleIsHyperelliptic; // Is Gamma hyperelliptic? (with genus gt 2)
+  TriangleIsHyperelliptic,
+                    // Is Gamma hyperelliptic? (with genus gt 2)
+  TriangleIsGenus3NonHyperelliptic,
+                    // Is Gamma of genus 3 and NOT hyperelliptic?  Then the
+                    // canonical model is a smooth plane quartic; see
+                    // genus3nonhyperelliptic.m
+  TriangleGenus3NonHyperellipticDegree;
+                    // d, the common degree of the plane forms A and B with
+                    // phi = -A/B, in the genus 3 non-hyperelliptic case
 
 
 

@@ -206,8 +206,20 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
       Gamma := TriangleHyperellipticNumericalCoefficients(Sk, Gamma : curve_coeffs := curve_coeffs, curve_vals := curve_vals);
       TriangleRecognizeAlgebraicCoefficients(Gamma : DegreeBound := m0);
       TriangleMakeBelyiMap(Gamma);
+    elif Genus(Gamma) eq 3 then
+      // genus 3 and NOT hyperelliptic: the canonical model is a smooth plane
+      // quartic.  The hyperelliptic test above is what decides between this
+      // branch and the one above, and it is what assigns
+      // Gamma`TriangleIsHyperelliptic := false.
+      vprint Shimura : "Not hyperelliptic; genus 3, so looking for the canonical plane quartic...";
+      nonhyp_bool, curve_coeffs, curve_vals := TriangleGenus3NonHyperellipticTest(Sk, Gamma);
+      error if not nonhyp_bool,
+          "genus 3 and not hyperelliptic, but the canonical plane quartic was not found: raise prec";
+      Gamma := TriangleGenus3NonHyperellipticNumericalCoefficients(Sk, Gamma : curve_coeffs := curve_coeffs, curve_vals := curve_vals);
+      TriangleRecognizeAlgebraicCoefficients(Gamma : DegreeBound := m0);
+      TriangleMakeBelyiMap(Gamma);
     else
-      error "not implemented for nonhyperelliptic genus > 2.";
+      error "not implemented for nonhyperelliptic genus > 3.";
     end if;
   end if;
 

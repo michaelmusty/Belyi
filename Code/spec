@@ -10,6 +10,7 @@
   euclidean-belyi-helper.m
   extract.m
   galoisorbits.m
+  genus3nonhyperelliptic.m
   genuszero.m
   genusone.m
   GrpPSL2_overrides.m

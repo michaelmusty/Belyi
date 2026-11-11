@@ -3,12 +3,32 @@
 // TODO: Make sure TriangleRescaleCoefficients works for genus one.
 // Once it does, delete previous rescaling functions
 intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2Tri, coeffs::SeqEnum, vals::SeqEnum : rescale_ind := 0) -> Any
-  {Given a GrpPSL2Tri Gamma, and SeqEnums coeffs and vals, return the rescaling factor lamba, as well as the rescaled coefficients.  coeffs should be of the form [curve_coeffs, num_coeffs, denom_coeffs], and vals [curve_vals, num_vals, denom_vals]}
+  {Given a GrpPSL2Tri Gamma, and SeqEnums coeffs and vals, return the rescaling factor lamba, as well as the rescaled coefficients.  coeffs should be of the form [curve_coeffs, num_coeffs, denom_coeffs], and vals [curve_vals, num_vals, denom_vals].
+
+   NOTE that lambda is built from num_coeffs cat denom_coeffs ALONE; the curve is merely rescaled by it afterwards.  That is deliberate and load bearing.  Lambda only has to track the torus, so it may be read from any group -- but it MUST be read from one whose weight gcd is 1, since from a group of gcd > 1 the coefficients at offsets not divisible by the gcd need a root of lambda and leave K entirely.  The map's weights are usually consecutive while the curve's need not be: the KMSV plane quartic of genus 3, for instance, is even in its second coordinate, so all of its weights are even.
+
+   rescale_ind names, for each of curve/num/denom, the index of the coefficient to normalize that list by.  Leave it 0 -- the default -- to normalize by the FINAL entry of each list, which is what genus 1, genus 2 and the hyperelliptic path have always done and what their monomial orderings assume.  Pass [i_curve, i_num, i_denom] to name the indices explicitly, with an entry 0 meaning "the final entry of that list"; a caller whose final coefficient may vanish should pass the index of one that does not.}
   g := Genus(Gamma);
   prec := Gamma`TriangleNumericalPrecision;
   eps := 10^(-prec/2);
   curve_coeffs, num_coeffs, denom_coeffs := Explode(coeffs);
   curve_vals, num_vals, denom_vals := Explode(vals);
+  // which coefficient of each list to normalize that list by.  The default 0
+  // reproduces the historical behaviour exactly -- the final entry of each
+  // list -- so existing callers are unchanged.
+  lens := [#curve_coeffs, #num_coeffs, #denom_coeffs];
+  if rescale_ind cmpeq 0 then
+    rinds := lens;
+  else
+    require Type(rescale_ind) eq SeqEnum and #rescale_ind eq 3 :
+        "rescale_ind should be 0, or a sequence [i_curve, i_num, i_denom]";
+    rinds := [];
+    for i in [1..3] do
+      Append(~rinds, rescale_ind[i] eq 0 select lens[i] else rescale_ind[i]);
+    end for;
+    require &and[(rinds[i] ge 1) and (rinds[i] le lens[i]) : i in [1..3]] :
+        "rescale_ind is out of range for one of curve, numerator, denominator";
+  end if;
   // find valuations corresponding to nonzero coeffs
   nonzero_inds := [];
   nonzero_vals := [];
@@ -24,21 +44,32 @@ intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2Tri, coeffs::SeqEnum, vals::
   // compute rescaling factor lambda
   // TODO: deal with automorphisms...maybe dealt with: needs testing
   aut := #AutomorphismGroup(Gamma);
+  error if #nonzero_vals eq 0,
+      "Unable to create rescaling factor! Every numerator and denominator coefficient is numerically zero.";
   gcd, wts := Xgcd(nonzero_vals);
   // should gcd = aut? (no 09/19/17, well maybe)
   // assert gcd eq aut;
-  print nonzero_inds;
-  print gcd;
-  print wts;
+  if gcd gt 1 then
+    // lambda^(1/gcd) below is determined only up to a gcd-th root of unity.
+    // We do not resolve the branch here; it is settled downstream by
+    // BelyiMapSanityCheck, which is what certifies the answer anyway.  (The
+    // commented-out assertion just above suggests the ambiguity is the
+    // automorphism group; it is left commented.)
+    vprintf Shimura : "WARNING: weight gcd is %o, so lambda^(1/%o) is determined only up to a %o-th root of unity; the branch is resolved downstream by BelyiMapSanityCheck.\n", gcd, gcd, gcd;
+  end if;
+  vprintf Shimura : "nonzero_inds = %o\ngcd = %o\nwts = %o\n", nonzero_inds, gcd, wts;
   wts_sum := &+[wts[i] : i in [1..#wts]];
   lambda := &*[all_coeffs[nonzero_inds[i]]^wts[i] : i in [1..#nonzero_inds]];
   if wts_sum ne 0 then
     if 0 in nonzero_vals then
       ind := Index(nonzero_vals,0);
       lambda := lambda*all_coeffs[nonzero_inds[ind]]^(-wts_sum);
-      wts[ind] +:= -wts_sum; // FIXME maybe
+      wts[ind] +:= -wts_sum; // FIXME maybe -- no test currently reaches this line
     else
-      error "Unable to create rescaling factor! No nonzero coefficients for weight zero :(";
+      // lambda is read from num cat denom alone, so it is one of THOSE two
+      // that lacks a weight-zero coefficient; the curve is not consulted.
+      // Affine input supplies it as the constant term.
+      error Sprintf("Unable to create rescaling factor! No nonzero coefficient of weight zero in the numerator or the denominator (the curve is not consulted for lambda).  Numerator weights: %o.  Denominator weights: %o.", num_vals, denom_vals);
     end if;
   end if;
   lambda := lambda^(1/gcd);
@@ -49,15 +80,24 @@ intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2Tri, coeffs::SeqEnum, vals::
   for i in [1..#curve_coeffs] do
     curve_coeffs[i] := curve_coeffs[i]*(lambda^curve_vals[i]);
   end for;
-  curve_coeffs := [curve_coeffs[i]/curve_coeffs[#curve_coeffs] : i in [1..#curve_coeffs]];
+  curve_pivot := curve_coeffs[rinds[1]];
+  error if curve_pivot eq 0,
+      Sprintf("cannot normalize the curve by coefficient %o: it is zero (pass rescale_ind to name another)", rinds[1]);
+  curve_coeffs := [curve_coeffs[i]/curve_pivot : i in [1..#curve_coeffs]];
   for i in [1..#num_coeffs] do
     num_coeffs[i] := num_coeffs[i]*(lambda^num_vals[i]);
   end for;
   for i in [1..#denom_coeffs] do
     denom_coeffs[i] := denom_coeffs[i]*(lambda^denom_vals[i]);
   end for;
-  lc_num := num_coeffs[#num_coeffs];
-  lc_den := denom_coeffs[#denom_coeffs];
+  lc_num := num_coeffs[rinds[2]];
+  lc_den := denom_coeffs[rinds[3]];
+  error if lc_num eq 0,
+      Sprintf("cannot normalize the numerator by coefficient %o: it is zero (pass rescale_ind to name another)", rinds[2]);
+  error if lc_den eq 0,
+      Sprintf("cannot normalize the denominator by coefficient %o: it is zero (pass rescale_ind to name another)", rinds[3]);
+  // lc = lc_num/lc_den and the two lists are divided by lc_num and lc_den, so
+  // lc*(num/denom) is the original ratio whatever indices were chosen
   lc := lc_num/lc_den;
   for i in [1..#denom_coeffs] do
     denom_coeffs[i] := denom_coeffs[i]/lc_den;
@@ -591,7 +631,14 @@ intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2Tri : DegreeBound
     Gamma`TriangleExactBelyiMapNumeratorCoefficients := num_coeffs;
     Gamma`TriangleExactBelyiMapDenominatorCoefficients := denom_coeffs;
     return Sprintf("Algebraic coefficients recognized and assigned for %o\n", Gamma);
-  elif ((Genus(Gamma) eq 2) or (Gamma`TriangleIsHyperelliptic)) then
+  // the body below is generic: it recognizes curve_coeffs cat denom_coeffs cat
+  // num_coeffs without caring what they mean, so the genus 3 non-hyperelliptic
+  // case (genus3nonhyperelliptic.m) uses it unchanged.  Magma errors on
+  // READING an unassigned attribute, so each attribute is guarded -- for
+  // genus 2 the first disjunct short circuits before either is touched.
+  elif ((Genus(Gamma) eq 2)
+        or (assigned Gamma`TriangleIsHyperelliptic and Gamma`TriangleIsHyperelliptic)
+        or (assigned Gamma`TriangleIsGenus3NonHyperelliptic and Gamma`TriangleIsGenus3NonHyperelliptic)) then
     vprint Shimura : "Looking for coefficient to recognize number field...";
     Kbool := false;
     curve_coeffs := Gamma`TriangleNumericalCurveCoefficients;
@@ -681,7 +728,7 @@ intrinsic TriangleMakeBelyiMap(Gamma::GrpPSL2Tri) -> Any
       print X, phi;
       error "FAILED SANITY CHECK!";
     end if;
-  elif ((genus eq 2) or (Gamma`TriangleIsHyperelliptic)) then
+  elif ((genus eq 2) or (assigned Gamma`TriangleIsHyperelliptic and Gamma`TriangleIsHyperelliptic)) then
     g := genus;
     // lc := leading_coeff[1];
     lc := leading_coeff; // this should be a number
@@ -715,6 +762,58 @@ intrinsic TriangleMakeBelyiMap(Gamma::GrpPSL2Tri) -> Any
       phiX_num := phiX_num - (KX!num_coeffs[i])*num_basis[i];
     end for;
     phi := (KX!lc)*phiX_num/phiX_denom;
+    sane := BelyiMapSanityCheck(Gamma`TriangleSigma, X, phi);
+    Gamma`TriangleBelyiMap := phi; // before error for debugging
+    if not sane then
+      print X, phi;
+      error "FAILED SANITY CHECK!";
+    end if;
+  elif (assigned Gamma`TriangleIsGenus3NonHyperelliptic and Gamma`TriangleIsGenus3NonHyperelliptic) then
+    // Genus 3, not hyperelliptic: the canonical model is a smooth plane
+    // quartic in P^2 with coordinates the echelonized basis f_1, f_2, f_3 of
+    // S_2(Gamma), and the affine coordinates on the patch f_3 <> 0 are
+    // x = f_1/f_3, y = f_2/f_3.  Everything is indexed by
+    // Genus3NonHyperellipticMonomials (genus3nonhyperelliptic.m), which is
+    // where that ordering is defined and where the numerical coefficients
+    // were produced.
+    lc := leading_coeff;   // a number, as in the hyperelliptic branch above
+    dq := Gamma`TriangleGenus3NonHyperellipticDegree;
+    qmons := Genus3NonHyperellipticMonomials(4);
+    error if #curve_coeffs ne #qmons,
+        Sprintf("expected %o quartic coefficients, got %o", #qmons, #curve_coeffs);
+    // names deliberately unlike x, y, g, u, v, t: a polynomial ring with a
+    // generator named g would silently rebind the genus, and Genus(X) eq g
+    // would then compare against a ring generator while printing correctly
+    PPq<uq0,uq1,uq2> := ProjectiveSpace(K, 2);
+    // homogenize x^a*y^b as uq0^a*uq1^b*uq2^(4-a-b), so that uq0/uq2 = x and
+    // uq1/uq2 = y: FunctionField's generators are the affine coordinates on
+    // the patch where the LAST variable is 1
+    Qq := &+[curve_coeffs[i]*uq0^(qmons[i][1])*uq1^(qmons[i][2])*uq2^(4-qmons[i][1]-qmons[i][2])
+             : i in [1..#qmons]];
+    X := Curve(PPq, Qq);
+    error if not IsNonsingular(X),
+        "the recovered plane quartic is singular; raise prec";
+    gX := Genus(X);
+    error if gX ne 3,
+        Sprintf("the recovered plane quartic has genus %o, not 3; raise prec", gX);
+    Gamma`TriangleBelyiCurve := X;
+    vprintf Shimura : "Assigned plane quartic to Gamma\n";
+    KXq<xq,yq> := FunctionField(X);
+    qdmons := Genus3NonHyperellipticMonomials(dq);
+    error if #num_coeffs ne #qdmons or #denom_coeffs ne #qdmons,
+        Sprintf("expected %o numerator and denominator coefficients, got %o and %o",
+                #qdmons, #num_coeffs, #denom_coeffs);
+    // same sign convention as above: the numerator is accumulated with a
+    // MINUS and lc multiplies the whole ratio, so that phi = lc*(-A)/B
+    phiX_denom := KXq!0;
+    for i in [1..#denom_coeffs] do
+      phiX_denom := phiX_denom + (KXq!denom_coeffs[i])*xq^(qdmons[i][1])*yq^(qdmons[i][2]);
+    end for;
+    phiX_num := KXq!0;
+    for i in [1..#num_coeffs] do
+      phiX_num := phiX_num - (KXq!num_coeffs[i])*xq^(qdmons[i][1])*yq^(qdmons[i][2]);
+    end for;
+    phi := (KXq!lc)*phiX_num/phiX_denom;
     sane := BelyiMapSanityCheck(Gamma`TriangleSigma, X, phi);
     Gamma`TriangleBelyiMap := phi; // before error for debugging
     if not sane then
