@@ -638,7 +638,8 @@ intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2Tri : DegreeBound
   // genus 2 the first disjunct short circuits before either is touched.
   elif ((Genus(Gamma) eq 2)
         or (assigned Gamma`TriangleIsHyperelliptic and Gamma`TriangleIsHyperelliptic)
-        or (assigned Gamma`TriangleIsGenus3NonHyperelliptic and Gamma`TriangleIsGenus3NonHyperelliptic)) then
+        or (assigned Gamma`TriangleIsGenus3NonHyperelliptic and Gamma`TriangleIsGenus3NonHyperelliptic)
+        or (assigned Gamma`TriangleIsGenus4Canonical and Gamma`TriangleIsGenus4Canonical)) then
     vprint Shimura : "Looking for coefficient to recognize number field...";
     Kbool := false;
     curve_coeffs := Gamma`TriangleNumericalCurveCoefficients;
@@ -657,6 +658,60 @@ intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2Tri : DegreeBound
       vprintf Shimura: "coefficients are %o\n", cfs_ind;
       Kbool, K, v, conj, uCC := MakeK(cfs[cfs_ind], DegreeBound);
     end while;
+    // The passport size bounds the degree of the field of definition but need
+    // not equal it: when passport members are related by the S_3 action on
+    // {0, 1, oo} rather than by Galois -- a cyclic cover, say, whose members
+    // differ only in which exponent sits at which branch point -- each is
+    // defined over a smaller field, and MakeK finds no field of the full
+    // degree.  So before giving up, retry with smaller bounds.  Degree 1 is
+    // accepted only when the first few coefficients look rational with SMALL
+    // height, since PowerRelation at degree 1 always returns something.
+    if not Kbool and DegreeBound gt 1 then
+      vprintf Shimura : "MakeK found no field of degree %o; retrying with smaller degree bounds\n", DegreeBound;
+      // Q first, since it is cheap to test and the common case: every
+      // coefficient must be real to working precision and the first few
+      // nonzero ones must satisfy a degree-1 relation of SMALL height
+      // (PowerRelation at degree 1 always returns something, so the height is
+      // the discriminator: a genuine rational of height h at precision p has
+      // h << 10^(p/2), a spurious fit has h ~ 10^(p/2)).
+      CCu := Parent(cfs[1]);
+      precu := Precision(CCu);
+      hgate := 10^(precu div 4);
+      looksrational := true;
+      ntested := 0;
+      for z in cfs do
+        if Abs(z) lt 10^(-precu/2) then
+          continue;
+        end if;
+        if Abs(Imaginary(z)) gt 10^(-precu/2)*Max(RealField(precu)!1, Abs(z)) then
+          looksrational := false;
+          break;
+        end if;
+        rel := PowerRelation(Real(z), 1 : Al := "LLL");
+        if Degree(rel) lt 1 or Max([Abs(c) : c in Coefficients(rel)]) gt hgate then
+          looksrational := false;
+          break;
+        end if;
+        ntested +:= 1;
+        if ntested ge 5 then
+          break;
+        end if;
+      end for;
+      if looksrational and ntested gt 0 then
+        vprintf Shimura : "the coefficients look rational, so taking K = QQ\n";
+        Kbool, K, v, conj, uCC := MakeK(cfs[1], 1);
+      end if;
+      // otherwise a proper field of smaller degree
+      m := DegreeBound - 1;
+      while not Kbool and m ge 2 do
+        cfs_ind := 0;
+        while not Kbool and cfs_ind lt #cfs do
+          cfs_ind +:= 1;
+          Kbool, K, v, conj, uCC := MakeK(cfs[cfs_ind], m);
+        end while;
+        m -:= 1;
+      end while;
+    end if;
     if not Kbool then
       error "Unable to create number field!";
     end if;
@@ -814,6 +869,54 @@ intrinsic TriangleMakeBelyiMap(Gamma::GrpPSL2Tri) -> Any
       phiX_num := phiX_num - (KXq!num_coeffs[i])*xq^(qdmons[i][1])*yq^(qdmons[i][2]);
     end for;
     phi := (KXq!lc)*phiX_num/phiX_denom;
+    sane := BelyiMapSanityCheck(Gamma`TriangleSigma, X, phi);
+    Gamma`TriangleBelyiMap := phi; // before error for debugging
+    if not sane then
+      print X, phi;
+      error "FAILED SANITY CHECK!";
+    end if;
+  elif (assigned Gamma`TriangleIsGenus4Canonical and Gamma`TriangleIsGenus4Canonical) then
+    // Genus 4, not hyperelliptic: the canonical model is a quadric meeting a
+    // cubic in P^3 with coordinates the echelonized basis f_1, ..., f_4 of
+    // S_2(Gamma), and the affine coordinates on the patch f_4 <> 0 are
+    // x = f_1/f_4, y = f_2/f_4, z = f_3/f_4.  Everything is indexed by
+    // Genus4Monomials (genus4.m), where the numerical coefficients were
+    // produced: the curve list is Genus4Monomials(2) cat Genus4Monomials(3).
+    lc := leading_coeff;
+    dq := Gamma`TriangleGenus4FormDegree;
+    mons2 := Genus4Monomials(2);
+    mons3 := Genus4Monomials(3);
+    error if #curve_coeffs ne #mons2 + #mons3,
+        Sprintf("expected %o curve coefficients, got %o", #mons2 + #mons3, #curve_coeffs);
+    // names deliberately unlike x, y, z, g, u, v, t: a ring generator named
+    // g would silently rebind the genus
+    PPq<uq0,uq1,uq2,uq3> := ProjectiveSpace(K, 3);
+    // homogenize x^a y^b z^c as uq0^a uq1^b uq2^c uq3^(deg-a-b-c), so that
+    // uq0/uq3 = x, uq1/uq3 = y, uq2/uq3 = z
+    Hom := func<cfs, mons, deg | &+[cfs[i]*uq0^(mons[i][1])*uq1^(mons[i][2])*uq2^(mons[i][3])*uq3^(deg-mons[i][1]-mons[i][2]-mons[i][3])
+                                     : i in [1..#mons]]>;
+    Qq := Hom(curve_coeffs[1..#mons2], mons2, 2);
+    Cq := Hom(curve_coeffs[#mons2+1..#mons2+#mons3], mons3, 3);
+    X := Curve(PPq, [Qq, Cq]);
+    error if not IsNonsingular(X),
+        "the recovered quadric-and-cubic model is singular; raise prec";
+    gX := Genus(X);
+    error if gX ne 4,
+        Sprintf("the recovered quadric-and-cubic model has genus %o, not 4; raise prec", gX);
+    Gamma`TriangleBelyiCurve := X;
+    vprintf Shimura : "Assigned quadric-and-cubic model to Gamma\n";
+    KXq := FunctionField(X);
+    qdmons := Genus4Monomials(dq);
+    error if #num_coeffs ne #qdmons or #denom_coeffs ne #qdmons,
+        Sprintf("expected %o numerator and denominator coefficients, got %o and %o",
+                #qdmons, #num_coeffs, #denom_coeffs);
+    // A and B as forms of the same degree; the ratio of two forms of equal
+    // degree coerces into the function field of a curve in P^3, which is the
+    // idiom that works there (M23-recompute/verify_modp.m).  Same sign
+    // convention as above: phi = lc*(-A)/B.
+    Aq := Hom(num_coeffs, qdmons, dq);
+    Bq := Hom(denom_coeffs, qdmons, dq);
+    phi := (KXq!lc)*(KXq!(-Aq/Bq));
     sane := BelyiMapSanityCheck(Gamma`TriangleSigma, X, phi);
     Gamma`TriangleBelyiMap := phi; // before error for debugging
     if not sane then

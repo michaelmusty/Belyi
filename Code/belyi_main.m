@@ -218,8 +218,20 @@ intrinsic BelyiMap(Gamma::GrpPSL2Tri : prec := 0, Al := "Default", ExactAl := "A
       Gamma := TriangleGenus3NonHyperellipticNumericalCoefficients(Sk, Gamma : curve_coeffs := curve_coeffs, curve_vals := curve_vals);
       TriangleRecognizeAlgebraicCoefficients(Gamma : DegreeBound := m0);
       TriangleMakeBelyiMap(Gamma);
+    elif Genus(Gamma) eq 4 then
+      // genus 4 and NOT hyperelliptic: the canonical model is a quadric
+      // meeting a cubic in P^3 (genus4.m).  TriangleGenus4Test also
+      // recognizes the hyperelliptic case on its own -- three quadrics --
+      // but the hyperelliptic test above has already excluded it here.
+      vprint Shimura : "Not hyperelliptic; genus 4, so looking for the canonical quadric and cubic...";
+      g4_bool, curve_coeffs, curve_vals := TriangleGenus4Test(Sk, Gamma);
+      error if not g4_bool,
+          "genus 4 and not hyperelliptic, but the canonical quadric and cubic were not found: raise prec";
+      Gamma := TriangleGenus4NumericalCoefficients(Sk, Gamma : curve_coeffs := curve_coeffs, curve_vals := curve_vals);
+      TriangleRecognizeAlgebraicCoefficients(Gamma : DegreeBound := m0);
+      TriangleMakeBelyiMap(Gamma);
     else
-      error "not implemented for nonhyperelliptic genus > 3.";
+      error "not implemented for nonhyperelliptic genus > 4.";
     end if;
   end if;
 
