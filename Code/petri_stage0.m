@@ -12,7 +12,10 @@
 //          11T5 -- PSL(2,11), passport size 2 (default: both members)
 //          11T6 -- M11, passport size 30 (default: member 1)
 //          11T7 -- A11, passport size 54949 (give members explicitly)
-// members: comma-separated indices into PassportRepresentatives(G : genus := 5)
+// members: comma-separated indices into the passport (PassportRepresentatives(G : genus := genus))
+// genus:   expected genus, default 5 (used only to pick the passport); any dTt works
+// triples: a file "triples := [ [* t, [[Eltseq(s0), Eltseq(s1), Eltseq(soo)], ...] *], ... ];"
+//          to read the passport from instead of recomputing it (e.g. degree 13, genus 6 from a server)
 // prec:    working precision, default 30
 // al:      PowerSeriesBasis algorithm; default CArnoldi if the C solver is found, else Arnoldi
 // skdir:   directory for per-member series checkpoints (reused when present)
@@ -54,12 +57,36 @@ if which eq "11T1" then
     labels := [labels[i] : i in members];
   end if;
 else
-  t := StringToInteger(which[4..#which]);
-  G := TransitiveGroup(11, t);
-  P := PassportRepresentatives(G : genus := 5);
-  error if #P ne 1, Sprintf("%o has %o passports of genus 5, expected exactly 1", which, #P);
-  allsig := P[1][2];
-  printf "%o: order %o, one genus-5 passport of size %o\n", which, #G, #allsig;
+  // which := dTt: degree d and transitive-group index t from the name;
+  // genus := g (default 5); triples := <file> reads the passport from a file
+  // written as "triples := [ [* t, [ [Eltseq(s0), Eltseq(s1), Eltseq(soo)], ... ] *], ... ];"
+  // (the format the degree-11 dump used), so that a long PassportRepresentatives
+  // run on a server need not be repeated here
+  Tpos := Index(which, "T");
+  error if Tpos lt 2, "which should look like 11T6";
+  dd := StringToInteger(which[1..Tpos-1]);
+  t := StringToInteger(which[Tpos+1..#which]);
+  gen := assigned genus select StringToInteger(genus) else 5;
+  Sd := Sym(dd);
+  if assigned triples then
+    // the file is a STATEMENT "triples := [...];", and eval wants an expression:
+    // take what follows the ":=" up to the last "]"
+    txt := Read(triples);
+    i0 := Index(txt, ":=");
+    error if i0 eq 0, "the triples file should contain \"triples := [ ... ];\"";
+    i1 := Max([i : i in [1..#txt] | txt[i] eq "]"]);
+    tr := eval txt[i0+2..i1];
+    blocks := [b : b in tr | b[1] eq t];
+    error if #blocks ne 1, Sprintf("the triples file has %o blocks for %o, expected 1", #blocks, which);
+    allsig := [[Sd | Sd!s : s in sig] : sig in blocks[1][2]];
+    printf "%o: %o triples read from %o\n", which, #allsig, triples;
+  else
+    G := TransitiveGroup(dd, t);
+    P := PassportRepresentatives(G : genus := gen);
+    error if #P ne 1, Sprintf("%o has %o passports of genus %o, expected exactly 1 (write them to a file and pass triples:=)", which, #P, gen);
+    allsig := P[1][2];
+    printf "%o: order %o, one genus-%o passport of size %o\n", which, #G, gen, #allsig;
+  end if;
   if #members eq 0 then
     members := (which eq "11T5") select [1..#allsig] else [1];
   end if;
@@ -70,11 +97,12 @@ end if;
 for k in [1..#sigmas] do
   sigma := sigmas[k];
   printf "\n=== %o ===\n%o\n", labels[k], sigma;
-  error if &*Reverse(sigma) ne Id(S11), "the triple does not multiply to 1";
-  error if not IsTransitive(sub<S11 | sigma>), "the triple is not transitive";
+  Sdeg := Parent(sigma[1]);
+  error if &*Reverse(sigma) ne Id(Sdeg), "the triple does not multiply to 1";
+  error if not IsTransitive(sub<Sdeg | sigma>), "the triple is not transitive";
   Gamma := TriangleSubgroup(sigma);
   gg := Genus(Gamma);
-  error if gg ne 5, Sprintf("expected genus 5, got %o", gg);
+  error if gg lt 5, Sprintf("genus %o: the Petri test is for genus >= 5", gg);
   Gamma`TriangleNumericalPrecision := prec;
   _ := UnitDisc(Gamma : Precision := prec);
 

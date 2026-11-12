@@ -153,8 +153,8 @@ intrinsic TrianglePetriTest(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> MonStgElt, SeqEnu
            otherwise;
            vals2 and vals3, the affine weights of the degree-2 and degree-3
            monomials (valuations of x^m = f^m/f_g^d), in the same orders.
-   Also assigns Gamma`TrianglePetriCase, Gamma`TriangleCanonicalQuadrics and
-   Gamma`TriangleCanonicalCubics.
+   Also assigns Gamma`TrianglePetriCase, Gamma`TriangleNumericalCanonicalQuadrics and
+   Gamma`TriangleNumericalCanonicalCubics.
 
    A wrong kernel dimension is an ERROR, never a verdict: at this point the
    curve is known to be non-hyperelliptic of genus g, so dim I_2 and dim I_3
@@ -319,8 +319,8 @@ intrinsic TrianglePetriTest(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> MonStgElt, SeqEnu
   end if;
 
   Gamma`TrianglePetriCase := petri_case;
-  Gamma`TriangleCanonicalQuadrics := Q;
-  Gamma`TriangleCanonicalCubics := cubics;
+  Gamma`TriangleNumericalCanonicalQuadrics := Q;
+  Gamma`TriangleNumericalCanonicalCubics := cubics;
   vprintf Shimura : "Petri case: %o (%o quadrics, %o cubics)\n", petri_case, #Q, #cubics;
   return petri_case, Q, cubics, vals2, vals3;
 end intrinsic;
