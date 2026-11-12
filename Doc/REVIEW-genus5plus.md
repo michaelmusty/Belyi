@@ -126,8 +126,18 @@ remains: §0 says this spec succeeds `SPEC-genus4.md`, which lives in
 
 ## 3. Open
 
-The Petri class of the 11T5 curve (§8, Stage 0) is still unknown.  It
-needs only `PowerSeriesBasis` at 30 digits plus two numerical kernels.
-§8 now fixes the order of work: write `petri.m` first and use it as the
-Stage-0 computation, with the hyperelliptic test run ahead of it and the
-column counts printed, before `genus-general.m` is started.
+Stage 0 is done (2026-11-11, `Code/petri.m`, `Code/petri_stage0.m`):
+both members of 11T5 are Petri-General, and the §7 controls reproduce
+their closed forms.  Details and timings are in §8 of the spec.
+
+Found and fixed by Stage 0 (2026-11-12): the series stage echelonized
+the solver's vectors with Magma's `EchelonForm`, which pivots on a
+noise-level residue whenever the orders of vanishing at the centre are
+non-generic (11T6: `[0,1,2,3,5]`, a Weierstrass point), scaling the
+basis by `1/eps_thresh`.  Replaced by magnitude-pivoting elimination in
+`powser_iter_arfed.m`.  Diagnosis, with the false trails, in §8 of the
+spec; decisions in `Doc/adr-series-stage-echelonization.md`.  A second, independent fragility surfaced on 11T6 member 2 -- the
+coordinate series `f_i/f_g` converge only out to the nearest other zero
+of `f_g`, and the degree-3 rows then span `10^17` -- fixed by an
+automatic column scaling in `SeriesKernel` (§3a).  11T6 members 1 and 2
+are Petri-General.

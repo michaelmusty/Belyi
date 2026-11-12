@@ -1,6 +1,7 @@
 // ================================================================================
 // Hyperelliptic
 // ================================================================================
+import "serieskernel.m" : SeriesKernel, SeriesColumnsAvailable;
 
 RemoveLeadingZeros := function(f,eps);
   fes := AbsEltseq(f);
@@ -59,6 +60,68 @@ end function;
 
 // should this really be an intrinsic?  Or should we just keep it as a function?
 //function RiemannRochBasisHyperellipticCurveAnalytic(m, x_CC, y_CC, X_CC, Gamma)
+// The hyperelliptic relation, as the numerical kernel of the 3g+6 series
+//   x^i (i <= 2g+2),  x^i y (i <= g+1),  y^2
+// with x = f_1/f_2 and y = dx/omega_g.  A relation among these forces
+// [C(X) : C(x)] = 2, so the kernel has dimension 1 exactly when the curve is
+// hyperelliptic and 0 otherwise, in every genus >= 2.
+//
+// The column window is MEASURED and STRIDED, as in genus3nonhyperelliptic.m
+// (SPEC-genus5plus.md §3a).  It used to be 3g+21 consecutive exponents from
+// 2*val(y): not strided, so for a stabilizer order e > 1 only one column in e
+// was nonzero and a spurious kernel was guaranteed; started at a formula
+// rather than the minimum valuation (at a Weierstrass point x^(2g+2) starts
+// two below y^2); and fed to NumericalKernel unnormalized, where rows of
+// x^(2g+2) and y^2 differ by many orders of magnitude -- which is how it
+// died on 11T6 at genus 5 with "Error in precision in numerical linear
+// algebra".  The count needed is a function of the genus alone (rows plus a
+// margin; rigorously 4g^2 - 3 strided columns); the degree enters only
+// through what the series can supply.
+HypRelationKernel := function(Sk, Gamma, x_CC, y_CC);
+  prec := Precision(BaseRing(Parent(x_CC)));
+  eps := 10^(-prec/2);
+  CC := BaseRing(Parent(x_CC));
+  g := Genus(Gamma);
+  // The echelonized basis must vanish to strictly increasing orders at the
+  // expansion point.  When the series stage's echelonization is numerically
+  // degenerate (seen on 11T6 member 1 at prec 30: a transformation matrix
+  // with entries ~10^23 leaves leading coefficients ~10^-7 in every form,
+  // far above the 10^(-prec/2) threshold that strips leading zeros) every
+  // form reads as order 0, x and y have valuation 0, and the kernel below
+  // collapses.  Catch it here with the numbers, as a precision failure.
+  CCw := Parent(Sk[1][1]);
+  _, kappa := TrianglePhi(ContainingTriangleGroup(Gamma));
+  fvals := [Valuation(RemoveLeadingZeros(Evaluate(Sk[i][1], kappa*CCw.1), eps)) : i in [1..g]];
+  error if #Set(fvals) ne g or fvals ne Sort(fvals),
+      Sprintf("the echelonized basis is numerically degenerate at prec %o: the forms vanish to orders %o at the expansion point, which should be strictly increasing; raise prec", prec, fvals);
+  vprintf Shimura : "\torders of vanishing of the echelonized basis at P: %o\n", fvals;
+  series := [x_CC^i : i in [0..2*g+2]] cat [x_CC^i*y_CC : i in [0..g+1]] cat [y_CC^2];
+  curve_vals := [Valuation(h) : h in series];
+  // the stride: the stabilizer order e = a div s at the expansion point,
+  // exactly as genus3nonhyperelliptic.m and genus4.m compute it
+  sigma := DefiningPermutation(Gamma);
+  aa := DefiningABC(Gamma)[1];
+  s0 := #CycleDecomposition(sigma[1])[1];
+  e := aa div s0;
+  error if e*s0 ne aa,
+      Sprintf("the ramification index %o at the expansion point does not divide a = %o", s0, aa);
+  error if exists{v : v in curve_vals | v mod e ne 0},
+      Sprintf("a series valuation in %o is not divisible by the stabilizer order %o", curve_vals, e);
+  minval := Min(curve_vals);
+  navail := SeriesColumnsAvailable(series, minval, e);
+  wanted := Max(4*#series, #series + 20);
+  ncols := Min(navail, wanted);
+  error if ncols lt #series + 5,
+      Sprintf("not enough terms in the power series basis for the hyperelliptic test: %o strided columns available, %o needed, %o wanted; raise prec",
+              navail, #series + 5, wanted);
+  vprintf Shimura : "\tForming matrix of series coefficients (%o rows, %o columns of %o available, %o wanted, stride %o, from valuation %o)...\n",
+      #series, ncols, navail, wanted, e, minval;
+  vprintf Shimura : "\tComputing numerical kernel...\n";
+  ker := SeriesKernel(series, minval, e, ncols, eps, CC);
+  vprintf Shimura : "\thyperelliptic relation kernel has dimension %o (0: not hyperelliptic; 1: hyperelliptic)\n", #ker;
+  return ker, curve_vals;
+end function;
+
 intrinsic RiemannRochBasisHyperellipticAnalytic(m::RngIntElt, x_CC::RngSerLaurElt, y_CC::RngSerLaurElt, X_CC::Crv, Gamma::GrpPSL2Tri) -> Any
   {input: m integer, X_CC complex curve, x_CC, y_CC power series in w. output: basis for L(m*infty_1)}
   g := Genus(Gamma);
@@ -191,37 +254,22 @@ intrinsic TriangleHyperellipticTest(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> Any
   x_CC := f1/f2;
   y_CC := Derivative(x_CC)/f_g;
   vprint Shimura: "Computing curve...";
-  vprintf Shimura: "\tForming matrix of series coefficients...\n";
-  series := [x_CC^i : i in [0..2*g+2]] cat [x_CC^i*y_CC : i in [0..g+1]] cat [y_CC^2];
-  curve_vals := [Valuation(h) : h in series];
-  // 2*g + 3 + g + 2 + 1 = 3*g + 6 things in series
-  //M := Matrix([[Coefficient(f, i) : i in [2*Valuation(y_CC)..(3*g+5 + 2*Valuation(y_CC))] ] : f in series]);
-  // TODO: How many columns?  The + 10 is a hack.
-  // M := Matrix([[Coefficient(f, i) : i in [2*Valuation(y_CC)..(3*g+5 + 2*Valuation(y_CC)+10)] ] : f in series]);
-  M := Matrix([[Coefficient(f, i) : i in [2*Valuation(y_CC)..(3*g+5 + 2*Valuation(y_CC)+15)] ] : f in series]); // just for one example
-  //do I need to worry about e, the order of the stabilizer?
-  assert Ncols(M) ge Nrows(M);
-  vprintf Shimura: "\tComputing numerical kernel...\n";
-  kerX := NumericalKernel(M : Epsilon := eps);
-  kerX := KSpaceWithBasis(kerX);
-  vprintf Shimura : "Basis of kernel = %o\n", Basis(kerX);
-  if Dimension(kerX) eq 0 then
+  ker, curve_vals := HypRelationKernel(Sk, Gamma, x_CC, y_CC);
+  if #ker eq 0 then
     print "No hyperelliptic relation found!";
     hyp_bool := false;
     Gamma`TriangleIsHyperelliptic := hyp_bool;
     return hyp_bool, _, _;
-  elif Dimension(kerX) eq 1 then
+  elif #ker eq 1 then
     print "Exactly one hyperelliptic relation found!";
     hyp_bool := true;
-    kerX := Basis(kerX);
-    kerX := Eltseq(kerX[1]);
+    kerX := ker[1];
     curve_coeffs := [kerX[i]/kerX[#kerX] : i in [1..#kerX]];
     curve_coeffs := ZeroifyCoeffs(curve_coeffs,eps);
     Gamma`TriangleIsHyperelliptic := hyp_bool;
     return hyp_bool, curve_coeffs, curve_vals;
   else
-    // TODO maybe this should print kernel and dimension?
-    error "Multiple hyperelliptic relations found! Try a higher precision.";
+    error Sprintf("%o hyperelliptic relations found, expected 0 or 1; raise prec", #ker);
   end if;
 end intrinsic;
 
@@ -259,23 +307,10 @@ intrinsic TriangleHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2
   //printf "y_CC = %o\n\n", y_CC; // printing
   if #curve_coeffs eq 0 then // no pre-assigned curve_coeffs
     vprint Shimura: "Computing curve...";
-    vprintf Shimura: "\tForming matrix of series coefficients...\n";
-    series := [x_CC^i : i in [0..2*g+2]] cat [x_CC^i*y_CC : i in [0..g+1]] cat [y_CC^2];
-    curve_vals := [Valuation(h) : h in series];
-    // 2*g + 3 + g + 2 + 1 = 3*g + 6 things in series
-    //M := Matrix([[Coefficient(f, i) : i in [2*Valuation(y_CC)..(3*g+5 + 2*Valuation(y_CC))] ] : f in series]);
-    // TODO: How many columns?  The + 10 is a hack.
-    M := Matrix([[Coefficient(f, i) : i in [2*Valuation(y_CC)..(3*g+5 + 2*Valuation(y_CC)+10)] ] : f in series]);
-    //do I need to worry about e, the order of the stabilizer?
-    assert Ncols(M) ge Nrows(M);
-    //print Nrows(M), Ncols(M); // printing
-    vprintf Shimura: "\tComputing numerical kernel...\n";
-    kerX := NumericalKernel(M : Epsilon := eps);
-    kerX := KSpaceWithBasis(kerX);
-    assert Dimension(kerX) eq 1;
-    curve_coeffs := Basis(kerX);
-    //printf "curve_coeffs = %o\n", curve_coeffs; //printing
-    curve_coeffs := Eltseq(curve_coeffs[1]);
+    ker, curve_vals := HypRelationKernel(Sk, Gamma, x_CC, y_CC);
+    error if #ker ne 1,
+        Sprintf("%o hyperelliptic relations found, expected exactly 1; raise prec", #ker);
+    curve_coeffs := ker[1];
     curve_coeffs := [curve_coeffs[i]/curve_coeffs[#curve_coeffs] : i in [1..#curve_coeffs]];
     curve_coeffs := ZeroifyCoeffs(curve_coeffs,eps);
     printf "curve_coeffs = %o\n", curve_coeffs;

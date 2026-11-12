@@ -102,7 +102,7 @@ contains none); no code is specified for it.
 | `Code/petri.m` | new: `CanonicalMonomials`, `CanonicalIdealDimension`, `TrianglePetriTest` |
 | `Code/genus-general.m` | new: `TriangleGenusGeneralTest`, `TriangleGenusGeneralNumericalCoefficients` |
 | `Code/spec` | lists `petri.m` and `genus-general.m` |
-| `Code/hackobj.m` | attributes `TrianglePetriCase`, `TriangleCanonicalQuadrics`, `TriangleCanonicalCubics`, `TriangleGenusGeneralFormDegree` |
+| `Code/hackobj.m` | attributes `TrianglePetriCase`, `TriangleNumericalCanonicalQuadrics`, `TriangleNumericalCanonicalCubics`, `TriangleGenusGeneralFormDegree` |
 | `Code/belyi_main.m` | genus `>= 5` branch after the genus-4 one; the genus `> 4` refusal is removed |
 | `Code/recognition.m` | expected: no change (the `DegreeBound` fallback and `rescale_ind := "Centred"` are already in from genus 4); audit `TriangleRescaleCoefficients` for more than two form groups (§5) |
 | `Code/hyperelliptic.m` | `TriangleHyperellipticTest`: the hard-coded column window is replaced by the strided, measured window of the genus-3/4 code (§3a) |
@@ -162,6 +162,28 @@ as `genus4.m` does; a bare "raise prec" is not acceptable.
   (`TriangleHyperellipticTest`, `TriangleGenus3NonHyperellipticTest`,
   `TriangleGenus4Test`) receives it -- passed explicitly, not read back
   from `Gamma`:
+  0. **Rows are HOMOGENEOUS (2026-11-12).**  A degree-`d` monomial is
+     the series `f_1^(m_1) ... f_(g-1)^(m_(g-1)) f_g^(d - |m|)`, a product
+     of the normalized forms, NOT the affine `x^m = f^m / f_g^d`.  The two
+     have identical relations, since every affine row is the homogeneous
+     one divided by the single series `f_g^d`, so the coefficient vectors,
+     their indexing by `CanonicalMonomials(g, d)`, the RREF and the torus
+     weights handed downstream (affine convention, a shift by `-d s_g`
+     per degree, as the genus-3 notes say) are all unchanged.  What
+     changes is that products of holomorphic forms converge on the whole
+     disc, whereas `f_i/f_g` has a pole at every other zero of `f_g`: on
+     11T6 member 2 the affine coordinates grew like `0.74^-n`, `10^19`
+     within 200 terms, and the degree-3 kernel was unrecoverable at
+     radius 1 (§3a).  The genus-3 documents chose affine coordinates for
+     the rescaler's bookkeeping only (the weight-zero coefficient is the
+     constant term affinely, and `Xgcd` reads the shifted weights); nothing
+     there argues for building the series rows affinely, and the same
+     convention is prescribed for `genus-general.m` (§4).  The
+     hyperelliptic test stays affine: its model is `y^2 + u(x) y = v(x)`
+     by construction.  The check that the orders of vanishing `s_1 < ...
+     < s_g` are strictly increasing replaces the old "all coordinate
+     valuations negative"; it is the same degeneracy check as in
+     `hyperelliptic.m`.
   1. Evaluate the `Binom(g+1, 2)` degree-2 monomial series in the
      `f_i` and take the numerical kernel.  Hyperelliptic curves never
      reach this code -- the existing numerical hyperellipticity test has
@@ -172,7 +194,7 @@ as `genus4.m` does; a bare "raise prec" is not acceptable.
      precision failure (or a routing bug), never a geometry.
   2. RREF the kernel in monomial coordinates.  The RREF basis is the
      canonical, `K`-rational basis of `I_2`; store it as
-     `TriangleCanonicalQuadrics`.  (RREF, never an orthogonal projection
+     `TriangleNumericalCanonicalQuadrics`.  (RREF, never an orthogonal projection
      -- the genus-4 lesson: a projection is a transcendental combination
      of the `K`-rational vectors and unrecognizable at any precision.)
   3. Evaluate the `Binom(g+2, 3)` degree-3 monomial series; assert the
@@ -184,7 +206,7 @@ as `genus4.m` does; a bare "raise prec" is not acceptable.
      the same precision error.
   4. In the exceptional case, isolate the `g - 3` missing cubics: reduce
      the degree-3 kernel modulo an RREF basis of `S_1 * I_2` in monomial
-     coordinates, RREF the survivors, store as `TriangleCanonicalCubics`.
+     coordinates, RREF the survivors, store as `TriangleNumericalCanonicalCubics`.
      This is the genus-4 cubic-modulo-quadric trick verbatim, one level
      up.
   5. Store the verdict in `TrianglePetriCase`.
@@ -250,10 +272,70 @@ Verification is in §7: every hyperelliptic test in the suite must pass
 unchanged, plus a few new hyperelliptic maps chosen to hit what the old
 window could not.
 
+**Implemented 2026-11-11.**  The helpers now live in `Code/serieskernel.m`
+(`SeriesZeroify`, `SeriesRREF`, `SeriesColumnsAvailable`, `SeriesKernel`,
+`SeriesConditionNullSpace`, `SeriesReduceModRREF`, `SeriesLastNonzero`,
+`SeriesAffineCoordinates`), imported by `genus3nonhyperelliptic.m`,
+`genus4.m`, `hyperelliptic.m` and `petri.m`.  `hyperelliptic.m` builds its
+kernel in one local function, `HypRelationKernel`, shared by
+`TriangleHyperellipticTest` and the fallback block of
+`TriangleHyperellipticNumericalCoefficients`, with the measured strided
+window above.  The fast suite is green with it (610 s), as is a genus-2
+smoke test (degree 5, A5, passport size 1, 8 s), which the suite lacked.
+
+One more check went in, forced by 11T6 (§8): the series stage's
+echelonization can be numerically DEGENERATE -- at prec 30 on 11T6 the
+transformation matrix has entries near `10^23`, so every echelonized form
+keeps leading coefficients near `10^-7`, far above the `10^(-prec/2)`
+threshold that strips leading zeros.  Every form then reads as vanishing
+to order 0, `x` and `y` get valuation 0, and the old test died inside
+`NumericalKernel` with "Error in precision in numerical linear algebra".
+`HypRelationKernel` now first checks that the echelonized basis vanishes
+to strictly increasing orders at the expansion point and otherwise errors
+with those orders and "raise prec".  `TrianglePetriTest` has the
+equivalent check on its coordinate valuations.
+
+**Column scaling in `SeriesKernel` (2026-11-12, forced by 11T6 member
+2; REMOVED the same day once the Petri rows went homogeneous -- see the
+ADR §3; the paragraph is kept as the record of what was learned).**  The coordinate series `x_i = f_i/f_g` converge only out to the
+nearest OTHER zero of the denominator form `f_g`, so their coefficients
+can grow like `R^-n` with `R` well inside the disc: on 11T6 member 2,
+`10^19` within 200 terms, `R ~ 0.74`, and the degree-3 monomial rows
+then span `10^17` across the 140-column window.  On such a matrix
+`NumericalKernel` returned dimension 31 at `eps = 10^-12`, 15 at
+`10^-20`, and refused at `10^(-prec/2)` with "Error in precision in
+numerical linear algebra".  Scaling column `n` by `r^n` leaves the left
+kernel unchanged -- `y M = 0` iff `y M D = 0` for invertible diagonal
+`D` -- and reads the relation on the circle of radius `r` instead of at
+radius 1.  `SeriesKernel` now chooses `r` as the reciprocal of the
+worst row's average growth per column (`r = 0.744` on that matrix,
+where every tolerance then gives 15) and applies it before the row
+normalization; for series whose coefficients do not grow, `r = 1` and
+nothing changes.  Two guards, both learned the hard way on the first
+suite run: the growth is measured from the first entry above `eps`
+times the row's maximum, because the rows `phi * B` of the map's joint
+system start with `ord_P(phi)` exact zeros and arithmetic dust of
+`10^-19` just before their content once gave a "growth" of `e^43` per
+column and a scale of `10^-19` that erased the window (three genus-3
+and genus-4 tests failed with residual 1); and `r` is capped so that
+`r^ncols >= eps`, since a scaling that pushes columns below the kernel
+tolerance leaves fewer informative columns than rows and manufactures
+kernel vectors.  A second estimator, the slope from the first significant
+entry to the row's maximum, over-reacted to a hundredfold rise over the
+first five columns of an otherwise flat row (`e^0.9` per column, held
+only by the cap); the one in place measures SUSTAINED growth, the
+largest entry of the last third of the window against the largest of
+the first third.  With the homogeneous rows of §3 the scaling is a
+safety net rather than the fix.  Every kernel in the package goes through
+`SeriesKernel`, so genus 3 and 4 inherit it; the fast suite was rerun
+on it (§8).  Member 1 of 11T6, with the same orders of vanishing, was
+fine without it only because its `f_5` keeps its other zeros farther
+out.
+
 ## 4. `genus-general.m`: the equations in each case
 
 **General.**  The curve IS the common zero locus of the
-`(g-2)(g-3)/2` quadrics of `TriangleCanonicalQuadrics`: Petri says the
+`(g-2)(g-3)/2` quadrics of `TriangleNumericalCanonicalQuadrics`: Petri says the
 ideal is generated by them, so the scheme they cut out is the canonical
 curve.  For `g = 5` this is the classical complete intersection of three
 quadrics in `P^4` (degree `2^3 = 8 = 2g - 2`, a free check); for
@@ -263,14 +345,19 @@ beyond `I_2` is computed.
 
 **Trigonal, and plane quintic.**  The quadrics cut out the scroll
 (resp. the Veronese); the curve is the zero locus of the quadrics
-together with the `g - 3` cubics of `TriangleCanonicalCubics`.  One
+together with the `g - 3` cubics of `TriangleNumericalCanonicalCubics`.  One
 recipe for both exceptional cases -- this is why the numerical stage
 never needs to tell them apart.  For `g = 5`: three quadrics cutting the
 cubic scroll, plus two cubics.
 
 **Hyperelliptic.**  Existing path, no new code.
 
-**The map.**  `phi = -A/B` with `A`, `B` forms of the least degree `d`
+**The map.**  Same row convention as §3 step 0: the joint system is
+built from the homogeneous series `f^m f_g^(d-|m|)` and `phi` times
+them, never from `x^m`; the identity `A(f) + phi B(f) = 0` is a statement
+about holomorphic series and needs no chart.  Only the coefficient lists
+handed to the rescaler are affine-indexed, which is a relabelling.
+`phi = -A/B` with `A`, `B` forms of the least degree `d`
 with `(2g - 2) d - N > 2g - 2`, so that `H^0(dH - phi^*(oo))` is
 nonspecial of dimension `(2g - 2) d - N - g + 1` (the genus-4 formulas
 with `6 = 2g - 2` replaced).  Both halves of every kernel vector are
@@ -290,6 +377,33 @@ as the option.
 degree coerces into the function field exactly as in `P^3`.
 
 ## 5. Normalization and recognition
+
+**The handoff from Petri to the curve equations.**  What
+`TrianglePetriTest` stores -- the RREF rows of `I_2` and, in the
+exceptional case, the `g - 3` cubics -- ARE the numerical equations of
+the canonical curve, the counterpart of the plane quartic in genus 3 and
+of the quadric and cubic in genus 4.  They are numerical: complex
+coefficients at working precision, in the coordinates of
+`CanonicalMonomials(g, 2)` and `(g, 3)`, each row with its affine torus
+weights.  The attributes are therefore named on the package's
+numerical/exact convention, `TriangleNumericalCanonicalQuadrics` and
+`TriangleNumericalCanonicalCubics` (renamed 2026-11-12 from the earlier
+`TriangleCanonical...`); their exact counterparts exist only after
+recognition.  Nothing in the Petri stage is redone for the curve.
+`genus-general.m` consumes the stored rows exactly as `genus4.m`
+consumes its quadric and cubic: concatenate them into the curve
+coefficient list with their weights; read `lambda` from the MAP's
+coefficients (numerator and denominator together, via
+`TriangleRescaleCoefficients`, since the map's weights are the group
+with gcd 1); multiply each coefficient of each row by `lambda^w`;
+normalize each row by its own centred pivot; recognize over `K` row by
+row -- the RREF is what makes every row individually `K`-rational; then
+homogenize into forms on `P^(g-1)` and hand
+`Curve(ProjectiveSpace(K, g - 1), forms)` to `TriangleMakeBelyiMap`.  The
+curve cannot be recognized before the map, because `lambda` comes from
+the map.  The same stored rows are what the reduction basis for `I_d`
+in §4 is built from.
+
 
 - `lambda` is read from the map's coefficients as now.  The rescaler is
   handed the FIRST RREF quadric alone as the curve; every other form
@@ -410,8 +524,10 @@ that the cheap step decides before anyone pays for the expensive one:
   implement `petri.m` first, with the helper relocation of §3a, and run
   it on the Stage-0 members.  That yields the Stage-0 answer and a tested
   `petri.m` in one step, before any of `genus-general.m` exists.  The
-  Stage-0 driver (a script in the style of the degree-9 reference
-  scripts, kept with them) does three things:
+  Stage-0 driver, `Code/petri_stage0.m` (a script in the style of the
+  degree-9 reference scripts in `M23-recompute`; not listed in `Code/spec`,
+  and free to be folded into something larger in the full build), does
+  three things:
   1. runs `TriangleHyperellipticTest` on the same `Sk` FIRST and reports
      its verdict.  `petri.m` assumes hyperelliptic curves never reach it
      (§3), so a hyperelliptic `11T5` would otherwise show only as a wrong
@@ -425,6 +541,81 @@ that the cheap step decides before anyone pays for the expensive one:
   Only after the class is known is `genus-general.m` written and the
   `11T5` test chosen from the §7 table: `"General"` with three quadrics
   only, or the fallbacks below.
+  **Stage 0 result (2026-11-11, `Code/petri_stage0.m`, prec 30, CArnoldi,
+  Magma 2.29-9, laptop).**  Controls first: the `11T1` triple `(1,1,9)` is
+  routed by `TriangleHyperellipticTest` as hyperelliptic, and `(1,2,8)`
+  comes out `"Trigonal"` with 3 quadrics and 2 cubics -- the closed forms
+  of §7, from the series alone.  Then the flagship: **both members of
+  `11T5` are `"General"`**, 3 quadrics and no cubics, rank of `S_1 * I_2`
+  equal to `dim I_3 = 15`.  So Stage 1 proceeds with `11T5` and no
+  fallback search is needed.  `11T6` member 1 is also `"General"` -- reached only after a series-stage bug was found and fixed, see below.
+
+  **`11T6`: a series-stage bug, found and fixed (2026-11-12; decision
+  record in `Doc/adr-series-stage-echelonization.md`).**  Every
+  `11T6` member failed in the hyperelliptic test before any Petri
+  computation, at prec 30, 50 and 80, with the C solver and the
+  pure-Magma Arnoldi branch alike, with `N = 3000` terms, with random
+  or unit start vectors, and with the expansion centre moved to the
+  fibre over 1: the echelonized basis had the identity in coefficients
+  0-4 plus noise, then entries of `10^22` and up, and the
+  echelonization's transformation matrix had entries of 25, 43 and 72
+  digits at prec 30, 50, 80 -- `1/eps_thresh` exactly.  The `"Full"`
+  branch (3265 s at prec 30) showed the operator `A - 1` has exactly
+  five singular values at `10^-29 .. 10^-27`, the sixth at `0.076`: a
+  clean five-dimensional fixed space.  Its RAW fixed vectors, examined
+  directly from the saved operator, are perfectly good forms --
+  coefficients of order one everywhere, the same profile as the healthy
+  `11T5` basis -- and a magnitude-pivoting echelonization of them is
+  clean (transformation entries at most 3.9) with pivots at orders
+  **[0, 1, 2, 3, 5]**: no form vanishes to order exactly 4, so the
+  centre is a Weierstrass point of the curve, gap sequence {1,2,3,4,6}.
+  On that basis `TrianglePetriTest` runs and reports **`"General"`, 3
+  quadrics, 0 cubics**: the Stage-0 verdict for `11T6`.
+
+  The bug: `powser_iter_arfed.m` echelonized the solver's vectors with
+  Magma's `EchelonForm`, which is exact elimination and pivots on the
+  first entry of a column that is not literally zero.  With orders
+  `[0,1,2,3,5]`, column 4 is a combination of columns 0-3 up to the
+  solver's accuracy `~eps_thresh`; the residue left there by the
+  elimination became the pivot, and every genuine coefficient was
+  divided by it.  (The `10^(-4/5 prec)` zeroing before `EchelonForm`
+  cannot catch it: the residue is created by the elimination.)  `11T5`
+  has generic orders `[0,1,2,3,4]`, every pivot genuine; the cyclic
+  `11T1` curve has non-generic orders too, but its symmetry gives exact
+  zeros in the dependent columns, so the elimination skipped them.  Sam's
+  diagnosis -- "a division by a machine zero" -- was right from the
+  start.  The fix: Gauss-Jordan with partial pivoting by largest modulus
+  and a column skipped when its largest remaining entry is below
+  `10^(-prec/2)` times the matrix scale; the pivot columns are then the
+  orders of vanishing at the centre, and a shortfall is reported as
+  "numerically dependent ... raise prec" with the pivots found.  Shared
+  by every genus and both solver branches.  Confirmation after the fix,
+  through the real pipeline (`Code/petri_stage0.m`, prec 30): `11T6`
+  members 1 AND 2 are `"General"`, 3 quadrics, 0 cubics, pivots at
+  orders `[0,1,2,3,5]` for both, transformation entries at most 10; the
+  `11T1` controls reproduce their closed forms (pivots `[0,1,2,3,4]`
+  and `[0,1,2,5,6]`); `11T5` is `"General"` for both members as before.
+  Member 2 needed one more fix, the column scaling in `SeriesKernel`
+  (§3a).  Fast suite green on all of it (593 s with the solver at two threads), and the three Stage-0 checks rerun once more after the switch to homogeneous rows and the final growth estimator: same verdicts everywhere, and on the homogeneous Petri rows the column scaling no longer engages at all.
+
+  Two more facts from the hunt.  `PassportRepresentatives` is not
+  deterministic across Magma sessions (three sessions gave three
+  different "member 1" triples for `11T6`); `Code/petri_stage0.m` now
+  calls `SetSeed(1)`.  And the previous drafts of this paragraph, which
+  blamed undeflated Arnoldi sequences, then a one-dimensional fixed
+  space, then a wrong operator, were all readings of the echelonized
+  garbage: nobody looked at a raw solver vector until the end.  The
+  §3a degeneracy check in `hyperelliptic.m` and the valuation check in
+  `petri.m` stay: they are what turned a silent wrong answer into a
+  loud one.
+
+  | series stage, 11T6 member 1 | terms | time |
+  |---|---|---|
+  | prec 30 | 1637 | 128-147 s |
+  | prec 50 | 2727 | 444 s |
+  | prec 80 | 4362 | 1538 s |
+  | prec 30, `"Full"` (dense operator + SVD) | 1637 | 3265 s |
+
 - **Stage 1.**  If `11T5` is general: compute one member fully.  Field
   degree at most 2 -- the passport is a conjugate-looking pair: with
   `s` an 11-cycle, one member carries `s^2` and the other `s^(-2)` in

@@ -12,6 +12,8 @@
   galoisorbits.m
   genus3nonhyperelliptic.m
   genus4.m
+  petri.m
+  serieskernel.m
   genuszero.m
   genusone.m
   GrpPSL2_overrides.m

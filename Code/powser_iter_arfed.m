@@ -600,7 +600,57 @@ intrinsic PowerSeriesBasis(Gamma::GrpPSL2Tri, k::RngIntElt :
     end for;
   end for;
   s := #skipcoeffs;
-  E, T := EchelonForm(Matrix([[Coefficient(f[1],n) : n in [0..NNs[1]-1]] : f in norm0fout]));
+  // Echelonize BY MAGNITUDE, with a scale-aware threshold (2026-11-12).
+  // Magma's EchelonForm is exact elimination: it pivots on the first entry
+  // of a column that is not literally zero.  When the orders of vanishing
+  // of the forms at the centre are non-generic -- a Weierstrass point; 11T6
+  // at genus 5 has orders [0,1,2,3,5] -- a column (there, column 4) is a
+  // combination of the earlier ones up to the solver's accuracy ~eps_thresh,
+  // and EchelonForm took that residue as a pivot, dividing every genuine
+  // coefficient by it: entries of 10^24, 10^42, 10^71 at prec 30, 50, 80 in
+  // the transformation, and a basis that was noise in the leading block.
+  // The zeroing above does not help: it is applied before elimination, and
+  // the residue is created by the elimination.  So: Gauss-Jordan with
+  // partial pivoting by largest modulus, and a column is skipped when its
+  // largest remaining entry is below 10^(-prec/2) times the matrix scale.
+  // The pivot columns are then the orders of vanishing at the centre.
+  Mech := [[Coefficient(f[1],n) : n in [0..NNs[1]-1]] : f in norm0fout];
+  nr := #Mech;
+  ncm := NNs[1];
+  Tm := [[CC | (i eq j select 1 else 0) : j in [1..nr]] : i in [1..nr]];
+  scl := Max([Max([Abs(z) : z in r]) : r in Mech]);
+  tolm := scl*10^(-(prec div 2));
+  pivcols := [];
+  rr := 1;
+  for c in [1..ncm] do
+    if rr gt nr then break; end if;
+    best := rr;
+    for i in [rr..nr] do
+      if Abs(Mech[i][c]) gt Abs(Mech[best][c]) then best := i; end if;
+    end for;
+    if Abs(Mech[best][c]) le tolm then continue; end if;
+    tmp := Mech[rr]; Mech[rr] := Mech[best]; Mech[best] := tmp;
+    tmp := Tm[rr]; Tm[rr] := Tm[best]; Tm[best] := tmp;
+    dd := Mech[rr][c];
+    Mech[rr] := [z/dd : z in Mech[rr]];
+    Tm[rr] := [z/dd : z in Tm[rr]];
+    for i in [1..nr] do
+      if i eq rr then continue; end if;
+      fq := Mech[i][c];
+      if Abs(fq) ne 0 then
+        Mech[i] := [Mech[i][j] - fq*Mech[rr][j] : j in [1..ncm]];
+        Tm[i] := [Tm[i][j] - fq*Tm[rr][j] : j in [1..nr]];
+      end if;
+    end for;
+    Append(~pivcols, c);
+    rr +:= 1;
+  end for;
+  error if #pivcols ne nr,
+      Sprintf("the power series basis is numerically dependent: %o independent forms found, %o expected (pivot columns %o); raise prec",
+              #pivcols, nr, [c-1 : c in pivcols]);
+  T := Matrix(Tm);
+  vprintf Shimura : "Echelonize: pivots at orders of vanishing %o, max |T| = %o\n",
+      [c-1 : c in pivcols], RealField(4)!Max([Max([Abs(z) : z in r]) : r in Tm]);
   vprint Shimura : "Echelonize:", T;
   fout_ech := [ [] : i in [1..#fout]];
 

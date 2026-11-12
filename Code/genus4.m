@@ -60,8 +60,8 @@
 // the diagnosis anyway.
 
 import "genuszero.m" : RemoveLeadingZeros;
-import "genus3nonhyperelliptic.m" : G3NonHypZeroify, G3NonHypRREF,
-    G3NonHypColumnsAvailable, G3NonHypSeriesKernel, G3NonHypConditionNullSpace;
+import "serieskernel.m" : SeriesZeroify, SeriesRREF, SeriesColumnsAvailable,
+    SeriesKernel, SeriesConditionNullSpace, SeriesReduceModRREF, SeriesLastNonzero;
 
 // --------------------------------------------------------------------------
 // local helpers
@@ -80,29 +80,6 @@ G4CoordinateSeries := function(Sk, kappa, eps);
     Append(~fs, fi);
   end for;
   return fs[1]/fs[4], fs[2]/fs[4], fs[3]/fs[4];
-end function;
-
-// the last index at which the list is nonzero (0 if none)
-G4LastNonzero := function(L);
-  i := #L;
-  while (i ge 1) and (L[i] eq 0) do
-    i -:= 1;
-  end while;
-  return i;
-end function;
-
-// reduce the vector v modulo the RREF rows Ibas with pivot columns Ipiv:
-// zero out v on the pivot columns.  The result is the unique element of
-// v + span(Ibas) vanishing there, so this is canonical given the RREF.
-G4ReduceModRREF := function(v, Ibas, Ipiv);
-  u := v;
-  for k in [1..#Ibas] do
-    c := u[Ipiv[k]];
-    if Abs(c) ne 0 then
-      u := [u[m] - c*Ibas[k][m] : m in [1..#u]];
-    end if;
-  end for;
-  return u;
 end function;
 
 // --------------------------------------------------------------------------
@@ -208,13 +185,13 @@ intrinsic TriangleGenus4Test(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> Any
   vals2 := [Valuation(h) : h in ser2];
   assert vals2 eq [m[1]*vx + m[2]*vy + m[3]*vz : m in mons2];
   minval2 := Min(vals2);
-  navail2 := G3NonHypColumnsAvailable(ser2, minval2, e);
+  navail2 := SeriesColumnsAvailable(ser2, minval2, e);
   ncols2 := Min(navail2, Max(4*#ser2, #ser2 + 20));
   error if ncols2 lt #ser2 + 5,
       Sprintf("not enough terms in the power series basis for the quadric: %o columns available, %o needed; raise prec",
               navail2, #ser2 + 5);
   vprintf Shimura : "\tForming matrix of series coefficients (%o rows, %o columns, stride %o)...\n", #ser2, ncols2, e;
-  k2 := G3NonHypSeriesKernel(ser2, minval2, e, ncols2, eps, CC);
+  k2 := SeriesKernel(ser2, minval2, e, ncols2, eps, CC);
 
   if #k2 eq 3 then
     vprintf Shimura : "The degree-2 kernel is 3-dimensional: the canonical image lies on three quadrics, so the curve is HYPERELLIPTIC (canonical model a rational normal cubic, not a quadric meeting a cubic).\n";
@@ -225,10 +202,10 @@ intrinsic TriangleGenus4Test(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> Any
     Gamma`TriangleIsGenus4Canonical := false;
     return false, _, _;
   end if;
-  qcoeffs := G3NonHypZeroify(k2[1], prec);
-  qind := G4LastNonzero(qcoeffs);
+  qcoeffs := SeriesZeroify(k2[1], prec);
+  qind := SeriesLastNonzero(qcoeffs);
   error if qind lt 1, "the quadric relation is numerically zero; raise prec";
-  qcoeffs := G3NonHypZeroify([c/qcoeffs[qind] : c in qcoeffs], prec);
+  qcoeffs := SeriesZeroify([c/qcoeffs[qind] : c in qcoeffs], prec);
   vprintf Shimura : "Exactly one quadric found!\n";
 
   // ------------------------------------------------------------------
@@ -240,13 +217,13 @@ intrinsic TriangleGenus4Test(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> Any
   vals3 := [Valuation(h) : h in ser3];
   assert vals3 eq [m[1]*vx + m[2]*vy + m[3]*vz : m in mons3];
   minval3 := Min(vals3);
-  navail3 := G3NonHypColumnsAvailable(ser3, minval3, e);
+  navail3 := SeriesColumnsAvailable(ser3, minval3, e);
   ncols3 := Min(navail3, Max(4*#ser3, #ser3 + 20));
   error if ncols3 lt #ser3 + 5,
       Sprintf("not enough terms in the power series basis for the cubic: %o columns available, %o needed; raise prec",
               navail3, #ser3 + 5);
   vprintf Shimura : "\tForming matrix of series coefficients (%o rows, %o columns, stride %o)...\n", #ser3, ncols3, e;
-  k3 := G3NonHypSeriesKernel(ser3, minval3, e, ncols3, eps, CC);
+  k3 := SeriesKernel(ser3, minval3, e, ncols3, eps, CC);
   if #k3 ne 5 then
     vprintf Shimura : "The degree-3 kernel has dimension %o, expected 5 (four multiples of the quadric plus the cubic); raise prec.\n", #k3;
     Gamma`TriangleIsGenus4Canonical := false;
@@ -259,7 +236,7 @@ intrinsic TriangleGenus4Test(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> Any
   Qpol := &+[qcoeffs[i]*Mon3(mons2[i]) : i in [1..#mons2]];
   QL := [[MonomialCoefficient(f*Qpol, Mon3(m)) : m in mons3] : f in [R3.1, R3.2, R3.3, R3!1]];
   qsc := Max([Max([Abs(c) : c in r]) : r in QL]);
-  QLr, qpiv := G3NonHypRREF(QL, qsc*10^(-(prec div 2)));
+  QLr, qpiv := SeriesRREF(QL, qsc*10^(-(prec div 2)));
   error if #QLr ne 4,
       "the multiples of the quadric are numerically dependent; raise prec";
 
@@ -268,17 +245,17 @@ intrinsic TriangleGenus4Test(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> Any
   ksc := Max([Max([Abs(c) : c in v]) : v in k3]);
   red := [];
   for v in k3 do
-    u := G4ReduceModRREF(v, QLr, qpiv);
+    u := SeriesReduceModRREF(v, QLr, qpiv);
     if Max([Abs(c) : c in u]) gt ksc*10^(-(prec div 3)) then
       Append(~red, u);
     end if;
   end for;
   error if #red eq 0, "every degree-3 kernel vector reduced to zero modulo the quadric; raise prec";
   rsc := Max([Max([Abs(c) : c in u]) : u in red]);
-  Cr := G3NonHypRREF(red, rsc*10^(-(prec div 2)));
+  Cr := SeriesRREF(red, rsc*10^(-(prec div 2)));
   error if #Cr ne 1,
       Sprintf("the cubic modulo the quadric has dimension %o, expected 1; raise prec", #Cr);
-  ccoeffs := G3NonHypZeroify(Cr[1], prec);
+  ccoeffs := SeriesZeroify(Cr[1], prec);
   vprintf Shimura : "Exactly one cubic found modulo the quadric!\n";
 
   curve_coeffs := qcoeffs cat ccoeffs;
@@ -425,17 +402,17 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
   // ------------------------------------------------------------------
   // 4. I_d, read off numerically as the degree-d forms vanishing on the curve
   // ------------------------------------------------------------------
-  navail := G3NonHypColumnsAvailable(serd, minval, e);
+  navail := SeriesColumnsAvailable(serd, minval, e);
   ncolsI := Min(navail, Max(4*nd, nd + 20));
   error if ncolsI lt nd + 5,
       Sprintf("not enough terms in the power series basis for the map: %o strided columns available, %o needed; raise prec",
               navail, nd + 5);
   vprintf Shimura : "\tComputing I_%o...\n", d;
-  kI := G3NonHypSeriesKernel(serd, minval, e, ncolsI, eps, CC);
+  kI := SeriesKernel(serd, minval, e, ncolsI, eps, CC);
   error if #kI ne dimI,
       Sprintf("dim I_%o came out %o, expected %o; raise prec", d, #kI, dimI);
   isc := Max([Max([Abs(c) : c in v]) : v in kI]);
-  Ibas, Ipiv := G3NonHypRREF(kI, isc*10^(-(prec div 2)));
+  Ibas, Ipiv := SeriesRREF(kI, isc*10^(-(prec div 2)));
   error if #Ibas ne dimI,
       Sprintf("the RREF of I_%o has %o rows, expected %o; raise prec", d, #Ibas, dimI);
 
@@ -443,7 +420,7 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
   // 5. the joint system, with the vanishing order at P tuned so that the
   //    solution space is exactly 1-dimensional
   // ------------------------------------------------------------------
-  navailJ := G3NonHypColumnsAvailable(serd cat phiserd, minval, e);
+  navailJ := SeriesColumnsAvailable(serd cat phiserd, minval, e);
   ncolsJ := Min(navailJ, Max(6*nd, 2*nd + 20));
   error if ncolsJ lt 2*nd + 5,
       Sprintf("not enough terms in the power series basis for the joint system: %o strided columns available, %o needed; raise prec",
@@ -468,7 +445,7 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
       Wbas := [[CC | (m eq k select 1 else 0) : m in [1..nd]] : k in [1..nd]];
     else
       cons := [[Coefficient(serd[m], minval + e*k) : m in [1..nd]] : k in [0..jvan-1]];
-      Wbas := G3NonHypConditionNullSpace(cons, nd, CC, prec);
+      Wbas := SeriesConditionNullSpace(cons, nd, CC, prec);
     end if;
     error if #Wbas eq 0,
         Sprintf("no degree-%o form vanishes to order %o at P; raise prec", d, jvan);
@@ -478,11 +455,11 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
     // convention TriangleMakeBelyiMap uses
     Wphi := [&+[Wbas[k][m]*phiserd[m] : m in [1..nd]] : k in [1..#Wbas]];
     rows := Wphi cat serd;
-    nc := Min(ncolsJ, G3NonHypColumnsAvailable(rows, minval, e));
+    nc := Min(ncolsJ, SeriesColumnsAvailable(rows, minval, e));
     error if nc lt #rows + 5,
         Sprintf("not enough terms for the joint system at vanishing order %o: %o strided columns, %o rows; raise prec",
                 jvan, nc, #rows);
-    ker := G3NonHypSeriesKernel(rows, minval, e, nc, eps, CC);
+    ker := SeriesKernel(rows, minval, e, nc, eps, CC);
 
     // back to monomial coordinates, then reduce BOTH halves modulo I_d
     // BEFORE echelonizing; the 2*dim I_d directions (i, 0), (0, i) drop out
@@ -495,8 +472,8 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
       v := [c/mv : c in v0];
       Bm := [&+[v[k]*Wbas[k][m] : k in [1..#Wbas]] : m in [1..nd]];
       Am := [v[#Wbas + m] : m in [1..nd]];
-      Bm := G4ReduceModRREF(Bm, Ibas, Ipiv);
-      Am := G4ReduceModRREF(Am, Ibas, Ipiv);
+      Bm := SeriesReduceModRREF(Bm, Ibas, Ipiv);
+      Am := SeriesReduceModRREF(Am, Ibas, Ipiv);
       Append(~red, Bm cat Am);
     end for;
 
@@ -504,7 +481,7 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
     if #red gt 0 then
       rsc := Max([Max([Abs(c) : c in u]) : u in red]);
       if rsc gt 10^(-(prec div 3)) then
-        hrows := G3NonHypRREF(red, rsc*10^(-(prec div 2)));
+        hrows := SeriesRREF(red, rsc*10^(-(prec div 2)));
       end if;
     end if;
 
@@ -558,8 +535,8 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
       Sprintf("phi = -A/B holds only to relative residual %o; raise prec, or check that the expansion is centred where phi vanishes",
               RealField(6)!relres);
 
-  num_coeffs := G3NonHypZeroify(Avec, prec);
-  denom_coeffs := G3NonHypZeroify(Bvec, prec);
+  num_coeffs := SeriesZeroify(Avec, prec);
+  denom_coeffs := SeriesZeroify(Bvec, prec);
   num_vals := map_vals;
   denom_vals := map_vals;
   vprintf Shimura : "unscaled numerator coeffs = %o\n", num_coeffs;
@@ -581,7 +558,7 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
   if Pivot eq "Centred" then
     rinds := "Centred";
   else
-    rinds := [G4LastNonzero(qpart), G4LastNonzero(num_coeffs), G4LastNonzero(denom_coeffs)];
+    rinds := [SeriesLastNonzero(qpart), SeriesLastNonzero(num_coeffs), SeriesLastNonzero(denom_coeffs)];
     error if rinds[1] lt 1, "the quadric is numerically zero; raise prec";
     error if rinds[2] lt 1, "the numerator A is numerically zero; raise prec";
     error if rinds[3] lt 1, "the denominator B is numerically zero; raise prec";
@@ -593,7 +570,7 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
                                   rescale_ind := rinds);
   // the cubic, by hand: same lambda, its own pivot (centred, or last nonzero)
   cpart := [cpart[i]*lambda^(cvals[i]) : i in [1..nc3]];
-  cpart := G3NonHypZeroify(cpart, prec);
+  cpart := SeriesZeroify(cpart, prec);
   if Pivot eq "Centred" then
     cmx := Max([Abs(c) : c in cpart]);
     cnz := [i : i in [1..nc3] | Abs(cpart[i]) gt cmx*10^(-(prec div 2))];
@@ -604,7 +581,7 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
       if Abs(cvals[i] - cmid) lt Abs(cvals[cind] - cmid) then cind := i; end if;
     end for;
   else
-    cind := G4LastNonzero(cpart);
+    cind := SeriesLastNonzero(cpart);
     error if cind lt 1, "the cubic is numerically zero; raise prec";
   end if;
   cpart := [c/cpart[cind] : c in cpart];

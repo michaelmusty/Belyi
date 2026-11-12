@@ -110,158 +110,12 @@
 // reproducible, so it survives comparison across precisions untouched.
 
 import "genuszero.m" : RemoveLeadingZeros;
+import "serieskernel.m" : SeriesZeroify, SeriesRREF, SeriesColumnsAvailable,
+    SeriesKernel, SeriesConditionNullSpace;
 
 // --------------------------------------------------------------------------
 // local helpers
 // --------------------------------------------------------------------------
-
-// Zero out coefficients that are noise RELATIVE to the largest coefficient in
-// the same list.  An absolute cut, or one keyed to prec - 30, degenerates at
-// low precision: at prec = 30 the factor is 1 and every coefficient reads as
-// zero.  Everything here is keyed to the 10^(-prec/2) noise floor instead.
-G3NonHypZeroify := function(coeffs, prec);
-  assert #coeffs gt 0;
-  CC := Parent(coeffs[1]);
-  m := Max([Abs(c) : c in coeffs]);
-  tol := m*10^(-(prec div 2));
-  out := [];
-  for c in coeffs do
-    if Abs(c) lt tol then
-      Append(~out, CC!0);
-    else
-      Append(~out, c);
-    end if;
-  end for;
-  return out;
-end function;
-
-// Reduced row echelon form IN MONOMIAL COORDINATES, with partial pivoting by
-// largest modulus.  Returns the pivot rows only, and the pivot columns.
-G3NonHypRREF := function(rows, tol);
-  M := [[z : z in v] : v in rows];
-  nr := #M;
-  if nr eq 0 then
-    return M, [];
-  end if;
-  nc := #M[1];
-  piv := [];
-  rr := 1;
-  for c in [1..nc] do
-    if rr gt nr then
-      break;
-    end if;
-    best := rr;
-    for i in [rr..nr] do
-      if Abs(M[i][c]) gt Abs(M[best][c]) then
-        best := i;
-      end if;
-    end for;
-    if Abs(M[best][c]) le tol then
-      continue;
-    end if;
-    tmp := M[rr];  M[rr] := M[best];  M[best] := tmp;
-    dd := M[rr][c];
-    M[rr] := [z/dd : z in M[rr]];
-    for i in [1..nr] do
-      if i eq rr then
-        continue;
-      end if;
-      fq := M[i][c];
-      if Abs(fq) ne 0 then
-        M[i] := [M[i][j] - fq*M[rr][j] : j in [1..nc]];
-      end if;
-    end for;
-    Append(~piv, c);
-    rr +:= 1;
-  end for;
-  return M[1..rr-1], piv;
-end function;
-
-// The largest number of STRIDED coefficient columns
-// minval, minval + stride, minval + 2*stride, ... that every series in the
-// list actually knows.  An exact element (the constant 1, which is the
-// weight-zero monomial) has infinite absolute precision and imposes no bound,
-// so it is skipped rather than compared.
-G3NonHypColumnsAvailable := function(series, minval, stride);
-  aps := [];
-  for h in series do
-    ap := AbsolutePrecision(h);
-    if Type(ap) eq RngIntElt then
-      Append(~aps, ap);
-    end if;
-  end for;
-  if #aps eq 0 then
-    return 0;
-  end if;
-  return (Min(aps) - minval + stride - 1) div stride;
-end function;
-
-// The (left) numerical kernel of the matrix whose ROWS are the strided
-// coefficient vectors of the given series, returned as a sequence of
-// coefficient lists indexed by the series.  Rows are normalized to unit norm
-// before the kernel and the kernel vectors are un-normalized afterwards:
-// monomials of different weight differ by many orders of magnitude, and on an
-// unnormalized matrix Epsilon means nothing.
-//
-// Use only where ncols >= #series; where the conditions are FEWER than the
-// unknowns, use G3NonHypConditionNullSpace below.
-G3NonHypSeriesKernel := function(series, minval, stride, ncols, eps, CC);
-  rows := [[Coefficient(h, minval + stride*n) : n in [0..ncols-1]] : h in series];
-  nrm := [];
-  for r in rows do
-    s := Sqrt(&+[Abs(z)^2 : z in r]);
-    if s eq 0 then
-      s := Parent(s)!1;   // an identically zero row: leave it alone
-    end if;
-    Append(~nrm, s);
-  end for;
-  M := Matrix([[rows[i][j]/(CC!nrm[i]) : j in [1..ncols]] : i in [1..#rows]]);
-  ker := NumericalKernel(M : Epsilon := eps);
-  // read the rows off the matrix directly rather than through
-  // KSpaceWithBasis, which has nothing to build a space from when the kernel
-  // is trivial -- and a trivial kernel is a case we report, not crash on
-  out := [];
-  for i in [1..Nrows(ker)] do
-    Append(~out, [ker[i][j]/(CC!nrm[j]) : j in [1..#series]]);
-  end for;
-  return out;
-end function;
-
-// Null space of the conditions  sum_j c_j * cons[k][j] = 0,  computed by RREF
-// with partial pivoting.  This is the case where the number of conditions is
-// SMALLER than the number of unknowns -- for the map there are exactly N
-// vanishing conditions on Binomial(d+2,2) monomials -- which is the one shape
-// NumericalKernel is not set up for (it wants at least as many columns as
-// rows).  Columns are normalized before and un-normalized after, for the same
-// reason the rows are in G3NonHypSeriesKernel.
-G3NonHypConditionNullSpace := function(cons, nmons, CC, prec);
-  nconds := #cons;
-  assert nconds gt 0;
-  nrm := [];
-  for j in [1..nmons] do
-    s := Sqrt(&+[Abs(cons[k][j])^2 : k in [1..nconds]]);
-    if s eq 0 then
-      s := Parent(s)!1;
-    end if;
-    Append(~nrm, s);
-  end for;
-  M := [[cons[k][j]/(CC!nrm[j]) : j in [1..nmons]] : k in [1..nconds]];
-  mx := Max([Max([Abs(z) : z in r]) : r in M]);
-  R, piv := G3NonHypRREF(M, mx*10^(-(prec div 2)));
-  basis := [];
-  for f in [1..nmons] do
-    if f in piv then
-      continue;
-    end if;
-    v := [CC | 0 : j in [1..nmons]];
-    v[f] := CC!1;
-    for k in [1..#piv] do
-      v[piv[k]] := -R[k][f];
-    end for;
-    Append(~basis, [v[j]/(CC!nrm[j]) : j in [1..nmons]]);
-  end for;
-  return basis;
-end function;
 
 // x = f_1/f_3 and y = f_2/f_3 as series in the SAME local coordinate as
 // TrianglePhi, built exactly as hyperelliptic.m builds x_CC and y_CC.
@@ -372,7 +226,7 @@ intrinsic TriangleGenus3NonHyperellipticTest(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> 
   assert curve_vals eq [mons[i][1]*vx + mons[i][2]*vy : i in [1..#mons]];
 
   minval := Min(curve_vals);
-  navail := G3NonHypColumnsAvailable(series, minval, e);
+  navail := SeriesColumnsAvailable(series, minval, e);
   ncols := Min(navail, Max(4*#series, #series + 20));
   error if ncols lt #series + 5,
       Sprintf("not enough terms in the power series basis for the quartic: %o columns available, %o needed; raise prec",
@@ -380,7 +234,7 @@ intrinsic TriangleGenus3NonHyperellipticTest(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> 
 
   vprintf Shimura : "\tForming matrix of series coefficients (%o rows, %o columns, stride %o)...\n", #series, ncols, e;
   vprintf Shimura : "\tComputing numerical kernel...\n";
-  ker := G3NonHypSeriesKernel(series, minval, e, ncols, eps, CC);
+  ker := SeriesKernel(series, minval, e, ncols, eps, CC);
 
   if #ker ne 1 then
     vprintf Shimura : "No plane quartic found: kernel has dimension %o, expected 1 (hyperelliptic, or precision too low).\n", #ker;
@@ -388,7 +242,7 @@ intrinsic TriangleGenus3NonHyperellipticTest(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> 
     return false, _, _;
   end if;
 
-  curve_coeffs := G3NonHypZeroify(ker[1], prec);
+  curve_coeffs := SeriesZeroify(ker[1], prec);
   // normalize by the last nonzero coefficient
   lc_ind := #curve_coeffs;
   while (lc_ind ge 1) and (curve_coeffs[lc_ind] eq 0) do
@@ -397,7 +251,7 @@ intrinsic TriangleGenus3NonHyperellipticTest(Sk::SeqEnum, Gamma::GrpPSL2Tri) -> 
   error if lc_ind lt 1, "the quartic relation is numerically zero; raise prec";
   pivot := curve_coeffs[lc_ind];
   curve_coeffs := [c/pivot : c in curve_coeffs];
-  curve_coeffs := G3NonHypZeroify(curve_coeffs, prec);
+  curve_coeffs := SeriesZeroify(curve_coeffs, prec);
 
   vprintf Shimura : "Exactly one plane quartic relation found!\n";
   vprintf Shimura : "curve_coeffs = %o\n", curve_coeffs;
@@ -527,20 +381,20 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
   // 4. I_d, read off numerically as the degree-d forms vanishing identically
   //    on the curve rather than reconstructed as multiples of the quartic
   // ------------------------------------------------------------------
-  navail := G3NonHypColumnsAvailable(serd, minval, e);
+  navail := SeriesColumnsAvailable(serd, minval, e);
   ncolsI := Min(navail, Max(4*nd, nd + 20));
   error if ncolsI lt nd + 5,
       Sprintf("not enough terms in the power series basis for the map: %o strided columns available, %o needed; raise prec",
               navail, nd + 5);
   vprintf Shimura : "\tComputing I_%o...\n", d;
-  kI := G3NonHypSeriesKernel(serd, minval, e, ncolsI, eps, CC);
+  kI := SeriesKernel(serd, minval, e, ncolsI, eps, CC);
   error if #kI ne dimI,
       Sprintf("dim I_%o came out %o, expected %o; raise prec", d, #kI, dimI);
   Ibas := [];
   Ipiv := [];
   if dimI gt 0 then
     isc := Max([Max([Abs(z) : z in v]) : v in kI]);
-    Ibas, Ipiv := G3NonHypRREF(kI, isc*10^(-(prec div 2)));
+    Ibas, Ipiv := SeriesRREF(kI, isc*10^(-(prec div 2)));
     error if #Ibas ne dimI,
         Sprintf("the RREF of I_%o has %o rows, expected %o; raise prec", d, #Ibas, dimI);
   end if;
@@ -550,7 +404,7 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
   //    solution space is exactly 1-dimensional -- so there is no
   //    representative to choose.  See the header comment.
   // ------------------------------------------------------------------
-  navailJ := G3NonHypColumnsAvailable(serd cat phiserd, minval, e);
+  navailJ := SeriesColumnsAvailable(serd cat phiserd, minval, e);
   // the joint system has up to 2*nd rows, so over-determine it by the same
   // factor the reference implementation used (about six columns per row)
   ncolsJ := Min(navailJ, Max(6*nd, 2*nd + 20));
@@ -576,7 +430,7 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
       Wbas := [[CC | (m eq k select 1 else 0) : m in [1..nd]] : k in [1..nd]];
     else
       cons := [[Coefficient(serd[m], minval + e*k) : m in [1..nd]] : k in [0..jvan-1]];
-      Wbas := G3NonHypConditionNullSpace(cons, nd, CC, prec);
+      Wbas := SeriesConditionNullSpace(cons, nd, CC, prec);
     end if;
     error if #Wbas eq 0,
         Sprintf("no degree-%o form vanishes to order %o at P; raise prec", d, jvan);
@@ -587,11 +441,11 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
     // hyperelliptic.m's `[f*phi : f in denombasis] cat numbasis`
     Wphi := [&+[Wbas[k][m]*phiserd[m] : m in [1..nd]] : k in [1..#Wbas]];
     rows := Wphi cat serd;
-    nc := Min(ncolsJ, G3NonHypColumnsAvailable(rows, minval, e));
+    nc := Min(ncolsJ, SeriesColumnsAvailable(rows, minval, e));
     error if nc lt #rows + 5,
         Sprintf("not enough terms for the joint system at vanishing order %o: %o strided columns, %o rows; raise prec",
                 jvan, nc, #rows);
-    ker := G3NonHypSeriesKernel(rows, minval, e, nc, eps, CC);
+    ker := SeriesKernel(rows, minval, e, nc, eps, CC);
 
     // back to monomial coordinates, then reduce BOTH halves modulo I_d.  The
     // order is not optional: reducing after echelonizing gives a different
@@ -626,7 +480,7 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
       // if everything reduced to noise the whole kernel was I_d + I_d, that
       // is, there is no honest solution at this vanishing order
       if rsc gt 10^(-(prec div 3)) then
-        hrows := G3NonHypRREF(red, rsc*10^(-(prec div 2)));
+        hrows := SeriesRREF(red, rsc*10^(-(prec div 2)));
       end if;
     end if;
 
@@ -670,8 +524,8 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
       Sprintf("phi = -A/B holds only to relative residual %o; raise prec, or check that the expansion is centred where phi vanishes",
               RealField(6)!relres);
 
-  num_coeffs := G3NonHypZeroify(Avec, prec);
-  denom_coeffs := G3NonHypZeroify(Bvec, prec);
+  num_coeffs := SeriesZeroify(Avec, prec);
+  denom_coeffs := SeriesZeroify(Bvec, prec);
   num_vals := map_vals;
   denom_vals := map_vals;
   vprintf Shimura : "unscaled numerator coeffs = %o\n", num_coeffs;
