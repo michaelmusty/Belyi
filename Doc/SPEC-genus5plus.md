@@ -105,19 +105,63 @@ contains none); no code is specified for it.
 | `Code/hackobj.m` | attributes `TrianglePetriCase`, `TriangleCanonicalQuadrics`, `TriangleCanonicalCubics`, `TriangleGenusGeneralFormDegree` |
 | `Code/belyi_main.m` | genus `>= 5` branch after the genus-4 one; the genus `> 4` refusal is removed |
 | `Code/recognition.m` | expected: no change (the `DegreeBound` fallback and `rescale_ind := "Centred"` are already in from genus 4); audit `TriangleRescaleCoefficients` for more than two form groups (§5) |
+| `Code/hyperelliptic.m` | `TriangleHyperellipticTest`: the hard-coded column window is replaced by the strided, measured window of the genus-3/4 code (§3a) |
 | `Tests/test_genus5_hyp_11T1.m` | genus 5 HYPERELLIPTIC: checks the dispatch does not take the new branch |
 | `Tests/test_genus5_trig_11T1.m` | genus 5 trigonal, closed form known (§7) |
 | `Tests/test_genus5_general_11T5.m` | gated on the reference computation of §8 |
 | `Tests/run_tests.sh` | runs the first two in the fast group if timings allow (§7) |
 
-## 3. `petri.m`
+## 2a. Verbose output at every stage
+
+Both new files print on the `Shimura` verbose flag, in the style of
+`genus4.m` (twenty `vprint`/`vprintf Shimura` calls in 600 lines): a
+top-level line announcing each stage, tab-indented lines for its steps
+with the SIZES in them, and a line stating each verdict with the number
+it was decided on.  The point is that a run at `SetVerbose("Shimura", 1)`
+is self-diagnosing: when it fails, the last line printed names the stage,
+and the matrix sizes already printed say whether the series were long
+enough (§3a, §9).  At minimum:
+
+- `petri.m`, `TrianglePetriTest`:
+  `"Determining the Petri classification (genus %o)..."`;
+  `"\tForming matrix of monomials of degree 2 (%o monomials, %o columns, stride %o)..."`;
+  `"\tdegree-2 kernel has dimension %o (expected %o for non-hyperelliptic, %o for hyperelliptic)"`;
+  `"\tRREF of I_2: %o quadrics, pivots at monomials %o"`;
+  the same three lines for degree 3;
+  `"\tS_1 * I_2 has rank %o of dim I_3 = %o (deficiency %o)"`;
+  in the exceptional case `"\tisolating %o cubics modulo S_1 * I_2..."`;
+  and the verdict, `"Petri case: %o"`.
+- `genus-general.m`, `TriangleGenusGeneralNumericalCoefficients`: the
+  `genus4.m` header line generalized --
+  `"Computing Belyi map: genus %o, Petri case %o, deg phi = %o, ord_P(phi) = %o, forms of degree %o, dim I_%o = %o, honest dimension %o, stride %o"`;
+  `"\tForming the reduction basis of I_%o from %o quadrics and %o cubics..."`
+  with its dimension check printed before it is asserted;
+  `"\tForming matrix of monomials of degree %o (%o monomials, %o rows, %o columns)..."`
+  for the joint system; the tuned walk's
+  `"\tvanishing order %o at P: solution space has dimension %o"` per
+  step, as now; the relative residual of `phi = -A/B`; and, in the
+  normalization, `"\trescaling %o quadrics and %o cubics by lambda, pivots at %o"`.
+- `TriangleMakeBelyiMap`, new branch: `"Building the canonical model in P^%o from %o forms..."`,
+  then `"\tIsNonsingular..."`, `"\tGenus..."` each on its own line BEFORE
+  the call, since §9 expects these to be the slow steps and the user
+  should see which one is running.
+- `belyi_main.m`: the routing line, `"Not hyperelliptic; genus %o >= 5, so running the Petri test..."`,
+  mirroring the genus-3 and genus-4 branches.
+
+Every error message that says "raise prec" also prints the numbers it
+decided on (dimension found and expected, columns available and wanted),
+as `genus4.m` does; a bare "raise prec" is not acceptable.
 
 - `CanonicalMonomials(g, d)`: the degree-`d` monomials in `g` variables,
   in a fixed order (generalizes `Genus4Monomials`; that one stays where it
   is).
 - `CanonicalIdealDimension(g, d)`:
   `Binom(d + g - 1, g - 1) - (2d - 1)(g - 1)`.
-- `TrianglePetriTest(Gamma)`:
+- `TrianglePetriTest(Sk, Gamma)`, with `Sk` the echelonized basis of
+  `S_2(Gamma)` as `belyi_main.m` computes it and as every sibling test
+  (`TriangleHyperellipticTest`, `TriangleGenus3NonHyperellipticTest`,
+  `TriangleGenus4Test`) receives it -- passed explicitly, not read back
+  from `Gamma`:
   1. Evaluate the `Binom(g+1, 2)` degree-2 monomial series in the
      `f_i` and take the numerical kernel.  Hyperelliptic curves never
      reach this code -- the existing numerical hyperellipticity test has
@@ -149,6 +193,62 @@ Rank decisions use the package's existing gap conventions; the sanity
 check remains the referee downstream.  Note the test consumes only the
 power series stage -- it is cheap relative to recognition, which is what
 makes the §8 scan possible.
+
+## 3a. `hyperelliptic.m`: the column window of the hyperelliptic test
+
+Every genus `>= 2` is routed through `TriangleHyperellipticTest` before
+anything else (§0, §6), so from genus 5 on it is the one piece of old
+code on the new path.  It is sound in any genus -- a relation among
+`x^i` (`i <= 2g+2`), `x^i y` (`i <= g+1`) and `y^2`, with `x = f_1/f_2`
+and `y = dx/omega_g`, forces `[C(X) : C(x)] = 2` -- but its matrix is
+built from a hard-coded window: `3g + 21` CONSECUTIVE exponents starting
+at `2 val(y)`, with the comment "just for one example".  Three things
+are wrong with that window, none of them the number 15:
+
+- It is not strided.  Every series is a series in `w^e`, `e = a/s` the
+  stabilizer order at the expansion point, so for `e > 1` only one column
+  in `e` is nonzero and the useful count is about `(3g + 21)/e`, below
+  the `3g + 6` rows already at `e = 2`: a spurious kernel, hence a false
+  "hyperelliptic" or a "multiple relations" error, is then guaranteed.
+  The genus-3 and genus-4 code stride for exactly this reason.  (The §7
+  tests all have `e = 1`; the defect is independent of genus and bites
+  any passport whose expansion point lies in a short cycle.)
+- It starts at a formula rather than at the minimum valuation over the
+  series.  At a point with the generic gap sequence
+  `val(y^2) = val(x^(2g+2))` and the formula is right; at a Weierstrass
+  point of a hyperelliptic curve `x` has a double pole, the relation is
+  `y^2 = x^(2g+1) + ...`, and `x^(2g+2)` starts two orders lower.  Only a
+  constraint is lost there, never correctness, but the start should be
+  measured, not derived.
+- It never checks that the series carry that many terms.
+
+**The count needed is a function of the genus alone.**  Generically, the
+`3g + 6` rows plus a margin, which is what every passing test has relied
+on.  Rigorously: all rows lie in `L(D)` with `D` the pole divisor of
+`x^(2g+2)`, of degree at most `(2g+2)(2g-2)` since `x` and `y` are
+ratios of differentials, so once the strided window exceeds `deg D` the
+truncated rows are independent exactly when the functions are; that is
+`4g^2 - 3` strided columns past the minimum valuation, and `N` appears
+nowhere in it.  `N` enters only through AVAILABILITY: the stride `e`, the
+vanishing orders of the echelonized basis at the ramified expansion
+point, and how many terms `PowerSeriesBasis` returns at a given `prec`.
+
+**The fix** is to give the hyperelliptic test the convention the genus-3
+and genus-4 code already use: `minval` the minimum valuation over the
+series, stride `e`, `navail` measured from the absolute precisions,
+`ncols := Min(navail, Max(4*rows, rows + 20))`, a "raise prec" error
+below `rows + 5`, and the kernel taken through the row-normalizing
+series-kernel helper rather than raw `NumericalKernel` (the coefficients
+of `x^(2g+2)` and `y^2` differ by many orders of magnitude).  Those
+helpers (`G3NonHypColumnsAvailable`, `G3NonHypSeriesKernel`) are
+file-local to `genus3nonhyperelliptic.m` and imported by `genus4.m`;
+`petri.m` needs them too, so this is the moment to move them into a
+shared file.  Where `4g^2 - 3` columns are available the cap may be
+raised to that for the rigorous guarantee; it is cheap at these sizes.
+
+Verification is in §7: every hyperelliptic test in the suite must pass
+unchanged, plus a few new hyperelliptic maps chosen to hit what the old
+window could not.
 
 ## 4. `genus-general.m`: the equations in each case
 
@@ -211,8 +311,8 @@ degree coerces into the function field exactly as in `P^3`.
 
 After the genus-4 branch: `g >= 5` lands in a new branch that (i) runs
 the existing numerical hyperellipticity test and routes to the existing
-path as before, (ii) otherwise calls `TrianglePetriTest`, (iii)
-dispatches to `TriangleGenusGeneralTest` /
+path as before, (ii) otherwise calls `TrianglePetriTest(Sk, Gamma)` on
+the same `Sk`, (iii) dispatches to `TriangleGenusGeneralTest` /
 `TriangleGenusGeneralNumericalCoefficients` with the stored Petri data.  The refusal at genus `> 4` is removed entirely: from
 this change on, the limit of the package is precision and patience, not
 a genus check.  A failed `TrianglePetriTest` (inconsistent dimensions)
@@ -235,6 +335,20 @@ All nine have `phi = x` in their own model and are defined over `Q`.
 In particular NO Petri-general genus-5 Belyi map exists with cyclic
 monodromy in degree 11; the general branch's test must come from §8.
 
+**`DegreeBound` for the 11T1 tests.**  The strict passport size 9 is
+the default bound, and with it `MakeK` hunts for a nonic field before
+the fallback finds `Q`.  `PassportRepresentatives(sigma : Weak := true)`
+kills the `S_3` action and returns exactly 2 representatives, `(1,1,9)`
+and `(1,2,8)`: the weak passport IS the two curves.  Pass
+`DegreeBound := 2` to both 11T1 tests (the fallback absorbs the drop to
+`Q`), or `1` as the genus-3 and genus-4 cyclic tests do.  Caveat for
+anyone tempted to make the weak size the general default: it bounds the
+field of moduli of the LAX map, and the strict map we recognize can need
+a larger field when an `S_3`-translate of `sigma` is Galois-conjugate to
+`sigma`.  It is safe here because every member is over `Q`; it is not a
+substitute for the strict size when the passport is not visibly
+`S_3`-related.
+
 Explicit triples, with `s := Sym(11)!(1,2,3,4,5,6,7,8,9,10,11)`:
 `[s, s, s^9]` for the hyperelliptic test and `[s, s^2, s^8]` for the
 trigonal one.  (Any Riemann-Hurwitz check is free: three 11-cycles force
@@ -252,6 +366,29 @@ Gate behind `RUNSLOW` by the genus-4 criterion (a test whose time alone
 outweighs the rest of the suite), but keep at least one genus-5 test in
 the fast group.
 
+**Testing the hyperelliptic column fix (§3a).**  The change to
+`TriangleHyperellipticTest` touches every genus `>= 2`, so it is verified
+on the existing suite first: `test_genus3_hyp.m` and
+`test_genus4_hyp_9T1.m` must pass unchanged, and the non-hyperelliptic
+tests (`test_genus3_nonhyp_*`, `test_genus4_nonhyp_*`) must still be
+routed AWAY by it -- a false "hyperelliptic" verdict there is the failure
+mode the stride guards against.  Then add a few hyperelliptic maps the
+old window could not have handled, taken from BelyiDB or the LMFDB, with
+the closed form asserted as in `test_genus4_hyp_9T1.m`:
+
+- at least one with `e > 1`, i.e. `sigma_0` with cycles of unequal
+  length so that the expansion point lies in a shorter cycle; this is
+  the case the unstrided window gets wrong outright;
+- one whose expansion point is a Weierstrass point of the curve
+  (`y^2 = x^(2g+1) + ...` in the test's coordinates), so the window
+  start is exercised below `2 val(y)`;
+- a genus-2 map, since the suite has none and genus 2 is the smallest
+  genus the test serves.
+
+Run each at the precision its reference computation used; the point of
+these is routing and the relation count, not height.  Record the
+timings alongside the genus-5 ones and gate by the same criterion.
+
 ## 8. The reference computation: `11T5` (PSL(2,11), passport size 2)
 
 The natural flagship for the general branch, and the open risk: **its
@@ -259,19 +396,47 @@ Petri class is not known in advance.**  The passport could a priori be
 general, trigonal, or hyperelliptic.  So the computation is staged so
 that the cheap step decides before anyone pays for the expensive one:
 
-- **Stage 0 (do first, cheap).**  For one member each of `11T5` and
-  `11T6` (M11, size 30): run the series stage and `TrianglePetriTest`
-  at low precision (30-40 digits), no recognition, no maps.  The
-  representative triples come straight from
+- **Stage 0 (do first, cheap).**  For both members of `11T5` and one
+  member of `11T6` (M11, size 30): run the series stage and
+  `TrianglePetriTest` at low precision (30-40 digits), no recognition,
+  no maps.  The representative triples come straight from
   `PassportRepresentatives(11 : genus := 5)` -- the order-660 and
-  order-7920 entries.  Deliverable:
-  the Petri class of each passport.  This is a standalone result worth
+  order-7920 entries; the whole call takes 25 s.  Deliverable: the
+  Petri class of each passport.  This is a standalone result worth
   having regardless of what follows.
+
+  **Order of work.**  Stage 0 IS a run of `TrianglePetriTest` on `Sk`,
+  pure linear algebra on the series, so it is not a throwaway script:
+  implement `petri.m` first, with the helper relocation of §3a, and run
+  it on the Stage-0 members.  That yields the Stage-0 answer and a tested
+  `petri.m` in one step, before any of `genus-general.m` exists.  The
+  Stage-0 driver (a script in the style of the degree-9 reference
+  scripts, kept with them) does three things:
+  1. runs `TriangleHyperellipticTest` on the same `Sk` FIRST and reports
+     its verdict.  `petri.m` assumes hyperelliptic curves never reach it
+     (§3), so a hyperelliptic `11T5` would otherwise show only as a wrong
+     degree-2 kernel dimension and a "raise prec" error;
+  2. calls `TrianglePetriTest(Sk, Gamma)` and reports `TrianglePetriCase`
+     with the kernel dimensions and ranks it was decided on;
+  3. prints, through the §2a lines, the columns AVAILABLE against the
+     columns WANTED at each degree.  This is the first measurement of
+     series length against ideal size at degree 11 -- the constraint §4
+     and §9 defer to measurement -- and it is free here.
+  Only after the class is known is `genus-general.m` written and the
+  `11T5` test chosen from the §7 table: `"General"` with three quadrics
+  only, or the fallbacks below.
 - **Stage 1.**  If `11T5` is general: compute one member fully.  Field
-  degree at most 2 -- the passport is a conjugate-looking pair (one
-  member has `sigma_0 = s^2`, the other `s^(-2)`) -- and if the two are
-  instead related by the `S_3` action, the fallback of §5 absorbs the
-  drop to `Q`.  Reference script in the
+  degree at most 2 -- the passport is a conjugate-looking pair: with
+  `s` an 11-cycle, one member carries `s^2` and the other `s^(-2)` in
+  the same slot of the triple, the two classes of 11-cycles in
+  `PSL(2, 11)` being swapped by the outer automorphism.  WHICH slot
+  depends on the representatives chosen: the dump from the interactive
+  session has `sigma_0 = s^2, s^(-2)`, while
+  `PassportRepresentatives(TransitiveGroup(11, 5) : genus := 5)` returns
+  `sigma_0 = s` and `sigma_1 = s^2, s^9`.  Either is fine; the test
+  must not assert on the slot.  If the two members turn out to be
+  related by the `S_3` action rather than by Galois, the fallback of §5
+  absorbs the drop to `Q`.  Reference script in the
   style of the degree-9 genus-4 work; its verified output becomes
   `test_genus5_general_11T5.m` with the precision the reference run
   needed.
@@ -296,11 +461,38 @@ that the cheap step decides before anyone pays for the expensive one:
   hatch.
 - `TriangleRescaleCoefficients` still needs a nonzero weight-zero
   coefficient in `A` or `B`; carried over, not yet hit.
+- **The weight-gcd root of unity.**  `lambda` is read from the map's
+  coefficients and a `gcd`-th root taken, determined up to a root of
+  unity `zeta`.  When the gcd reflects a genuine automorphism of order
+  `d` fixing `P` this is harmless: the canonical ideal is invariant
+  under the torus element `zeta`, so by uniqueness of the RREF every
+  row's offsets `w_m - w_piv` are divisible by `d` and the root never
+  enters.  That is the generic case, 9T6 included, and it is what
+  `Aut = C11` on the 11T1 tests will show.  The accident is a SPARSITY
+  accident: the tuned `A`, `B` can have so few monomials that their
+  weights share a factor by chance, with no automorphism behind it.
+  The wrong root then multiplies the curve's coefficients by
+  `zeta^(w_m - w_piv)` and leaves the map alone -- the same Belyi map in
+  coordinates over `K(zeta_d)`.  `BelyiMapSanityCheck` PASSES on it;
+  what fails is recognition at the degree bound, and since the fallback
+  only walks downward the run ends in a hard error.  (The rescaler's
+  comment that the branch is "resolved downstream by
+  BelyiMapSanityCheck" names the wrong mechanism.)  Not fixed here, not
+  yet hit.  Should it bite, the fix is to make the accident impossible
+  by construction: feed the `Xgcd` each curve row's ratios `c_m / c_piv`,
+  of weight `w_m - w_piv` and free of any group scalar, alongside the
+  map's coefficients, so that a common divisor of the whole data is a
+  genuine automorphism.  The same trick on the map's own ratios would
+  remove the weight-zero requirement above; larger change, same
+  deferral.
 - Genus 6's trigonal-vs-quintic label is out of scope everywhere (§1);
   classifying a computed genus-6 curve is an offline afterthought.  No
   genus-6 test is planned until a genus-6 Belyi map worth computing is
   chosen (minimal degree `2g + 1 = 13`).
-- Magma's `Genus` of a curve in `P^(g-1)` may become the slow step of
-  `TriangleMakeBelyiMap` as `g` grows; if it does, downgrade it to a
-  `RUNSLOW`-only assertion and let the sanity check carry the fast
+- Magma's `Genus` and `IsNonsingular` of a curve in `P^(g-1)` may
+  become the slow step of `TriangleMakeBelyiMap` as `g` grows -- from
+  `g = 6` the model is no longer a complete intersection, and even the
+  `Curve` constructor checks dimension 1 by a Groebner basis over `K`.
+  Them's the breaks; if it does, downgrade the two checks to
+  `RUNSLOW`-only assertions and let the sanity check carry the fast
   suite.
