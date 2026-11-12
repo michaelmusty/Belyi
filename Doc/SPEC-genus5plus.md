@@ -474,8 +474,17 @@ trigonal one.  (Any Riemann-Hurwitz check is free: three 11-cycles force
 | `test_genus5_trig_11T1.m` | `(1,2,8)` | 60 | `TrianglePetriCase = "Trigonal"`; three quadrics + two cubics; map over `Q`; sanity check |
 | `test_genus5_general_11T5.m` | §8 | TBD | `TrianglePetriCase = "General"`; three quadrics only; sanity check |
 
+**Tests carry their triples verbatim.**  `PassportRepresentatives` is
+not deterministic across Magma sessions (§8), so "member 1 of 11T5" is
+not a reproducible input.  Every genus-5 test inlines its `sigma` as the
+genus-3 and genus-4 tests do, with the `S_n` images written out; the
+11T5 triples come from the degree-11 dump of 2026-11-11.  The driver's
+`triples:=` file path is for scans, not for tests.
+
 Precisions are starting guesses to be measured, as always: genus-4
-degree-9 ran at 40-80, and degree 11 costs more in the series stage.
+degree-9 ran at 40-80, and degree 11 costs more in the series stage;
+prec 30 was enough for every Stage-0 verdict, and recognition will want
+more -- start Stage 1 at 40 to 60.
 Gate behind `RUNSLOW` by the genus-4 criterion (a test whose time alone
 outweighs the rest of the suite), but keep at least one genus-5 test in
 the fast group.
@@ -676,10 +685,29 @@ that the cheap step decides before anyone pays for the expensive one:
   genuine automorphism.  The same trick on the map's own ratios would
   remove the weight-zero requirement above; larger change, same
   deferral.
-- Genus 6's trigonal-vs-quintic label is out of scope everywhere (§1);
-  classifying a computed genus-6 curve is an offline afterthought.  No
-  genus-6 test is planned until a genus-6 Belyi map worth computing is
-  chosen (minimal degree `2g + 1 = 13`).
+- Genus 6's trigonal-vs-quintic label is out of scope for the
+  classifier (§1).  The genus-6 PLAN (2026-11-12): Stage 0 on the
+  degree-13 genus-6 passports once the enumeration running on the server
+  delivers them, fed to `Code/petri_stage0.m` through `triples:=` with
+  `genus:=6`; no Fermat-quintic test -- `x^5 + y^5 = z^5` with
+  `phi = x^5/z^5` is the obvious smooth plane quintic with a Belyi map,
+  but at degree 25 its series stage is roughly ten times the degree-11
+  one, too large for a test (Sam's call); a plane-quintic control, if
+  one is wanted, has to come out of the degree-13 scan; and,
+  if a numerical trigonal-vs-quintic discriminator is wanted after all, a
+  LEAD to verify first: the Veronese ideal contains rank-3 quadrics
+  (`x_00 x_11 - x_01^2`) while the quadrics through a quartic scroll are
+  2x2 minors of a 2x4 matrix and are believed to have rank at least 4,
+  so the minimum rank over `I_2` would separate them.
+- The series stage's echelonization (ADR §2) takes its threshold scale
+  over the whole coefficient matrix, tails included; on a basis whose
+  tails reach `10^20` it would fail loudly with the dependency error, and
+  the scale should then be measured over the early columns only.
+- The hyperelliptic test still divides by forms (`x = f_1/f_2`,
+  `y = dx/omega_g`).  It never showed the growth symptom that broke the
+  affine Petri rows (§3a), but if it does, the remedy is to homogenize
+  `y^2 + u(x) y = v(x)` by clearing the denominators (ADR §3), not to
+  scale columns.
 - Magma's `Genus` and `IsNonsingular` of a curve in `P^(g-1)` may
   become the slow step of `TriangleMakeBelyiMap` as `g` grows -- from
   `g = 6` the model is no longer a complete intersection, and even the

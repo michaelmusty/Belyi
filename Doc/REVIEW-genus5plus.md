@@ -140,4 +140,5 @@ spec; decisions in `Doc/adr-series-stage-echelonization.md`.  A second, independ
 coordinate series `f_i/f_g` converge only out to the nearest other zero
 of `f_g`, and the degree-3 rows then span `10^17` -- fixed by an
 automatic column scaling in `SeriesKernel` (§3a).  11T6 members 1 and 2
-are Petri-General.
+are Petri-General; the column scaling was then removed once the Petri
+rows went homogeneous (ADR §3, §4).  Stage 1 is next.
