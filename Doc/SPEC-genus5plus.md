@@ -772,3 +772,62 @@ that the cheap step decides before anyone pays for the expensive one:
   Them's the breaks; if it does, downgrade the two checks to
   `RUNSLOW`-only assertions and let the sanity check carry the fast
   suite.
+
+## 10. Stage 1: order of work and estimates
+
+*Written 2026-11-12 after Stage 0, from measured times: degree-11 series
+stage 128-148 s at prec 30 with the solver at four threads, about 200 s
+at two; hyperelliptic test 23-25 s; Petri test 28-36 s; degree 13 at
+prec 30: series stage a few minutes, hyperelliptic test 53 s, Petri test
+105 s; genus-4 `BelyiMap` end to end 60-150 s at prec 40 (degree 9).*
+
+**Machine rule.**  One Magma job at a time, `POWSER_ARNOLDI_THREADS=2`,
+so that nothing launched for this build ever exceeds three of the ten
+cores.  Serializing costs perhaps an hour over the whole build against
+fanning out, and is the deal.
+
+**Order of work.**
+
+1. `genus-general.m`: `TriangleGenusGeneralNumericalCoefficients`,
+   adapted from the map stage of `genus4.m` with the homogeneous rows of
+   §3 step 0 and §4, the `I_d` reduction basis built from the stored
+   quadrics and cubics, the tuned walk, and the per-row centred pivots
+   for `dim I_2 + (g-3)` curve rows (§5).  Then the genus `>= 5` branch
+   of `TriangleMakeBelyiMap` and the dispatch in `belyi_main.m` (§6).
+   Half a day of writing; machine time is attach checks only.
+2. Smoke tests on the checkpointed series, no series stage: 11T5 member
+   1 and 11T6 member 2 at prec 30 are saved under
+   `~/github/belyi-data/checkpoints/` (load with `ReadObject`).  About a
+   minute each, one core.  These catch shape, dimension and sign errors
+   before any precision tuning; whether recognition succeeds at prec 30
+   is a question for step 3.
+3. The two 11T1 tests (§7), with inlined triples and `DegreeBound := 2`
+   or 1, then the 11T5 reference computation from an inlined triple
+   (§8), starting at prec 40 to 60.  Expect two to four precision
+   iterations each; one full `BelyiMap` run at degree 11 is 10 to 25
+   minutes serialized (series stage 5-12 min, Petri and hyperelliptic
+   tests 1 min, map stage a few minutes, recognition seconds to minutes,
+   then `Curve` in `P^4`, `IsNonsingular`, `Genus` and the sanity check,
+   the one unmeasured part).  Roughly ten runs, 2 to 4 hours of machine
+   time, spread over the writing and debugging.
+4. The fast suite after every change to shared code, 10 minutes each,
+   three or four times.
+5. The extra hyperelliptic tests of §7 (`e > 1`, a Weierstrass centre, a
+   genus-2 map), the Stage-1 documents (`Doc/genus-general.md`, an ADR
+   in the style of `adr-genus4.md`), and the §2a verbose lines checked
+   against a real run.  About two hours.
+
+**Total.**  About two working days end to end, with the machine busy for
+perhaps five hours in all and never above three cores.
+
+**Risks that could stretch it.**  The 11T5 map's heights are unknown; if
+they exceed what LLL certifies at prec 60 to 80, recognition fails and
+the M23-style exact route (§9) is the fallback, a separate effort.
+`Genus` and `IsNonsingular` on a curve in `P^4` cut out by three quadrics
+have not been timed; if slow they move behind `RUNSLOW`, as §9 allows.
+A `13T7` genus-6 map, the only Petri-general genus-6 candidate, has a
+passport of 152 members and may not be recognizable at all.
+
+**After Stage 1.**  Genus 6 is ready to go the same way: the three C13
+controls with closed forms (hyperelliptic, trigonal, the Klein quintic)
+and PSL(3,3) for the general branch, all at degree 13 (§9).
