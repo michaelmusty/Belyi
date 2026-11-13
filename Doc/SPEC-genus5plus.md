@@ -689,11 +689,68 @@ that the cheap step decides before anyone pays for the expensive one:
   classifier (§1).  The genus-6 PLAN (2026-11-12): Stage 0 on the
   degree-13 genus-6 passports once the enumeration running on the server
   delivers them, fed to `Code/petri_stage0.m` through `triples:=` with
-  `genus:=6`; no Fermat-quintic test -- `x^5 + y^5 = z^5` with
-  `phi = x^5/z^5` is the obvious smooth plane quintic with a Belyi map,
-  but at degree 25 its series stage is roughly ten times the degree-11
-  one, too large for a test (Sam's call); a plane-quintic control, if
-  one is wanted, has to come out of the degree-13 scan; and,
+  `genus:=6`.  The degree-13 scan (run on the server, 2026-11-12)
+  supplies the genus-6 controls, the smooth plane quintic included.
+  Degree 13, genus 6 forces three 13-cycles, and only three groups have
+  passports:
+
+  | group | passport size |
+  |---|---|
+  | `13T1` = C13 | 11 |
+  | `13T7` = PSL(3,3) | 152 |
+  | `13T8` = A13 | 5263601 |
+
+  The 11 members of C13 are the shift classes `(1, b, c)`,
+  `1 + b + c = 0 mod 13`, and up to scaling they are THREE curves, not
+  two as in degree 11, because 13 has a cube root of unity and `{1, 3, 9}`
+  is fixed by multiplication by 3:
+
+  | shift classes | curve | Petri case |
+  |---|---|---|
+  | `(1,1,11), (1,6,6), (1,11,1)` | `y^13 = x(1-x)`, hyperelliptic | routed before Petri |
+  | `(1,2,10), (1,10,2), (1,4,8), (1,8,4), (1,5,7), (1,7,5)` | `y^13 = x(1-x)^2`, trigonal (`y` has degree 3) | `"Exceptional"`, 6 quadrics + 3 cubics |
+  | `(1,3,9), (1,9,3)` | `y^13 = x(1-x)^3` = the Klein quintic `x^4 y + y^4 z + z^4 x = 0`, a SMOOTH PLANE QUINTIC | `"Exceptional"`, 6 quadrics + 3 cubics |
+
+  The identification: `(x, y, z) -> (zeta x, zeta^9 y, zeta^3 z)`,
+  `zeta` a 13th root of unity, preserves the quintic (`4 + 9`,
+  `4*9 + 3`, `4*3 + 1` are all `0 mod 13`), its three fixed points are
+  the coordinate points, which lie on the curve, and Riemann-Hurwitz at
+  `g = 6` forces the quotient to be `P^1` with exactly three branch
+  points: a degree-13 cyclic Belyi map with exponent pattern `{1, 3, 9}`.
+  Verified in Magma 2026-11-12: the quintic is nonsingular of genus 6;
+  `y^13 = x(1-x)^3` is genus 6, not hyperelliptic, with `y` of degree 4
+  (gonality 4, as a plane quintic has); and both curves have canonical
+  ideals in `P^5` with minimal generators of degrees `{2^6, 3^3}`.  So
+  the genus-6 test set comes entirely from degree 13 with closed forms:
+  one hyperelliptic, one trigonal and one plane quintic, both exceptional
+  cases side by side -- which is also the first place a numerical
+  trigonal-vs-quintic discriminator could be tested against known
+  answers.  **Run 2026-11-12 (`which:=13T1`, prec 30, solver at two
+  threads), all three as predicted:** `(1,1,11)` hyperelliptic;
+  `(1,2,10)` and `(1,3,9)` both `"Exceptional"` with 6 quadrics and 3
+  cubics.  The genus-6 column of the §1 table is thereby measured: 21
+  degree-2 monomials, degree-2 kernel of dimension 6 (10 would have been
+  hyperelliptic), 56 degree-3 monomials, `dim I_3 = 31`, `S_1 * I_2` of
+  rank 28 from 36 products, deficiency 3, and the three cubics isolated
+  cleanly.  Orders of vanishing at the centre: `[0,1,2,3,4,5]`
+  (hyperelliptic, a generic point), `[0,1,2,3,6,7]` (trigonal),
+  `[0,1,2,4,5,8]` (the quintic, whose first non-gap is 4, the degree-4
+  function a plane quintic carries).  Timings per member at degree 13:
+  hyperelliptic test 53 s, Petri test 105 s, series stage with 2308
+  terms a few minutes.  The compact triples file for degree 13 (all of
+  C13 and PSL(3,3), twenty of A13; 36 KB) lives outside the repository
+  at `~/github/belyi-data/deg13_genus6_triples_small.m`; the 899 MB full
+  dump is an archive only.  `13T7` = PSL(3,3), member 1 of 152 (run
+  2026-11-12, 105 s after the series stage): **`"General"`, 6 quadrics,
+  0 cubics**, `S_1 * I_2` of rank 31 = `dim I_3`, orders of vanishing
+  `[0,1,2,3,4,6]` at the centre -- a Weierstrass point on a curve with no
+  cyclic symmetry, the configuration that broke the old echelonization
+  on `11T6`, handled cleanly: a second independent confirmation of the
+  fix.  So all three Petri cases have a measured genus-6 instance at
+  degree 13.  Whether a `13T7` map is RECOGNIZABLE is another matter: 152
+  members may mean a field of definition out of reach, so this is a
+  Stage-0 result and the general-branch candidate, not yet a test.  The
+  A13 members are the "general is common" sample, not yet run; and,
   if a numerical trigonal-vs-quintic discriminator is wanted after all, a
   LEAD to verify first: the Veronese ideal contains rank-3 quadrics
   (`x_00 x_11 - x_01^2`) while the quadrics through a quartic scroll are

@@ -12,6 +12,7 @@
 //          11T5 -- PSL(2,11), passport size 2 (default: both members)
 //          11T6 -- M11, passport size 30 (default: member 1)
 //          11T7 -- A11, passport size 54949 (give members explicitly)
+//          13T1 -- genus 6 controls: (1,1,11) hyperelliptic, (1,2,10) trigonal, (1,3,9) the Klein quintic
 // members: comma-separated indices into the passport (PassportRepresentatives(G : genus := genus))
 // genus:   expected genus, default 5 (used only to pick the passport); any dTt works
 // triples: a file "triples := [ [* t, [[Eltseq(s0), Eltseq(s1), Eltseq(soo)], ...] *], ... ];"
@@ -52,6 +53,21 @@ if which eq "11T1" then
   // exponents (1,1,9) and (1,2,8): s * s * s^9 = s * s^2 * s^8 = 1
   sigmas := [[s, s, s^9], [s, s^2, s^8]];
   labels := ["11T1 (1,1,9): y^11 = x(1-x), hyperelliptic", "11T1 (1,2,8): y^11 = x(1-x)^2, trigonal"];
+  if #members gt 0 then
+    sigmas := [sigmas[i] : i in members];
+    labels := [labels[i] : i in members];
+  end if;
+elif which eq "13T1" then
+  // genus 6: the three curves of the C13 passport (spec §9), exponents
+  // (1,1,11) hyperelliptic, (1,2,10) trigonal, (1,3,9) the Klein quintic
+  // x^4 y + y^4 z + z^4 x; the classifier reports both of the latter as
+  // "Exceptional" with 6 quadrics and 3 cubics
+  S13 := Sym(13);
+  s13 := S13!(1,2,3,4,5,6,7,8,9,10,11,12,13);
+  sigmas := [[s13, s13, s13^11], [s13, s13^2, s13^10], [s13, s13^3, s13^9]];
+  labels := ["13T1 (1,1,11): y^13 = x(1-x), hyperelliptic",
+             "13T1 (1,2,10): y^13 = x(1-x)^2, trigonal",
+             "13T1 (1,3,9): y^13 = x(1-x)^3 = the Klein quintic, smooth plane quintic"];
   if #members gt 0 then
     sigmas := [sigmas[i] : i in members];
     labels := [labels[i] : i in members];
