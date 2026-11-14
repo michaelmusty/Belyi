@@ -60,7 +60,27 @@ The runner executes, in order:
    weight-gcd branch of the rescaler; 9T27 (over `Q`, passport size 6) needs
    `prec := 80` (at 60 the recognition over `Q` accepts a wrong `B` and the
    sanity check catches it) and takes about six minutes on its own, which is
-   why it is gated.  Assertions are on the ramification, not on coefficients.
+   why it is gated.  Assertions are on the ramification and on the field of
+   definition (`Q` for 9T25 and 9T27, `Q(sqrt(-3))` for 9T6), which is what
+   tells the three `(9,9,9)` passports apart.
+9. **`test_degreebound_fallback.m`**: the `DegreeBound` fallback of
+   `TriangleRecognizeAlgebraicCoefficients` (`Doc/SPEC-degreebound-fallback.md`):
+   9T6 with `DegreeBound := 4`, forced above the field degree.  `MakeK` finds
+   no quartic field; the fallback must reject `Q` (the curve's coefficients
+   are rational but the map's are not all real) and find `Q(sqrt(-3))`,
+   verified on every coefficient.  Asserts the field's degree and
+   discriminant and the sanity check.
+10. **`test_genus2_fallback_real_quadratic.m`**, **`test_genus2_fallback_curve_over_Q.m`**:
+   the same fallback on genus 2 maps from the LMFDB whose passports split
+   into several Galois orbits.  7T6-7_7_3.2.2-c is over the REAL field
+   `Q(sqrt 7)`, so reality cannot reject `Q` and only the height gate on the
+   degree-1 fits can; 7T7-7_4.3_4.3-c has its curve over `Q` and its map over
+   `Q(i)`, the exact shape that fooled the old five-coefficient sample.
+   **`test_genus2_fallback_large_heights.m`** is 7T6-7_7_3.2.2-b over
+   `Q(sqrt 21)`, whose coefficients reach 12 digits of height and whose
+   leading coefficient the old scalar recognition got wrong at `prec := 60`.
+   Triples are as the LMFDB gives them (shared convention
+   `sigma[3]*sigma[2]*sigma[1] = 1`).
 Each Magma test prints `ALL TESTS PASSED` on success or `SKIP: ...` when a
 prerequisite (the C binary) is missing; the runner treats anything else as
 failure and shows the tail of the output.

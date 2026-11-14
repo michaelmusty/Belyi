@@ -131,3 +131,90 @@ Compositum construction when no single coefficient is primitive (take
 the field of the max-degree coefficient and let verification fail
 towards a precision error; no observed case needs more), any change to
 genus-0/1 recognition, and the BelyiDB wrapper.
+
+## 7. Implementation notes (2026-11-13, after measurement)
+
+The algorithm of §3 is implemented in `TriangleRecognizeAlgebraicCoefficients`
+as written, with four departures forced by measurements made while testing
+it on real maps (the genus 2 passports 7T6-[7,7,6] and 7T7-[7,4.3,4.3] from
+the LMFDB, whose fields are known).  The numbers are recorded in the gate
+comment in `recognition.m`.
+
+1. **Relations are found on an explicit lattice**, rows
+   `[e_i | round(10^q Re x_i) | round(10^q Im x_i)]`, not with Magma's
+   `PowerRelation` / `LinearRelation`.  Those work at an undocumented
+   reduced internal precision (phony relations among two numbers at
+   precision p come out at about p/4 digits, not p/2), so the floor of §2
+   is not where the spec puts it and the gates cannot be placed relative
+   to it.
+2. **The lattice scale is q = 4p/5, not p.**  The coefficients carry about
+   four fifths of the working precision (41-42 digits of 50 on 7T6-[7,7,6],
+   33-34 of 40 on 9T6).  Scaled to p, a genuine relation of height h has a
+   lattice vector of length h times the excess and is unrecoverable for
+   ordinary h; the 9-digit fits of 7T6-[7,7,6]-b are an example.
+3. **Gates sit two digits below the floor, flat in position.**  Half the
+   floor rejected three of the four test maps: genuine heights of 9 to 13
+   digits at p = 50 are normal.  The accuracy loss is flat across the list,
+   not a head-to-tail gradient, so the position grading of §3.1 and §3.3
+   has nothing to grade by and is not implemented.  The margin against
+   phony is two digits plus their scatter; totality protects Q (every
+   coefficient must pass), and verification protects every other field.
+4. **A tail failure does not abort.**  A candidate that fits the head and
+   fails the tail may be a proper SUBFIELD of the right field: on
+   7T7-[7,4.3,4.3]-d a coefficient in the quadratic subfield of the quartic
+   field fits 12 coefficients of 19.  That is indistinguishable from a
+   precision failure on the right field, so any failure rejects the
+   candidate and the ascent continues; when every degree is exhausted the
+   error names the best partial fit.  The remedy for both readings is
+   `prec`.
+
+5. **The leading coefficient goes through the same fit, and so does every
+   coefficient on the non-fallback path** (ungated, with the residual
+   check).  The scalar `RecognizeOverK` misrecognized the leading
+   coefficient of 7T6-[7,7,6]-b at p = 60 -- its `LinearRelation` was off
+   by 3e-24 on 60-digit input while the lattice fit is right to 8e-41 --
+   and the sanity check, not the recognition, caught it.  The spec left the
+   non-fallback path unchanged on the grounds that it was sound; the field
+   it found always was, the coefficients it recognized were not always.
+
+Tests added beyond §4: `test_genus2_fallback_real_quadratic.m`
+(7T6-7_7_3.2.2-c over Q(sqrt 7): only the height gate can reject Q) and
+`test_genus2_fallback_curve_over_Q.m` (7T7-7_4.3_4.3-c: curve over Q, map
+over Q(i), passport 9) and `test_genus2_fallback_large_heights.m`
+(7T6-7_7_3.2.2-b over Q(sqrt 21), 12-digit heights, prec 60).  The quartic orbit 7T7-7_4.3_4.3-d is out of reach:
+its primitive coefficients have minimal polynomials of 20 or more digits,
+beyond any floor at p = 60.
+
+**Follow-up, not in this change (2026-11-14): a centred pivot in genus 2.**
+The hyperelliptic path still normalizes by the last entry of each list.
+Tried on 7T6-7_7_3.2.2-b: the centred pivot (with the weight lists aligned
+to the trimmed coefficient lists, see below) brings the largest fit height
+from 2.5e12 down to 4.8e9 and makes the map recognizable at prec 50, where
+the last-entry pivot needs 60.  Two things to carry to its own branch:
+`TriangleMakeBelyiMap`'s hyperelliptic branch must divide the curve by the
+coefficient of y^2 exactly, since a centred pivot no longer makes it 1.
+(A second thing the experiment turned up is fixed in this change:
+`TriangleHyperellipticNumericalCoefficients` removed trailing zeros from the
+numerator and denominator coefficient lists but not from their weight
+lists, and the rescaler reads the weights that feed lambda positionally
+from `num_vals cat denom_vals`, so a shortened numerator list shifted every
+denominator weight it read.  The weight lists are now trimmed with the
+coefficient lists.)
+
+**Follow-up, not in this change: verifying the monodromy.**  The sanity
+check verifies the ramification data of the passport, not which triple the
+map realizes, so 9T25 and 9T27 (both over Q, both of type (9,9,9)) are
+indistinguishable to their tests.  A real check would be a separate,
+opt-in `VerifyMonodromy`: take a plane model of the curve as a cover of the
+phi-line (Gm-Reduce's `BestModel`, https://github.com/SamSchiavone/Gm-Reduce,
+was written to produce such models), run Magma's `MonodromyRepresentation`
+on it w.r.t. the embedding, and compare the local monodromies at 0, 1, oo
+with sigma by simultaneous conjugacy, settling once the two conventions
+(which permutation sits over which branch value; orientation, i.e. whether
+the triple comes back inverted).  Its cost on the larger examples is
+unknown and is the reason it is not on the path of every test.  For
+comparison, the certified monodromy computation of
+https://arxiv.org/abs/2604.15562 (via the algpath package in Sage) is
+reported to have verified the Belyi maps in the LMFDB; it is the standard
+to measure a `VerifyMonodromy` against, and an alternative route to one at
+the price of a Sage dependency.
