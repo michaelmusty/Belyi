@@ -396,6 +396,10 @@ intrinsic TriangleHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2
   while num_coeffs[#num_coeffs] eq 0 do
     Remove(~num_coeffs,#num_coeffs);
   end while;
+  // trim the weight lists too: TriangleRescaleCoefficients reads the
+  // weights feeding lambda positionally from num_vals cat denom_vals
+  denom_vals := denom_vals[1..#denom_coeffs];
+  num_vals := num_vals[1..#num_coeffs];
   printf "unscaled numerator coeffs = %o\n", num_coeffs;
   printf "unscaled denominator coeffs = %o\n", denom_coeffs;
   lambda, curve_coeffs, lc, num_coeffs, denom_coeffs := TriangleRescaleCoefficients(Gamma, [curve_coeffs, num_coeffs, denom_coeffs], [curve_vals, num_vals, denom_vals]);

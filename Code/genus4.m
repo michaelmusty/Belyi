@@ -516,6 +516,10 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
 
   // ------------------------------------------------------------------
   // 6. THE CORRECTNESS CHECK: phi = -A/B on this curve, to full precision
+  //
+  // TODO (review of the g4 PR, deferred): this residual is IN-SAMPLE -- it
+  // is measured on the same nc columns the kernel was fitted to.  When
+  // navailJ > nc, held-out columns would make it an independent check.
   // ------------------------------------------------------------------
   resnum := RealField(prec)!0;
   resden := RealField(prec)!0;
@@ -572,18 +576,11 @@ intrinsic TriangleGenus4NumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
   cpart := [cpart[i]*lambda^(cvals[i]) : i in [1..nc3]];
   cpart := SeriesZeroify(cpart, prec);
   if Pivot eq "Centred" then
-    cmx := Max([Abs(c) : c in cpart]);
-    cnz := [i : i in [1..nc3] | Abs(cpart[i]) gt cmx*10^(-(prec div 2))];
-    error if #cnz eq 0, "the cubic is numerically zero; raise prec";
-    cmid := (Min([cvals[i] : i in cnz]) + Max([cvals[i] : i in cnz]))/2;
-    cind := cnz[1];
-    for i in cnz do
-      if Abs(cvals[i] - cmid) lt Abs(cvals[cind] - cmid) then cind := i; end if;
-    end for;
+    cind := CentralPivot(cpart, cvals, prec);
   else
     cind := SeriesLastNonzero(cpart);
-    error if cind lt 1, "the cubic is numerically zero; raise prec";
   end if;
+  error if cind lt 1, "the cubic is numerically zero; raise prec";
   cpart := [c/cpart[cind] : c in cpart];
   curve_coeffs := qpart cat cpart;
 

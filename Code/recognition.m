@@ -1,5 +1,32 @@
 //For my advanced versions of rescaling (including automorphism group) of this, see genuszero lines 177 and 438
 
+intrinsic CentralPivot(cfs::SeqEnum, vls::SeqEnum, prec::RngIntElt) -> RngIntElt
+  {The index of a nonzero entry of cfs whose weight vls[i] is nearest the centre of the nonzero weight range, ties to the larger modulus; 0 if every entry is zero.  An entry counts as nonzero when its modulus exceeds the largest modulus times 10^(-prec div 2).  This is the normalizing pivot of TriangleRescaleCoefficients' "Centred" mode; genus 4 uses it for the cubic too, which the rescaler does not see.}
+  require #cfs eq #vls : "cfs and vls should have the same length";
+  if #cfs eq 0 then
+    return 0;
+  end if;
+  mx := Max([Abs(c) : c in cfs]);
+  if mx eq 0 then
+    return 0;
+  end if;
+  tol := mx*10^(-(prec div 2));
+  nz := [i : i in [1..#cfs] | Abs(cfs[i]) gt tol];
+  lo := Min([vls[i] : i in nz]);
+  hi := Max([vls[i] : i in nz]);
+  mid := (lo + hi)/2;
+  best := nz[1];
+  bd := Abs(vls[best] - mid);
+  for i in nz do
+    d := Abs(vls[i] - mid);
+    if d lt bd or (d eq bd and Abs(cfs[i]) gt Abs(cfs[best])) then
+      best := i;
+      bd := d;
+    end if;
+  end for;
+  return best;
+end intrinsic;
+
 // TODO: Make sure TriangleRescaleCoefficients works for genus one.
 // Once it does, delete previous rescaling functions
 intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2Tri, coeffs::SeqEnum, vals::SeqEnum : rescale_ind := 0) -> Any
@@ -17,32 +44,11 @@ intrinsic TriangleRescaleCoefficients(Gamma::GrpPSL2Tri, coeffs::SeqEnum, vals::
   // reproduces the historical behaviour exactly -- the final entry of each
   // list -- so existing callers are unchanged.
   lens := [#curve_coeffs, #num_coeffs, #denom_coeffs];
-  CentralPivot := function(cfs, vls);
-    mx := Max([Abs(c) : c in cfs]);
-    if mx eq 0 then
-      return 0;
-    end if;
-    tol := mx*10^(-(prec div 2));
-    nz := [i : i in [1..#cfs] | Abs(cfs[i]) gt tol];
-    lo := Min([vls[i] : i in nz]);
-    hi := Max([vls[i] : i in nz]);
-    mid := (lo + hi)/2;
-    best := nz[1];
-    bd := Abs(vls[best] - mid);
-    for i in nz do
-      d := Abs(vls[i] - mid);
-      if d lt bd or (d eq bd and Abs(cfs[i]) gt Abs(cfs[best])) then
-        best := i;
-        bd := d;
-      end if;
-    end for;
-    return best;
-  end function;
   if rescale_ind cmpeq 0 then
     rinds := lens;
   elif rescale_ind cmpeq "Centred" then
-    rinds := [CentralPivot(curve_coeffs, curve_vals), CentralPivot(num_coeffs, num_vals),
-              CentralPivot(denom_coeffs, denom_vals)];
+    rinds := [CentralPivot(curve_coeffs, curve_vals, prec), CentralPivot(num_coeffs, num_vals, prec),
+              CentralPivot(denom_coeffs, denom_vals, prec)];
     error if 0 in rinds,
         "cannot centre the pivot: one of curve, numerator, denominator is numerically zero";
     vprintf Shimura : "centred normalizing pivots at indices %o\n", rinds;
@@ -674,70 +680,217 @@ intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2Tri : DegreeBound
     denom_coeffs := Gamma`TriangleNumericalBelyiMapDenominatorCoefficients;
     num_coeffs := Gamma`TriangleNumericalBelyiMapNumeratorCoefficients;
     cfs := curve_coeffs cat denom_coeffs cat num_coeffs;
-    cfs_ind := 0;
     vprintf Shimura : "coefficients are %o\n", cfs;
     if DegreeBound eq 0 then
       sigma := Gamma`TriangleSigma;
       DegreeBound := #PassportRepresentatives(sigma : Pointed := true);
     end if;
+    CCu := Parent(cfs[1]);
+    precu := Precision(CCu);
+    eps := 10^(-precu/2);
+
+    /*
+      Relations and gates.  Every relation below is found by LLL on an
+      explicit lattice, rows [e_i | round(10^q Re x_i) | round(10^q Im x_i)],
+      scaled to q = 4p/5 digits (what the coefficients actually carry), and
+      accepted only when its height is two digits below the phony floor
+      10^(q/n) of a relation among n numbers.  The measurements behind q,
+      the floor and the gate, and why Magma's PowerRelation/LinearRelation
+      are not used, are in Doc/adr-genus4.md, section 4, "Calibration".
+    */
+    qscale := Floor(4*precu/5);
+    floordigits := func<n | qscale/n>;
+    Gate := func<m | 10^(floordigits(m+1) - 2)>;
+
+    // Relation: an integer relation among the complex numbers xs.  Returns
+    // the relation, its height, and the residual |sum c_i x_i|.
+    Relation := function(xs);
+      n := #xs;
+      sc := 10^qscale;
+      M := ZeroMatrix(Integers(), n, n+2);
+      for i in [1..n] do
+        M[i,i] := 1;
+        M[i,n+1] := Round(sc*Real(xs[i]));
+        M[i,n+2] := Round(sc*Imaginary(xs[i]));
+      end for;
+      L := LLL(M);
+      c := [L[1,i] : i in [1..n]];
+      return c, Max([Abs(a) : a in c]), Abs(&+[c[i]*xs[i] : i in [1..n]]);
+    end function;
+
+    /*
+      Propose: MakeK's proposal step (minimal polynomial of z of degree
+      exactly m, irreducible, same MakeKFromPoly tail) with an optional
+      height gate, plus a HINT when the relation has a single irreducible
+      factor of lower degree: a degree to try next, never a field to accept.
+      Returns bl, K, v, conj, uCC, hint.
+    */
+    ZZx := PolynomialRing(Integers());
+    Propose := function(z, m, gate);
+      c, ht, res := Relation([z^k : k in [0..m]]);
+      u_pol := ZZx!c;
+      u_pol := u_pol div GCD(c);
+      if Degree(u_pol) ne m or not IsIrreducible(u_pol) then
+        hint := 0;
+        if Degree(u_pol) gt 1 then
+          fac := [f[1] : f in Factorization(u_pol) | Degree(f[1]) gt 1];
+          vprint Shimura : "  ...coefficient not degree m, looked like degree", [<Degree(c[1]),c[2]> : c in Factorization(u_pol)];
+          if #fac eq 1 and Degree(fac[1]) lt m then
+            hint := Degree(fac[1]);
+          end if;
+        end if;
+        return false, 0, 0, false, 0, hint;
+      end if;
+      if gate gt 0 and ht gt gate then
+        vprintf Shimura : "  ...degree %o relation of height %o exceeds the gate %o: phony\n", m, ht, RealField(3)!gate;
+        return false, 0, 0, false, 0, 0;
+      end if;
+      bl, K, v, conj, uCC := MakeKFromPoly(z, u_pol);
+      if not bl then
+        return false, 0, 0, false, 0, 0;
+      end if;
+      return bl, K, v, conj, uCC, 0;
+    end function;
+
+    /*
+      FitOverK: recognize every number in xs over an O_K basis.  Returns
+      ok, bad, rec: the recognized list, or the index of the first number
+      that failed the height gate (when gated) or the residual check.
+      Ungated it replaces the scalar RecognizeOverK, whose reduced-precision
+      LinearRelation misrecognized a leading coefficient (ADR section 4).
+    */
+    FitOverK := function(xs, K, v, conj, gated);
+      m := Degree(K);
+      ZK := Integers(K);
+      ZKbCC := [CCu!Evaluate(b, v : Precision := precu) : b in Basis(ZK)];
+      if conj then
+        ZKbCC := [Conjugate(b) : b in ZKbCC];
+      end if;
+      rec := [K | ];
+      for i in [1..#xs] do
+        z := xs[i];
+        if Abs(z) lt eps then
+          Append(~rec, K!0);
+          continue;
+        end if;
+        lin, ht, res := Relation(ZKbCC cat [-z]);
+        if lin[m+1] eq 0 then
+          vprintf Shimura : "  ...coefficient %o: no relation over K\n", i;
+          return false, i, rec;
+        end if;
+        if gated and ht gt Gate(m) then
+          vprintf Shimura : "  ...coefficient %o: relation of height %o exceeds the gate %o\n", i, ht, RealField(3)!Gate(m);
+          return false, i, rec;
+        end if;
+        zK := K!((ZK!lin[1..m])/lin[m+1]);
+        zv := CCu!Evaluate(zK, v : Precision := precu);
+        if conj then
+          zv := Conjugate(zv);
+        end if;
+        if Abs(zv - z) gt eps*Max(1, Abs(z)) then
+          vprintf Shimura : "  ...coefficient %o: fits only to %o\n", i, RealField(3)!Abs(zv - z);
+          return false, i, rec;
+        end if;
+        vprintf Shimura, 2 : "  ...coefficient %o fits with height %o (gate %o), residual %o\n", i, ht, RealField(3)!Gate(m), RealField(3)!res;
+        Append(~rec, zK);
+      end for;
+      return true, 0, rec;
+    end function;
+
+    // 0. the given bound, ungated: one irreducible relation of degree
+    //    DegreeBound certifies the field by itself (only Q, at the bottom of
+    //    the subfield lattice, needs every coefficient).  Hints from rejected
+    //    relations are kept for the fallback.
+    rec := [];
+    hints := [];
+    cfs_ind := 0;
     while not Kbool and cfs_ind lt #cfs do
       cfs_ind +:= 1;
       vprintf Shimura: "coefficients are %o\n", cfs_ind;
-      Kbool, K, v, conj, uCC := MakeK(cfs[cfs_ind], DegreeBound);
+      if DegreeBound eq 1 then
+        Kbool, K, v, conj, uCC := MakeK(cfs[cfs_ind], 1);
+      else
+        Kbool, K, v, conj, uCC, hint := Propose(cfs[cfs_ind], DegreeBound, 0);
+        if hint ge 2 and hint lt DegreeBound and not hint in hints then
+          vprintf Shimura : "  ...hint: coefficient %o looks like degree %o\n", cfs_ind, hint;
+          Append(~hints, hint);
+        end if;
+      end if;
     end while;
-    // The passport size bounds the degree of the field of definition but need
-    // not equal it: when passport members are related by the S_3 action on
-    // {0, 1, oo} rather than by Galois -- a cyclic cover, say, whose members
-    // differ only in which exponent sits at which branch point -- each is
-    // defined over a smaller field, and MakeK finds no field of the full
-    // degree.  So before giving up, retry with smaller bounds.  Degree 1 is
-    // accepted only when the first few coefficients look rational with SMALL
-    // height, since PowerRelation at degree 1 always returns something.
+    // The passport size bounds the degree of the field of definition but
+    // need not equal it (members related by permuting 0, 1, oo rather than
+    // by Galois are each over a smaller field), so before giving up retry
+    // with smaller bounds: Q first, then the hinted degrees, then the rest
+    // ascending, every candidate VERIFIED on all of cfs before acceptance.
+    // Accepting on a sample was the bug (Doc/SPEC-degreebound-fallback.md).
     if not Kbool and DegreeBound gt 1 then
       vprintf Shimura : "MakeK found no field of degree %o; retrying with smaller degree bounds\n", DegreeBound;
-      // Q first, since it is cheap to test and the common case: every
-      // coefficient must be real to working precision and the first few
-      // nonzero ones must satisfy a degree-1 relation of SMALL height
-      // (PowerRelation at degree 1 always returns something, so the height is
-      // the discriminator: a genuine rational of height h at precision p has
-      // h << 10^(p/2), a spurious fit has h ~ 10^(p/2)).
-      CCu := Parent(cfs[1]);
-      precu := Precision(CCu);
-      hgate := 10^(precu div 4);
-      looksrational := true;
-      ntested := 0;
+      // 1. Q, gated totally: every coefficient real (decisive for an
+      //    imaginary field) and every coefficient fitting at degree 1 under
+      //    the gate.  MakeK(z, 1) accepts Q unconditionally, so it is called
+      //    only after this test.
+      allreal := true;
       for z in cfs do
-        if Abs(z) lt 10^(-precu/2) then
-          continue;
-        end if;
-        if Abs(Imaginary(z)) gt 10^(-precu/2)*Max(RealField(precu)!1, Abs(z)) then
-          looksrational := false;
-          break;
-        end if;
-        rel := PowerRelation(Real(z), 1 : Al := "LLL");
-        if Degree(rel) lt 1 or Max([Abs(c) : c in Coefficients(rel)]) gt hgate then
-          looksrational := false;
-          break;
-        end if;
-        ntested +:= 1;
-        if ntested ge 5 then
+        if Abs(z) ge eps and Abs(Imaginary(z)) gt eps*Max(RealField(precu)!1, Abs(z)) then
+          allreal := false;
           break;
         end if;
       end for;
-      if looksrational and ntested gt 0 then
-        vprintf Shimura : "the coefficients look rational, so taking K = QQ\n";
+      if allreal then
         Kbool, K, v, conj, uCC := MakeK(cfs[1], 1);
+        ok, bad, rec := FitOverK(cfs, K, v, conj, true);
+        if ok then
+          vprintf Shimura : "every coefficient is real and fits over QQ, so K = QQ\n";
+        else
+          vprintf Shimura : "coefficient %o does not fit over QQ\n", bad;
+          Kbool := false;
+          rec := [];
+        end if;
+      else
+        vprintf Shimura : "not every coefficient is real, so K is not QQ\n";
       end if;
-      // otherwise a proper field of smaller degree
-      m := DegreeBound - 1;
-      while not Kbool and m ge 2 do
+      // 2. ascend through the proper degrees, hinted ones first: propose
+      //    with the gate, verify on all of cfs.  Any failure rejects the
+      //    candidate and the ascent goes on (a candidate fitting the head
+      //    and failing the tail may be a proper subfield, which looks like a
+      //    precision failure; ADR section 4); exhausting every degree
+      //    reports the best partial fit.
+      degs := [m : m in hints | m ge 2 and m lt DegreeBound]
+              cat [m : m in [2..DegreeBound-1] | not m in hints];
+      bestK := 0;
+      bestfit := 0;
+      for m in degs do
+        if Kbool then
+          break;
+        end if;
+        vprintf Shimura : "trying degree %o\n", m;
         cfs_ind := 0;
         while not Kbool and cfs_ind lt #cfs do
           cfs_ind +:= 1;
-          Kbool, K, v, conj, uCC := MakeK(cfs[cfs_ind], m);
+          if Abs(cfs[cfs_ind]) lt eps then
+            continue;
+          end if;
+          bl, K, v, conj, uCC := Propose(cfs[cfs_ind], m, Gate(m));
+          if not bl then
+            continue;
+          end if;
+          vprintf Shimura : "candidate K of degree %o from coefficient %o; verifying on all %o coefficients\n", m, cfs_ind, #cfs;
+          ok, bad, rec := FitOverK(cfs, K, v, conj, true);
+          if ok then
+            Kbool := true;
+          else
+            vprintf Shimura : "rejected: coefficient %o does not fit\n", bad;
+            rec := [];
+            if bad - 1 gt bestfit then
+              bestfit := bad - 1;
+              bestK := K;
+            end if;
+          end if;
         end while;
-        m -:= 1;
-      end while;
+      end for;
+      if not Kbool and bestfit gt 0 then
+        error Sprintf("Unable to create number field!  The best candidate, %o, fits the first %o coefficients of %o; raise prec (if it is the right field, the tail is too inaccurate; if a subfield, the primitive coefficients are)", bestK, bestfit, #cfs);
+      end if;
     end if;
     if not Kbool then
       error "Unable to create number field!";
@@ -748,11 +901,18 @@ intrinsic TriangleRecognizeAlgebraicCoefficients(Gamma::GrpPSL2Tri : DegreeBound
     Gamma`TriangleKv := v;
     Gamma`TriangleKIsConjugated := conj;
     Gamma`TriangleKNumericalGenerator := uCC;
-    curve_coeffs := [RecognizeOverK(el,K,v,conj) : el in curve_coeffs];
+    if #rec ne #cfs then
+      // the bound was right: fit ungated (the sanity check is the referee)
+      ok, bad, rec := FitOverK(cfs, K, v, conj, false);
+      error if not ok, Sprintf("Insufficient precision: coefficient %o of %o does not fit over %o; increase prec", bad, #cfs, K);
+    end if;
+    curve_coeffs := rec[1..#curve_coeffs];
+    denom_coeffs := rec[#curve_coeffs+1..#curve_coeffs+#denom_coeffs];
+    num_coeffs := rec[#curve_coeffs+#denom_coeffs+1..#cfs];
     Gamma`TriangleExactCurveCoefficients := curve_coeffs;
-    denom_coeffs := [RecognizeOverK(el,K,v,conj) : el in denom_coeffs];
-    num_coeffs := [RecognizeOverK(el,K,v,conj) : el in num_coeffs];
-    u := RecognizeOverK(u,K,v,conj);
+    ok, bad, urec := FitOverK([u], K, v, conj, false);
+    error if not ok, Sprintf("Insufficient precision: the leading coefficient does not fit over %o; increase prec", K);
+    u := urec[1];
     Gamma`TriangleExactBelyiMapLeadingCoefficient := u;
     Gamma`TriangleExactBelyiMapNumeratorCoefficients := num_coeffs;
     Gamma`TriangleExactBelyiMapDenominatorCoefficients := denom_coeffs;

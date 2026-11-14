@@ -103,13 +103,59 @@ seconds.  This was the larger of the two effects, in both genera.
 ## 4. `DegreeBound` fallback
 
 **Decision.** `TriangleRecognizeAlgebraicCoefficients` no longer errors
-when `MakeK` finds no field of the passport-size degree: it tries `Q`
-(accepted only if the coefficients are real and the first few satisfy
-degree-1 relations of height below `10^(prec/4)`), then each smaller
-degree.  Passport members related by permuting `0, 1, oo` rather than by
-Galois (cyclic covers; 9T1, 9T25) are each defined over a smaller field.
-9T25's test exercises it; 9T1's passes `DegreeBound := 1` as the spec
-prescribed.
+when `MakeK` finds no field of the passport-size degree: it falls back to
+smaller degrees.  Passport members related by permuting `0, 1, oo` rather
+than by Galois (cyclic covers; 9T1, 9T25) are each defined over a smaller
+field.  9T25's test exercises it; 9T1's passes `DegreeBound := 1` as the
+spec prescribed.
+
+**Superseded in part.** The original fallback accepted `Q` on the first
+five coefficients, which the review of the g4 PR showed to be wrong (9T6
+with `DegreeBound := 4`: the curve is over `Q`, the map is not).  The
+fallback is now propose / verify -- `Q` gated on every coefficient being
+real and fitting at degree 1, then each smaller degree, every candidate
+verified on all coefficients before acceptance, with height gates graded
+two digits below the phony floor of an explicit LLL lattice.
+`Doc/SPEC-degreebound-fallback.md` (with its §7 implementation notes) is
+the design of record; `test_degreebound_fallback.m` and the three genus 2
+tests `test_genus2_fallback_*.m` are its regression tests.
+
+**Calibration (measured 2026-11-13/14).**  The gate comment in
+`recognition.m` points here.
+
+- *Relations are found on an explicit lattice*, rows
+  `[e_i | round(10^q Re x_i) | round(10^q Im x_i)]`, not with Magma's
+  `PowerRelation` / `LinearRelation`.  Those work at an undocumented
+  reduced internal precision: at precision p their phony relations among
+  two numbers come out at about p/4 digits (`LinearRelation`) and 3p/8
+  (`PowerRelation`), where a lattice at full scale gives p/2.  The floor
+  has to be known for a gate to be placed under it.
+- *The scale is q = 4p/5.*  Compared with the recognized exact values,
+  the nontrivial coefficients carry 41-42 correct digits of 50 on
+  7T6-[7,7,6] (genus 2, Q(sqrt 7)) and 33-34 of 40 on 9T6 (genus 4,
+  Q(sqrt -3)), curve and map alike: a flat loss of about a fifth, with no
+  head-to-tail gradient.  A lattice scaled past the accuracy stretches a
+  genuine relation of height h to length h times the excess and loses it.
+- *The phony floor* is 10^(q/n) for a relation among n numbers (a degree-m
+  minimal polynomial: n = m+1; a fit over an O_K basis of degree m:
+  n = m+1), scattering about a digit either side.  *Gates sit two digits
+  below it*, flat in position since the accuracy is.  Half the floor, the
+  spec's first figure, rejected three of four real maps.
+- *Genuine heights seen:* 7 digits over Q (9T25, p = 40, centred pivot;
+  floor 16); 9.4 and 12.4 digits over Q(sqrt 7) and Q(sqrt 21)
+  (7T6-[7,7,6], genus 2, last-entry pivot; p = 50 and 60, floors 13.3 and
+  16); a 13.4-digit minimal polynomial over Q(i) (7T7-[7,4.3,4.3]), which
+  p = 50 cannot separate from phony and p = 60 (gate 14) can.
+- *Every coefficient, the leading one included, goes through the same
+  fit*, ungated once the field is settled.  The scalar `RecognizeOverK`
+  returned a leading coefficient off by 3e-24 on 60-digit input for
+  7T6-[7,7,6]-b, where the lattice fit is right to 8e-41; the sanity
+  check caught it as a hard error on a recognizable map.
+- *A tail failure does not abort the ascent.*  On 7T7-[7,4.3,4.3]-d a
+  coefficient in the quadratic subfield of the quartic field proposed
+  Q(sqrt -3), which fit 12 coefficients of 19: indistinguishable from a
+  precision failure on the right field.  Any failure rejects the
+  candidate; exhausting every degree reports the best partial fit.
 
 ## 5. Tests
 
