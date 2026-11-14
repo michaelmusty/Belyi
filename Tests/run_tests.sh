@@ -98,6 +98,14 @@ run_magma_test Tests/test_genus3_hyp.m
 run_magma_test Tests/test_genus3_nonhyp_deg7.m # genus 3, not hyperelliptic: KMSV Example 5.27
 run_magma_test Tests/test_genus3_nonhyp_deg8.m
 run_magma_test Tests/test_genus3_nonhyp_9T27.m
+# genus 4: the degree-9 (9,9,9) passports from BelyiDB (genus4.m)
+run_magma_test Tests/test_genus4_hyp_9T1.m          # hyperelliptic: must NOT take the new branch
+run_magma_test Tests/test_genus4_nonhyp_9T25.m      # over Q, trivial Aut; exercises the DegreeBound fallback
+run_magma_test Tests/test_genus4_nonhyp_9T6.m       # over Q(sqrt-3), Aut of order 3: the weight-gcd branch
+run_magma_test Tests/test_degreebound_fallback.m    # 9T6 with DegreeBound := 4: the fallback must find Q(sqrt-3), not accept Q
+run_magma_test Tests/test_genus2_fallback_real_quadratic.m   # 7T6-7_7_3.2.2-c: real Q(sqrt 7); only the height gate can reject Q
+run_magma_test Tests/test_genus2_fallback_curve_over_Q.m     # 7T7-7_4.3_4.3-c: curve over Q, map over Q(i); the shape of the bug
+run_magma_test Tests/test_genus2_fallback_large_heights.m    # 7T6-7_7_3.2.2-b: Q(sqrt 21), 12-digit heights, the leading coefficient
 if [ -n "${MAKEK_RELFINDER_BIN:-}" ] && [ -x "$MAKEK_RELFINDER_BIN" ]; then
     run_magma_test Tests/test_makek_relfinder.m
 else
@@ -107,8 +115,10 @@ fi
 if [ -n "$RUNSLOW" ]; then
     run_magma_test Tests/test_powser_consistency.m
     run_magma_test Tests/test_certified_belyi.m
+    run_magma_test Tests/test_genus4_nonhyp_9T27.m   # genus 4, over Q, prec 80: ~6 min on its own
 else
     echo "SKIP: Tests/test_powser_consistency.m (slow; set RUNSLOW=1)"
+    echo "SKIP: Tests/test_genus4_nonhyp_9T27.m (slow; set RUNSLOW=1)"
 fi
 
 echo "total: $(( $(now) - SUITE_T0 )) s"

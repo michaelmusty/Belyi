@@ -117,9 +117,16 @@ declare attributes GrpPSL2Tri:  // = Gamma, a Fuchsian group
                     // Is Gamma of genus 3 and NOT hyperelliptic?  Then the
                     // canonical model is a smooth plane quartic; see
                     // genus3nonhyperelliptic.m
-  TriangleGenus3NonHyperellipticDegree;
+  TriangleGenus3NonHyperellipticDegree,
                     // d, the common degree of the plane forms A and B with
                     // phi = -A/B, in the genus 3 non-hyperelliptic case
+  TriangleIsGenus4Canonical,
+                    // Is Gamma of genus 4 and NOT hyperelliptic?  Then the
+                    // canonical model is a quadric meeting a cubic in P^3;
+                    // see genus4.m
+  TriangleGenus4FormDegree;
+                    // d, the common degree of the forms A and B in P^3 with
+                    // phi = -A/B, in the genus 4 non-hyperelliptic case
 
 
 

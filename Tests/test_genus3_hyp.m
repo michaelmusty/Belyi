@@ -22,6 +22,8 @@ printf "BelyiMap took %o s\n", Cputime(t0);
 
 assert BelyiMapSanityCheck(sigma, X, phi);
 assert Gamma`TriangleIsHyperelliptic;
+// pointed passport of size 1: the map is Galois-stable, so K = Q
+assert Degree(BaseRing(X)) eq 1;
 
 print "ALL TESTS PASSED";
 quit;

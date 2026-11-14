@@ -411,7 +411,7 @@ end intrinsic;
 // --------------------------------------------------------------------------
 
 intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma::GrpPSL2Tri :
-    curve_coeffs := [], curve_vals := []) -> Any
+    curve_coeffs := [], curve_vals := [], Pivot := "Centred") -> Any
   {Numerical curve, numerator and denominator coefficients for a
    non-hyperelliptic genus 3 Belyi map; assigns them to Gamma.
 
@@ -431,7 +431,16 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
    the header comment of this file.  sigma_0 may have any number of cycles.
    Coefficients of A and B are indexed by
    Genus3NonHyperellipticMonomials(d), those of the quartic by
-   Genus3NonHyperellipticMonomials(4).}
+   Genus3NonHyperellipticMonomials(4).
+
+   Pivot := "Centred" (the default) normalizes each of quartic, A and B by a
+   coefficient whose weight is central in that list's range, which keeps the
+   recognized heights small; Pivot := "LastNonzero" normalizes by the last
+   nonzero entry, the constant term, which was the original behaviour and is
+   kept for comparison.}
+
+  require Pivot in ["Centred", "LastNonzero"] :
+      "Pivot should be \"Centred\" or \"LastNonzero\"";
 
   require Genus(Gamma) eq 3 :
       "TriangleGenus3NonHyperellipticNumericalCoefficients is only implemented for genus 3";
@@ -681,10 +690,16 @@ intrinsic TriangleGenus3NonHyperellipticNumericalCoefficients(Sk::SeqEnum, Gamma
     end while;
     return i;
   end function;
-  rinds := [LastNonzero(curve_coeffs), LastNonzero(num_coeffs), LastNonzero(denom_coeffs)];
-  error if rinds[1] lt 1, "the quartic is numerically zero; raise prec";
-  error if rinds[2] lt 1, "the numerator A is numerically zero; raise prec";
-  error if rinds[3] lt 1, "the denominator B is numerically zero; raise prec";
+  // the pivot choice is TriangleRescaleCoefficients' business: "Centred"
+  // picks, per list, a nonzero coefficient central in the weight range
+  if Pivot eq "Centred" then
+    rinds := "Centred";
+  else
+    rinds := [LastNonzero(curve_coeffs), LastNonzero(num_coeffs), LastNonzero(denom_coeffs)];
+    error if rinds[1] lt 1, "the quartic is numerically zero; raise prec";
+    error if rinds[2] lt 1, "the numerator A is numerically zero; raise prec";
+    error if rinds[3] lt 1, "the denominator B is numerically zero; raise prec";
+  end if;
 
   lambda, curve_coeffs, lc, num_coeffs, denom_coeffs :=
       TriangleRescaleCoefficients(Gamma, [curve_coeffs, num_coeffs, denom_coeffs],
