@@ -419,7 +419,30 @@ in §4 is built from.
   numerics.
 - The `DegreeBound` fallback is already generic and will be exercised
   hard: both §7 tests sit in a size-9 passport whose members are all
-  defined over `Q` (related by scaling, not by Galois).
+  defined over `Q` (related by scaling, not by Galois).  Since the g4
+  repair (merged 2026-11-14; `Doc/SPEC-degreebound-fallback.md` §7,
+  `Doc/adr-genus4.md` §4) it is propose / verify: `Q` is accepted only
+  when EVERY coefficient is real and fits at degree 1, so these tests go
+  through a fit of each coefficient, and every coefficient of the map,
+  the leading one included, is recognized by the same gated lattice fit.
+- **The recognition and curve-building code is dispatched on attributes,
+  and a new genus path must be added to both conditions by hand.**  The
+  generic branch of `TriangleRecognizeAlgebraicCoefficients` (the one
+  with the fallback) is entered only for genus 2, or when one of
+  `TriangleIsHyperelliptic`, `TriangleIsGenus3NonHyperelliptic`,
+  `TriangleIsGenus4Canonical` is assigned and true; anything else falls
+  to `error "Not implemented for nonhyperelliptic of arbitrary genus."`.
+  `TriangleMakeBelyiMap` branches on the same attributes.  Whatever
+  attribute the Petri path sets (`TriangleIsCanonicalPetri`, or whatever
+  §2 names it) has to appear in both lists, next to the genus 4 one;
+  nothing else in `recognition.m` needs to know about the new genus.
+- "Its own centred pivot" is `CentralPivot(cfs, vls, prec)` in
+  `recognition.m`, promoted to an intrinsic in the g4 repair precisely so
+  that `genus-general.m` would not copy the fork a third time: it returns
+  the index of a nonzero entry whose weight is nearest the centre of the
+  nonzero weight range, ties to the larger modulus, and 0 when the list is
+  numerically zero, which the caller must turn into the "raise prec"
+  error (see the cubic in `genus4.m`).
 
 ## 6. `belyi_main.m`
 
