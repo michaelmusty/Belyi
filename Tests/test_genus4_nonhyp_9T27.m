@@ -44,7 +44,7 @@ powseral := (retc eq 0) select "CArnoldi" else "Arnoldi";
 printf "PowserAl := %o\n", powseral;
 
 t0 := Cputime();
-X, phi, Gamma := BelyiMap(Gamma : prec := 80, DegreeBound := 1, PowserAl := powseral);
+X, phi, Gamma := BelyiMap(Gamma : prec := 60, DegreeBound := 1, PowserAl := powseral);
 printf "BelyiMap took %o s\n", Cputime(t0);
 
 assert Genus(X) eq 4;
