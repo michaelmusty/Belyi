@@ -332,7 +332,7 @@ end intrinsic;
 intrinsic TriangleBaseFieldRamificationSanityCheck(Gamma::GrpPSL2Tri) -> BoolElt, SeqEnum
   {Same, for the field TriangleK assigned to Gamma and the monodromy group of Gamma.}
   require assigned Gamma`TriangleK : "No base field assigned to Gamma yet";
-  return BaseFieldRamificationSanityCheck(Gamma`TriangleK, MonodromyGroup(Gamma));
+  return TriangleBaseFieldRamificationSanityCheck(Gamma`TriangleK, MonodromyGroup(Gamma));
 end intrinsic;
 
 intrinsic TriangleRecognizeCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : ExactAl := "GaloisOrbits", DegreeBound := 0) -> Any
