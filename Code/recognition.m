@@ -319,6 +319,22 @@ intrinsic TriangleLengthSort(Gammas::SeqEnum[GrpPSL2Tri]) -> Any
   return coeffs_sorted, Gammas_sorted;
 end intrinsic;
 
+intrinsic TriangleBaseFieldRamificationSanityCheck(K::FldNum, G::GrpPerm) -> BoolElt, SeqEnum
+  {Given a number field K proposed as the field of definition of a pointed Belyi map with monodromy group G, returns true if K is unramified at all primes not dividing #G (as required by Beckmann's theorem; see Birch, Theorem 3), and false otherwise. The second return value is the sequence of primes that ramify in K but do not divide #G.}
+  if Degree(K) eq 1 then
+    return true, [];
+  end if;
+  D := Discriminant(Integers(K));
+  bad_primes := [p : p in PrimeDivisors(D) | #G mod p ne 0];
+  return #bad_primes eq 0, bad_primes;
+end intrinsic;
+
+intrinsic TriangleBaseFieldRamificationSanityCheck(Gamma::GrpPSL2Tri) -> BoolElt, SeqEnum
+  {Same, for the field TriangleK assigned to Gamma and the monodromy group of Gamma.}
+  require assigned Gamma`TriangleK : "No base field assigned to Gamma yet";
+  return BaseFieldRamificationSanityCheck(Gamma`TriangleK, MonodromyGroup(Gamma));
+end intrinsic;
+
 intrinsic TriangleRecognizeCoefficients(Gammas::SeqEnum[GrpPSL2Tri] : ExactAl := "GaloisOrbits", DegreeBound := 0) -> Any
   {Given a sequence of triangle subgroups with all the numerical stuff computed, to each one assign a number field, coefficients of the curve and Belyi map as elements of this number field. ExactAl specifies algorithm by which coefficients are recognized. Options are GaloisOrbits (requires the sequence of Gammas to be closed under the action of Galois) and AlgebraicNumbers which attempts to recognize the algebraic coefficients directly over a number field with degree bounded by DegreeBound, if given (otherwise taken to be the size of the pointed passport for Gamma).}
   assert #Gammas gt 0;
