@@ -278,42 +278,51 @@ intrinsic TriangleAJSegment(aCC::FldComElt, bCC::FldComElt, Gamma::GrpPSL2Tri, S
   locc := function(z, j)  // local coordinate (a complex number) of the UHP point z in chart j
     return ComplexValue(PlaneToDisc(DDs[j], z));
   end function;
-  k := 1;
-  repeat
-    ok := true;
-    total := CC!0;
-    for l in [0..k-1] do
-      p := aCC + (bCC-aCC)*l/k;
-      q := aCC + (bCC-aCC)*(l+1)/k;
-      mred, delta := FDReduce(DD!((p+q)/2), Gamma);
-      // convention check: delta must be the element carrying the input to
-      // the reduced point (fires loudly if FDReduce's return order or
-      // action direction ever changes).  This is a binary discrimination --
-      // right convention agrees to ~10^(-prec), wrong convention differs by
-      // O(1) -- so any threshold in the gap works; use eps = 10^(-prec/2).
-      assert Abs(ComplexValue(delta*(DD!((p+q)/2))) - ComplexValue(mred)) lt eps;
-      pr := DiscToPlane(UU, delta*(DD!p));
-      qr := DiscToPlane(UU, delta*(DD!q));
-      jj := 1;
-      best := Max(Abs(locc(pr, 1)), Abs(locc(qr, 1)));
-      for j in [2..nv] do
-        r := Max(Abs(locc(pr, j)), Abs(locc(qr, j)));
-        if r lt best then
-          best := r; jj := j;
-        end if;
-      end for;
-      if best ge rho + eps then  // piece too coarse: subdivide further
-        ok := false;
-        break;
+  // Recursive bisection: only a piece that no chart covers is split, and a
+  // piece is accepted when both ends lie within rho*(1+slack) of a chart
+  // centre.  The slack matters: a path through a vertex at distance exactly
+  // rho from the charts on one side leaves the far end of the straddling
+  // piece just outside radius rho however finely the path is cut, and the
+  // chart series still converge there (the charts are holomorphic on the
+  // whole unit disc), at the cost of a few digits.
+  slack := RealField(CC)!1/100;
+  piece := function(p, q)
+    mred, delta := FDReduce(DD!((p+q)/2), Gamma);
+    // convention check: delta must be the element carrying the input to
+    // the reduced point (fires loudly if FDReduce's return order or
+    // action direction ever changes).
+    assert Abs(ComplexValue(delta*(DD!((p+q)/2))) - ComplexValue(mred)) lt eps;
+    pr := DiscToPlane(UU, delta*(DD!p));
+    qr := DiscToPlane(UU, delta*(DD!q));
+    jj := 1;
+    best := Max(Abs(locc(pr, 1)), Abs(locc(qr, 1)));
+    for j in [2..nv] do
+      r := Max(Abs(locc(pr, j)), Abs(locc(qr, j)));
+      if r lt best then
+        best := r; jj := j;
       end if;
-      total +:= Evaluate(Sk1int[jj], locc(qr, jj)) - Evaluate(Sk1int[jj], locc(pr, jj));
     end for;
-    if not ok then
-      k *:= 2;
-      error if k gt 1024,
-        "integration path cannot be covered by the expansion charts even after 1024 subdivisions";
+    if best ge rho*(1 + slack) then
+      return false, CC!0;
     end if;
-  until ok;
+    return true, Evaluate(Sk1int[jj], locc(qr, jj)) - Evaluate(Sk1int[jj], locc(pr, jj));
+  end function;
+  total := CC!0;
+  stack := [<aCC, bCC, 0>];
+  while #stack gt 0 do
+    p, q, depth := Explode(stack[#stack]);
+    Prune(~stack);
+    ok, val := piece(p, q);
+    if ok then
+      total +:= val;
+    else
+      error if depth ge 40,
+        "integration path cannot be covered by the expansion charts even after 40 bisections";
+      m := (p+q)/2;
+      Append(~stack, <m, q, depth+1>);
+      Append(~stack, <p, m, depth+1>);
+    end if;
+  end while;
   return total;
 end intrinsic;
 
